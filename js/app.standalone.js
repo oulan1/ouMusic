@@ -997,6 +997,13 @@
         const query = searchInput.value.toLowerCase().trim();
         filterTracksFeed(query);
       });
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          searchInput.value = '';
+          filterTracksFeed('');
+          searchInput.blur();
+        }
+      });
     }
   }
 
@@ -1153,12 +1160,24 @@
 
   function filterTracksFeed(query) {
     const list = document.getElementById('home-tracks-list');
+    const waveSection = document.getElementById('wave-home-section');
     if (!list) return;
 
     if (!query) {
+      if (waveSection) waveSection.style.display = '';
       renderCatalogFeed(catalogTracks);
       return;
     }
+
+    // Hide Моя Волна when searching so search results take full prominence
+    if (waveSection) waveSection.style.display = 'none';
+
+    // If searching while on another tab, navigate to Home screen
+    const activeScreen = document.querySelector('.screen.active');
+    if (activeScreen && activeScreen.id !== 'screen-home' && window.navigateTo) {
+      window.navigateTo('home', false);
+    }
+
     const filtered = catalogTracks.filter((t) => {
       const titleMatch = (t.title || '').toLowerCase().includes(query);
       const artistMatch = (t.artist || '').toLowerCase().includes(query);
@@ -1187,6 +1206,7 @@
           s.value = '';
           s.focus();
         }
+        if (waveSection) waveSection.style.display = '';
         renderCatalogFeed(catalogTracks);
       });
       return;
@@ -1217,6 +1237,7 @@
           const unpacked = await unpackOump3Full(buf);
           audioSrc = unpacked.audioBlob;
           if (unpacked.coverBlob) track.coverUrl = URL.createObjectURL(unpacked.coverBlob);
+          if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
         }
       } catch (e) {}
     }
@@ -1227,6 +1248,7 @@
     }
 
     updatePlayerMeta(track);
+    loadLyrics(track.lyricsText || (offlineRecord && offlineRecord.lyricsText) || '', track);
     await engine.loadTrack(track, audioSrc, autoPlay);
     await addHistory(track.id, track.duration || 180);
     await updateProfileStats();
@@ -1371,6 +1393,63 @@
     initTrackOptionsSheet();
     initCircularSpectrum();
   }
+
+  /* High-precision LRC Parser & Formatter with Milliseconds [00:00.00] */
+  function parseLRC(lrcText) {
+    if (!lrcText || typeof lrcText !== 'string') return [];
+
+    const lines = lrcText.split('\n');
+    const result = [];
+    // Matches [mm:ss.xx] or [mm:ss.xxx] or [mm:ss:xx] or [mm:ss]
+    const timeRegex = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+
+    lines.forEach((line) => {
+      const text = line.replace(timeRegex, '').trim();
+      // Ignore LRC header tags [ar:Artist], [ti:Title], [length:03:45], etc.
+      if (/^\[(ti|ar|al|au|by|offset|length|re|ve):/i.test(line.trim())) return;
+
+      let hasMatch = false;
+      timeRegex.lastIndex = 0;
+      let match;
+      while ((match = timeRegex.exec(line)) !== null) {
+        hasMatch = true;
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        let ms = 0;
+        if (match[3]) {
+          const rawMs = match[3];
+          if (rawMs.length === 1) ms = parseInt(rawMs, 10) * 100;
+          else if (rawMs.length === 2) ms = parseInt(rawMs, 10) * 10;
+          else ms = parseInt(rawMs.slice(0, 3), 10);
+        }
+        const totalSec = min * 60 + sec + ms / 1000;
+        result.push({ time: totalSec, text: text || '♪' });
+      }
+
+      if (!hasMatch && text) {
+        result.push({ time: null, text });
+      }
+    });
+
+    const timed = result.filter((r) => r.time !== null).sort((a, b) => a.time - b.time);
+    const untimed = result.filter((r) => r.time === null);
+    return timed.length > 0 ? timed.concat(untimed) : result;
+  }
+  window.parseLRC = parseLRC;
+
+  function formatLrcTime(sec) {
+    if (sec === null || sec === undefined || isNaN(sec)) return '--:--.--';
+    if (sec < 0) sec = 0;
+    const totalHundredths = Math.round(sec * 100);
+    const m = Math.floor(totalHundredths / 6000);
+    const s = Math.floor((totalHundredths % 6000) / 100);
+    const ms = totalHundredths % 100;
+    const mm = m < 10 ? '0' + m : m;
+    const ss = s < 10 ? '0' + s : s;
+    const xx = ms < 10 ? '0' + ms : ms;
+    return `${mm}:${ss}.${xx}`;
+  }
+  window.formatLrcTime = formatLrcTime;
 
   function formatSec(sec) {
     const m = Math.floor(sec / 60);
@@ -1839,10 +1918,37 @@
       studioAudio.load();
     });
 
-    // Step 2 Lyrics paste & Live Tap
+    // Step 2 Lyrics paste & Live Tap with Millisecond [00:00.00] Support
     document.getElementById('studio-apply-pasted-lyrics-btn')?.addEventListener('click', () => {
       const raw = document.getElementById('studio-paste-lyrics-textarea')?.value || '';
-      lyricsLines = raw.split('\n').map((l) => l.trim()).filter(Boolean).map((t) => ({ text: t, time: null }));
+      if (!raw.trim()) return;
+      lyricsLines = parseLRC(raw);
+      curLineIdx = 0;
+      renderLyricsRows();
+    });
+
+    // Paste ready LRC with timestamps directly from clipboard
+    document.getElementById('studio-paste-lrc-clipboard-btn')?.addEventListener('click', async () => {
+      let text = '';
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          text = await navigator.clipboard.readText();
+        }
+      } catch (err) {
+        console.warn('Clipboard read failed, using textarea:', err);
+      }
+      if (!text) {
+        text = document.getElementById('studio-paste-lyrics-textarea')?.value || '';
+      }
+      if (!text.trim()) {
+        alert('Буфер обмена пуст. Скопируйте текст песни с таймингами (LRC) или вставьте его в текстовое поле.');
+        return;
+      }
+
+      const textarea = document.getElementById('studio-paste-lyrics-textarea');
+      if (textarea) textarea.value = text;
+
+      lyricsLines = parseLRC(text);
       curLineIdx = 0;
       renderLyricsRows();
     });
@@ -1855,10 +1961,10 @@
       lyricsLines.forEach((r, idx) => {
         const item = document.createElement('div');
         item.className = `tap-sync-row ${idx === curLineIdx ? 'current-target' : ''}`;
-        const timeStr = r.time !== null ? formatSec(r.time) : '--:--';
+        const timeStr = r.time !== null ? formatLrcTime(r.time) : '--:--.--';
 
         item.innerHTML = `
-          <div class="tap-sync-time" style="cursor: pointer;">${timeStr}</div>
+          <div class="tap-sync-time" style="cursor: pointer;" title="Нажмите, чтобы сделать текущей строкой для тапа">${timeStr}</div>
           <input type="text" class="tap-sync-input" value="${r.text.replace(/"/g, '&quot;')}">
           <button class="icon-btn delete-line-btn" style="width: 28px; height: 28px; color: var(--md-sys-color-error);"><svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-trash"></use></svg></button>
         `;
@@ -1866,6 +1972,10 @@
         item.querySelector('.tap-sync-time')?.addEventListener('click', () => {
           curLineIdx = idx;
           renderLyricsRows();
+        });
+
+        item.querySelector('.tap-sync-input')?.addEventListener('input', (e) => {
+          r.text = e.target.value;
         });
 
         item.querySelector('.delete-line-btn')?.addEventListener('click', () => {
@@ -1891,7 +2001,7 @@
 
     studioAudio.addEventListener('timeupdate', () => {
       const tLbl = document.getElementById('studio-player-timer');
-      if (tLbl) tLbl.textContent = formatSec(studioAudio.currentTime);
+      if (tLbl) tLbl.textContent = formatLrcTime(studioAudio.currentTime);
     });
 
     // TAP action
@@ -1919,7 +2029,7 @@
 
       const lrcText = lyricsLines
         .filter((l) => l.time !== null)
-        .map((l) => `[${formatSec(l.time)}]${l.text}`)
+        .map((l) => `[${formatLrcTime(l.time)}]${l.text}`)
         .join('\n');
 
       try {
@@ -1947,7 +2057,90 @@
     });
   }
 
-  /* Fullscreen Lyrics Overlay */
+  /* Fullscreen Lyrics Overlay & 60 FPS Millisecond Sync Engine */
+  let currentParsedLyrics = [];
+  let activeLyricIndex = -1;
+
+  function loadLyrics(lrcText, track) {
+    currentParsedLyrics = parseLRC(lrcText);
+    renderLyricsDisplay();
+  }
+  window.loadLyrics = loadLyrics;
+
+  function renderLyricsDisplay() {
+    const container = document.getElementById('lyrics-scroll-container');
+    if (!container) return;
+    container.innerHTML = '';
+    activeLyricIndex = -1;
+
+    if (currentParsedLyrics.length === 0) {
+      container.innerHTML = `
+        <div style="color: var(--md-sys-color-outline); font-size: 1.1rem; margin-top: 40px; text-align: center;">
+          Текст песни для этого трека отсутствует
+        </div>
+      `;
+      return;
+    }
+
+    currentParsedLyrics.forEach((item, index) => {
+      const line = document.createElement('div');
+      line.className = 'lyric-line';
+      line.setAttribute('data-index', index);
+      line.textContent = item.text;
+
+      if (item.time !== null) {
+        line.style.cursor = 'pointer';
+        line.addEventListener('click', () => {
+          engine.seek(item.time);
+          engine.softPlay();
+        });
+      }
+
+      container.appendChild(line);
+    });
+  }
+
+  function updateActiveLyric(currentTime) {
+    if (currentParsedLyrics.length === 0) return;
+
+    // 3-2-1 Countdown visual before first vocal
+    const countdownBanner = document.getElementById('lyrics-countdown-banner');
+    const firstTimed = currentParsedLyrics.find((l) => l.time !== null);
+    const firstTime = firstTimed ? firstTimed.time : null;
+    if (firstTime !== null && currentTime < firstTime && firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
+      const remaining = Math.ceil(firstTime - currentTime);
+      if (countdownBanner) {
+        countdownBanner.textContent = `${remaining}...`;
+        countdownBanner.classList.add('visible');
+      }
+    } else if (countdownBanner) {
+      countdownBanner.classList.remove('visible');
+    }
+
+    // Locate active index matching current millisecond audio time
+    let newIdx = -1;
+    for (let i = 0; i < currentParsedLyrics.length; i++) {
+      if (currentParsedLyrics[i].time !== null && currentTime >= currentParsedLyrics[i].time) {
+        newIdx = i;
+      } else if (currentParsedLyrics[i].time !== null) {
+        break;
+      }
+    }
+
+    if (newIdx !== activeLyricIndex && newIdx >= 0) {
+      activeLyricIndex = newIdx;
+      const container = document.getElementById('lyrics-scroll-container');
+      if (!container) return;
+      const lines = container.querySelectorAll('.lyric-line');
+      lines.forEach((l, idx) => {
+        l.classList.toggle('active', idx === newIdx);
+      });
+      if (lines[newIdx]) {
+        lines[newIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+
   function initLyricsUI() {
     const overlay = document.getElementById('lyrics-overlay');
     document.getElementById('fs-open-lyrics-btn')?.addEventListener('click', () => {
@@ -1963,6 +2156,14 @@
       const isAct = !engine.vocalRemoverActive;
       engine.setVocalRemover(isAct);
       vocalBtn.classList.toggle('active', isAct);
+    });
+
+    // Timeupdate sync with engine
+    engine.audioElement.addEventListener('timeupdate', () => {
+      if (!overlay?.classList.contains('active') && !document.getElementById('fullscreen-player')?.classList.contains('active')) {
+        return;
+      }
+      updateActiveLyric(engine.audioElement.currentTime);
     });
   }
 

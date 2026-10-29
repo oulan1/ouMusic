@@ -54,25 +54,38 @@ function parseLRC(lrcText) {
 
   const lines = lrcText.split('\n');
   const result = [];
-  const timeRegex = /\[(\d{2}):(\d{2})\.?(\d{0,3})\]/g;
+  const timeRegex = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 
   lines.forEach((line) => {
     const text = line.replace(timeRegex, '').trim();
-    if (!text) return;
+    if (/^\[(ti|ar|al|au|by|offset|length|re|ve):/i.test(line.trim())) return;
 
-    let match;
+    let hasMatch = false;
     timeRegex.lastIndex = 0;
+    let match;
     while ((match = timeRegex.exec(line)) !== null) {
+      hasMatch = true;
       const min = parseInt(match[1], 10);
       const sec = parseInt(match[2], 10);
-      const ms = match[3] ? parseInt(match[3].padEnd(3, '0').slice(0, 3), 10) : 0;
+      let ms = 0;
+      if (match[3]) {
+        const rawMs = match[3];
+        if (rawMs.length === 1) ms = parseInt(rawMs, 10) * 100;
+        else if (rawMs.length === 2) ms = parseInt(rawMs, 10) * 10;
+        else ms = parseInt(rawMs.slice(0, 3), 10);
+      }
       const totalSec = min * 60 + sec + ms / 1000;
-      result.push({ time: totalSec, text });
+      result.push({ time: totalSec, text: text || '♪' });
+    }
+
+    if (!hasMatch && text) {
+      result.push({ time: null, text });
     }
   });
 
-  result.sort((a, b) => a.time - b.time);
-  return result;
+  const timed = result.filter((r) => r.time !== null).sort((a, b) => a.time - b.time);
+  const untimed = result.filter((r) => r.time === null);
+  return timed.length > 0 ? timed.concat(untimed) : result;
 }
 
 function renderLyricsLines() {

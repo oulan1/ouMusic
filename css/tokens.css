@@ -73,7 +73,7 @@
 }
 
 /* Light Theme */
-[data-theme="light"] {
+:root[data-theme="light"], [data-theme="light"] {
   --md-sys-color-primary: hsl(var(--accent-hue), 85%, 45%);
   --md-sys-color-on-primary: #FFFFFF;
   --md-sys-color-primary-container: hsl(var(--accent-hue), 80%, 90%);

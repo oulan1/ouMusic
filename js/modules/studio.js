@@ -412,9 +412,55 @@ function updateTrimLabels() {
 }
 
 function formatSecToMMSS(sec) {
-  const m = Math.floor(sec / 60);
-  const s = (sec % 60).toFixed(1);
-  return `${m < 10 ? '0' : ''}${m}:${parseFloat(s) < 10 ? '0' : ''}${s}`;
+  if (sec === null || sec === undefined || isNaN(sec)) return '--:--.--';
+  if (sec < 0) sec = 0;
+  const totalHundredths = Math.round(sec * 100);
+  const m = Math.floor(totalHundredths / 6000);
+  const s = Math.floor((totalHundredths % 6000) / 100);
+  const ms = totalHundredths % 100;
+  const mm = m < 10 ? '0' + m : m;
+  const ss = s < 10 ? '0' + s : s;
+  const xx = ms < 10 ? '0' + ms : ms;
+  return `${mm}:${ss}.${xx}`;
+}
+
+function parseLRC(lrcText) {
+  if (!lrcText || typeof lrcText !== 'string') return [];
+
+  const lines = lrcText.split('\n');
+  const result = [];
+  const timeRegex = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+
+  lines.forEach((line) => {
+    const text = line.replace(timeRegex, '').trim();
+    if (/^\[(ti|ar|al|au|by|offset|length|re|ve):/i.test(line.trim())) return;
+
+    let hasMatch = false;
+    timeRegex.lastIndex = 0;
+    let match;
+    while ((match = timeRegex.exec(line)) !== null) {
+      hasMatch = true;
+      const min = parseInt(match[1], 10);
+      const sec = parseInt(match[2], 10);
+      let ms = 0;
+      if (match[3]) {
+        const rawMs = match[3];
+        if (rawMs.length === 1) ms = parseInt(rawMs, 10) * 100;
+        else if (rawMs.length === 2) ms = parseInt(rawMs, 10) * 10;
+        else ms = parseInt(rawMs.slice(0, 3), 10);
+      }
+      const totalSec = min * 60 + sec + ms / 1000;
+      result.push({ time: totalSec, text: text || '♪' });
+    }
+
+    if (!hasMatch && text) {
+      result.push({ time: null, text });
+    }
+  });
+
+  const timed = result.filter((r) => r.time !== null).sort((a, b) => a.time - b.time);
+  const untimed = result.filter((r) => r.time === null);
+  return timed.length > 0 ? timed.concat(untimed) : result;
 }
 
 /* ==========================================================================
@@ -422,6 +468,7 @@ function formatSecToMMSS(sec) {
    ========================================================================== */
 function initStep2Lyrics() {
   const pasteBtn = document.getElementById('studio-apply-pasted-lyrics-btn');
+  const pasteLrcClipboardBtn = document.getElementById('studio-paste-lrc-clipboard-btn');
   const textarea = document.getElementById('studio-paste-lyrics-textarea');
   const playBtn = document.getElementById('studio-sync-play-btn');
   const scrubber = document.getElementById('studio-sync-scrubber');
@@ -437,8 +484,33 @@ function initStep2Lyrics() {
     pasteBtn.addEventListener('click', () => {
       const raw = textarea.value.trim();
       if (!raw) return;
-      const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
-      lyricsRows = lines.map((l) => ({ text: l, time: null }));
+      lyricsRows = parseLRC(raw);
+      activeRowIndex = 0;
+      renderLyricsRows();
+    });
+  }
+
+  // Paste ready LRC from clipboard
+  if (pasteLrcClipboardBtn) {
+    pasteLrcClipboardBtn.addEventListener('click', async () => {
+      let text = '';
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          text = await navigator.clipboard.readText();
+        }
+      } catch (err) {
+        console.warn('Clipboard read error, fallback to textarea:', err);
+      }
+      if (!text && textarea) {
+        text = textarea.value;
+      }
+      if (!text || !text.trim()) {
+        alert('Буфер обмена пуст. Скопируйте текст песни с таймингами (LRC) или вставьте его в текстовое поле.');
+        return;
+      }
+
+      if (textarea) textarea.value = text;
+      lyricsRows = parseLRC(text);
       activeRowIndex = 0;
       renderLyricsRows();
     });
@@ -544,7 +616,7 @@ function renderLyricsRows() {
     item.className = `tap-sync-row ${idx === activeRowIndex ? 'current-target' : ''}`;
     item.setAttribute('data-row-idx', idx);
 
-    const timeStr = row.time !== null ? formatSecToMMSS(row.time) : '--:--.-';
+    const timeStr = row.time !== null ? formatSecToMMSS(row.time) : '--:--.--';
 
     item.innerHTML = `
       <div class="tap-sync-time" title="Кликните для перезаписи тайминга">${timeStr}</div>
