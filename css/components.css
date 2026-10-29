@@ -601,3 +601,280 @@
 .badge-verified:focus .tooltip-box {
   opacity: 1;
 }
+
+/* ==========================================================================
+   Wave Hero Card & Material 3 Dropdowns (Integrated on Home Screen)
+   ========================================================================== */
+
+.wave-hero-card {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(236, 72, 153, 0.12) 50%, rgba(18, 18, 24, 0.7) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--md-shape-corner-extra-large);
+  padding: 24px;
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.wave-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.wave-card-title-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.wave-badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--md-shape-corner-full);
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: var(--md-sys-color-primary);
+  margin-bottom: 8px;
+}
+
+.wave-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  box-shadow: 0 0 8px var(--md-sys-color-primary);
+  animation: wavePulse 1.6s infinite ease-in-out;
+}
+
+@keyframes wavePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.wave-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--md-sys-color-on-surface);
+  line-height: 1.2;
+}
+
+.wave-subtitle {
+  font-size: 0.88rem;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 4px;
+}
+
+/* Pulsating Sphere Visualizer */
+.wave-sphere-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wave-sphere-canvas {
+  width: 140px;
+  height: 140px;
+  pointer-events: none;
+}
+
+.wave-center-play-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.5);
+  z-index: 3;
+}
+
+/* Now Playing Strip */
+.wave-now-playing-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--md-shape-corner-medium);
+  padding: 10px 16px;
+  margin: 18px 0 16px 0;
+  gap: 12px;
+}
+
+.wave-np-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wave-np-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wave-np-artist {
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.wave-np-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Material 3 Dropdowns Row */
+.wave-dropdowns-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.m3-select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m3-select-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--md-sys-color-outline);
+  padding-left: 4px;
+}
+
+.m3-select-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.m3-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--md-shape-corner-medium);
+  padding: 11px 40px 11px 14px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--motion-duration-short);
+  outline: none;
+}
+
+.m3-select:hover {
+  background: var(--md-sys-color-surface-container-highest);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.m3-select:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.m3-select option {
+  background: #181822;
+  color: #FFFFFF;
+  padding: 10px;
+}
+
+.select-chevron {
+  position: absolute;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  fill: var(--md-sys-color-outline);
+  transition: transform 0.2s;
+}
+
+/* Empty search state */
+.search-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 20px;
+  text-align: center;
+}
+
+.search-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--md-sys-color-surface-container-high);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: var(--md-sys-color-outline);
+}
+
+.search-empty-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+}
+
+.search-empty-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  margin-bottom: 6px;
+}
+
+.search-empty-subtitle {
+  font-size: 0.86rem;
+  color: var(--md-sys-color-outline);
+  max-width: 380px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* Accent color circles */
+.accent-color-circle {
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.accent-color-circle:hover {
+  transform: scale(1.15);
+}
+
+.accent-color-circle.active {
+  border-color: #FFFFFF !important;
+  box-shadow: 0 0 12px var(--md-sys-color-primary);
+  transform: scale(1.15);
+}

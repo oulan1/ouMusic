@@ -10,7 +10,7 @@
   <title>ouMusic</title>
 
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="assets/default-cover.svg">
+  <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
   <link rel="stylesheet" href="css/tokens.css">
@@ -239,40 +239,14 @@
   </svg>
 
   <div id="app">
-    <!-- Desktop Left Sidebar -->
-    <aside class="desktop-sidebar">
-      <div class="brand-logo" id="brand-logo-btn">
-        <img src="assets/default-cover.svg" alt="ouMusic" class="brand-icon">
-        <div class="brand-title">ouMusic <span class="brand-badge">M-CORE</span></div>
+    <!-- Semicircular Convex Arc Navigation Wheel (Protruding Left-to-Right) -->
+    <aside class="arc-sidebar" id="arc-sidebar" aria-label="Боковое меню">
+      <button class="arc-toggle-btn" id="arc-toggle-btn" title="Свернуть / Развернуть меню" aria-label="Свернуть / Развернуть меню">
+        <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-right"></use></svg>
+      </button>
+      <div class="arc-wheel-container" id="arc-wheel-container">
+        <!-- Rendered dynamically by initArcNavigation() -->
       </div>
-
-      <nav class="sidebar-nav">
-        <button class="sidebar-item active" data-nav="home">
-          <svg class="svg-icon"><use href="#icon-home"></use></svg>
-          <span data-i18n="nav_home">Главная</span>
-        </button>
-        <button class="sidebar-item" data-nav="wave">
-          <svg class="svg-icon"><use href="#icon-wave"></use></svg>
-          <span data-i18n="nav_wave">Моя Волна</span>
-        </button>
-        <button class="sidebar-item" data-nav="library">
-          <svg class="svg-icon"><use href="#icon-library"></use></svg>
-          <span data-i18n="nav_library">Библиотека</span>
-        </button>
-        <button class="sidebar-item" data-nav="studio">
-          <svg class="svg-icon"><use href="#icon-studio"></use></svg>
-          <span data-i18n="nav_studio">Моя Студия</span>
-        </button>
-        <button class="sidebar-item" data-nav="profile">
-          <svg class="svg-icon"><use href="#icon-user"></use></svg>
-          <span data-i18n="nav_profile">Мой профиль</span>
-          <span class="notif-badge" id="sidebar-recap-badge"></span>
-        </button>
-        <button class="sidebar-item" data-nav="settings">
-          <svg class="svg-icon"><use href="#icon-settings"></use></svg>
-          <span data-i18n="nav_settings">Настройки</span>
-        </button>
-      </nav>
     </aside>
 
     <!-- Main View Area -->
@@ -280,6 +254,10 @@
       <!-- Top App Bar -->
       <header class="top-app-bar">
         <div class="top-bar-left">
+          <div class="brand-logo" id="brand-logo-btn" title="ouMusic Главная">
+            <img src="assets/oumusic.png" alt="ouMusic" class="brand-icon">
+            <div class="brand-title">ouMusic <span class="brand-badge">M-CORE</span></div>
+          </div>
           <button class="icon-btn" id="top-back-btn" style="display: none;" title="Назад">
             <svg class="svg-icon"><use href="#icon-prev"></use></svg>
           </button>
@@ -303,42 +281,93 @@
       <div class="screens-container" id="screens-container">
         <!-- SCREEN 1: HOME -->
         <section class="screen active" id="screen-home">
-          <!-- Wave Hero Card -->
-          <div class="wave-hero-card" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(236, 72, 153, 0.15)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: var(--md-shape-corner-extra-large); padding: 20px; margin-bottom: 24px; position: relative; overflow: hidden;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--md-sys-color-on-surface);" data-i18n="wave_title">Моя Волна</h2>
-                <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;" data-i18n="wave_subtitle">Бесконечный поток под ваше настроение</p>
+          <!-- Wave Hero Card on Home (Personalized Continuous Flow) -->
+          <div class="wave-hero-card" id="wave-hero-card">
+            <div class="wave-card-header">
+              <div class="wave-card-title-group">
+                <div class="wave-badge-live">
+                  <span class="wave-live-dot"></span>
+                  <span>M-CORE FLOW</span>
+                </div>
+                <h2 class="wave-title" data-i18n="wave_title">Моя Волна</h2>
+                <p class="wave-subtitle" data-i18n="wave_subtitle">Бесконечный персональный поток под ваше настроение</p>
               </div>
-              <button class="play-pause-fab" id="hero-start-wave-btn" style="width: 52px; height: 52px;" title="Запустить Волну">
-                <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-play"></use></svg>
-              </button>
-            </div>
 
-            <!-- Wave Filters: Mood -->
-            <div style="margin-top: 16px;">
-              <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--md-sys-color-outline); font-weight: 600;" data-i18n="wave_mood_label">Настроение и занятие:</div>
-              <div class="chips-scroll-row" id="wave-mood-chips">
-                <button class="chip active" data-mood="all" data-i18n="mood_all">Все</button>
-                <button class="chip" data-mood="work" data-i18n="mood_work">Для работы</button>
-                <button class="chip" data-mood="rest" data-i18n="mood_rest">Отдых</button>
-                <button class="chip" data-mood="sleep" data-i18n="mood_sleep">Засыпаю</button>
-                <button class="chip" data-mood="workout" data-i18n="mood_workout">Тренировка</button>
-                <button class="chip" data-mood="road" data-i18n="mood_road">В дорогу</button>
-                <button class="chip" data-mood="energy" data-i18n="mood_energy">Бодрость</button>
-                <button class="chip" data-mood="melancholy" data-i18n="mood_melancholy">Меланхолия</button>
+              <!-- Interactive Wave Pulsating Sphere Visualizer Canvas -->
+              <div class="wave-sphere-wrap" id="wave-sphere-wrap">
+                <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="220" height="220"></canvas>
+                <button class="play-pause-fab wave-center-play-btn" id="hero-start-wave-btn" title="Запустить Волну">
+                  <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-play"></use></svg>
+                </button>
               </div>
             </div>
 
-            <!-- Wave Filters: Character -->
-            <div style="margin-top: 8px;">
-              <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--md-sys-color-outline); font-weight: 600;" data-i18n="wave_character_label">Характер:</div>
-              <div class="chips-scroll-row" id="wave-character-chips">
-                <button class="chip active" data-char="any" data-i18n="char_any">Любой</button>
-                <button class="chip" data-char="familiar" data-i18n="char_familiar">Знакомое</button>
-                <button class="chip" data-char="unfamiliar" data-i18n="char_unfamiliar">Незнакомое</button>
-                <button class="chip" data-char="forgotten" data-i18n="char_forgotten">Забытое</button>
-                <button class="chip" data-char="popular" data-i18n="char_popular">Популярное</button>
+            <!-- Now Playing Strip inside Wave Card -->
+            <div class="wave-now-playing-strip" id="wave-now-playing-strip">
+              <div class="wave-np-info">
+                <div class="wave-np-title" id="wave-np-title">Выберите параметры и запустите Волну</div>
+                <div class="wave-np-artist" id="wave-np-artist">Музыкальный поток адаптируется под вас в реальном времени</div>
+              </div>
+              <div class="wave-np-actions">
+                <button class="icon-btn" id="wave-dislike-btn" title="Дизлайк (Не предлагать этот трек)">
+                  <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+                </button>
+                <button class="icon-btn" id="wave-skip-btn" title="Следующий трек">
+                  <svg class="svg-icon"><use href="#icon-next"></use></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3 Material 3 Dropdown Selects for Wave -->
+            <div class="wave-dropdowns-row">
+              <!-- Dropdown 1: Mood & Activity -->
+              <div class="m3-select-wrapper">
+                <label class="m3-select-label" for="wave-select-mood">
+                  <span>Настроение и занятие</span>
+                </label>
+                <div class="m3-select-container">
+                  <select id="wave-select-mood" class="m3-select">
+                    <option value="all">Все настроения</option>
+                    <option value="work">Для работы и концентрации</option>
+                    <option value="rest">Спокойный отдых</option>
+                    <option value="sleep">Засыпаю / Релакс</option>
+                    <option value="workout">Интенсивная тренировка</option>
+                    <option value="road">В дорогу / Путешествие</option>
+                    <option value="energy">Бодрость и энергия</option>
+                    <option value="melancholy">Меланхолия и грусть</option>
+                  </select>
+                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+                </div>
+              </div>
+
+              <!-- Dropdown 2: Character -->
+              <div class="m3-select-wrapper">
+                <label class="m3-select-label" for="wave-select-char">
+                  <span>Характер звучания</span>
+                </label>
+                <div class="m3-select-container">
+                  <select id="wave-select-char" class="m3-select">
+                    <option value="any">Любой характер</option>
+                    <option value="familiar">Любимое и знакомое</option>
+                    <option value="unfamiliar">Новое и неизведанное</option>
+                    <option value="forgotten">Забытые треки</option>
+                    <option value="popular">Главные хиты и тренды</option>
+                  </select>
+                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+                </div>
+              </div>
+
+              <!-- Dropdown 3: Genre -->
+              <div class="m3-select-wrapper">
+                <label class="m3-select-label" for="wave-select-genre">
+                  <span>Жанр музыки</span>
+                </label>
+                <div class="m3-select-container">
+                  <select id="wave-select-genre" class="m3-select">
+                    <option value="all">Все жанры</option>
+                  </select>
+                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+                </div>
               </div>
             </div>
           </div>
@@ -374,45 +403,7 @@
           </div>
         </section>
 
-        <!-- SCREEN 2: WAVE SCREEN -->
-        <section class="screen" id="screen-wave">
-          <div style="text-align: center; margin-bottom: 16px;">
-            <h2 style="font-size: 1.5rem; font-weight: 700;" data-i18n="nav_wave">Моя Волна</h2>
-            <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant);" data-i18n="wave_sphere_subtitle">Музыкальная сфера адаптируется под ритм музыки</p>
-          </div>
-
-          <!-- Reactive Wave Pulsating Canvas -->
-          <div class="wave-visualizer-container">
-            <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="400" height="400"></canvas>
-          </div>
-
-          <div id="wave-current-track-info" style="text-align: center; margin: 16px 0;">
-            <div id="wave-track-title" style="font-size: 1.25rem; font-weight: 700;">Не играет</div>
-            <div id="wave-track-artist" style="font-size: 0.95rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">Выберите фильтр и нажмите Старт</div>
-          </div>
-
-          <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin: 24px 0;">
-            <button class="icon-btn" id="wave-dislike-btn" title="Дизлайк (Не предлагать)" style="width: 48px; height: 48px; background: var(--md-sys-color-surface-container-high);">
-              <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
-            </button>
-            <button class="play-pause-fab" id="wave-play-toggle-btn" style="width: 64px; height: 64px;">
-              <svg class="svg-icon" style="width: 28px; height: 28px;"><use href="#icon-play"></use></svg>
-            </button>
-            <button class="icon-btn" id="wave-skip-btn" title="Следующий трек" style="width: 48px; height: 48px; background: var(--md-sys-color-surface-container-high);">
-              <svg class="svg-icon"><use href="#icon-next"></use></svg>
-            </button>
-          </div>
-
-          <!-- Genres Filter for Wave -->
-          <div style="margin-top: 24px;">
-            <div class="section-title" style="font-size: 1rem; margin-bottom: 8px;" data-i18n="wave_genre_label">Фильтр по жанру:</div>
-            <div class="chips-scroll-row" id="wave-genre-chips">
-              <!-- Injected by wave.js -->
-            </div>
-          </div>
-        </section>
-
-        <!-- SCREEN 3: LIBRARY -->
+        <!-- SCREEN 2: LIBRARY -->
         <section class="screen" id="screen-library">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h2 style="font-size: 1.5rem; font-weight: 700;" data-i18n="nav_library">Библиотека</h2>
@@ -471,7 +462,7 @@
           <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-extra-large); padding: 24px; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.05);">
             <div style="display: flex; align-items: center; gap: 16px;">
               <div id="profile-avatar-container" style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: #222; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0; cursor: pointer;">
-                <img id="profile-avatar-img" src="assets/default-cover.svg" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                <img id="profile-avatar-img" src="assets/oumusic.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
               </div>
               <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -563,12 +554,17 @@
             <!-- Accent Hue Picker -->
             <div style="margin-top: 16px;">
               <div style="font-size: 0.85rem; margin-bottom: 8px;">Акцентный цвет интерфейса:</div>
-              <div style="display: flex; gap: 10px; align-items: center;" id="accent-colors-row">
-                <button class="accent-color-circle active" data-hue="260" style="width: 28px; height: 28px; border-radius: 50%; background: #8B5CF6; border: 2px solid #FFF; cursor: pointer;"></button>
-                <button class="accent-color-circle" data-hue="330" style="width: 28px; height: 28px; border-radius: 50%; background: #EC4899; border: 2px solid transparent; cursor: pointer;"></button>
-                <button class="accent-color-circle" data-hue="210" style="width: 28px; height: 28px; border-radius: 50%; background: #3B82F6; border: 2px solid transparent; cursor: pointer;"></button>
-                <button class="accent-color-circle" data-hue="160" style="width: 28px; height: 28px; border-radius: 50%; background: #10B981; border: 2px solid transparent; cursor: pointer;"></button>
-                <button class="accent-color-circle" data-hue="35" style="width: 28px; height: 28px; border-radius: 50%; background: #F59E0B; border: 2px solid transparent; cursor: pointer;"></button>
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" id="accent-colors-row">
+                <button class="accent-color-circle active" data-color="#8B5CF6" title="Фиолетовый" style="width: 32px; height: 32px; border-radius: 50%; background: #8B5CF6; border: 2px solid #FFF; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle" data-color="#EC4899" title="Розовый" style="width: 32px; height: 32px; border-radius: 50%; background: #EC4899; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle" data-color="#3B82F6" title="Синий" style="width: 32px; height: 32px; border-radius: 50%; background: #3B82F6; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle" data-color="#10B981" title="Изумрудный" style="width: 32px; height: 32px; border-radius: 50%; background: #10B981; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle" data-color="#F59E0B" title="Янтарный" style="width: 32px; height: 32px; border-radius: 50%; background: #F59E0B; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle" data-color="#06B6D4" title="Бирюзовый" style="width: 32px; height: 32px; border-radius: 50%; background: #06B6D4; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
+                <button class="accent-color-circle custom-accent-circle" id="custom-accent-btn" title="Выбрать свой цвет из палитры" style="width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.4); transition: transform 0.2s;">
+                  <svg class="svg-icon" style="width: 14px; height: 14px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));"><use href="#icon-edit"></use></svg>
+                </button>
+                <input type="color" id="custom-accent-color-picker" value="#8B5CF6" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;">
               </div>
             </div>
 
@@ -608,15 +604,19 @@
 
             <!-- Equalizer -->
             <div style="margin-top: 16px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                 <span style="font-size: 0.9rem; font-weight: 500;">5-полосный эквалайзер</span>
-                <select id="eq-presets-select" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 4px 8px; font-size: 0.8rem;">
-                  <option value="flat">Flat</option>
-                  <option value="bass">Bass Boost</option>
-                  <option value="vocal">Vocal</option>
-                  <option value="rock">Rock</option>
-                  <option value="electronic">Electronic</option>
-                </select>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <select id="eq-presets-select" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 5px 10px; font-size: 0.8rem; cursor: pointer;">
+                    <option value="flat">Flat (По умолчанию)</option>
+                    <option value="bass">Bass Boost (+6dB)</option>
+                    <option value="vocal">Vocal (+4dB)</option>
+                    <option value="rock">Rock</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="custom" disabled>Кастомный</option>
+                  </select>
+                  <button class="btn btn-outlined" id="eq-reset-btn" style="padding: 4px 10px; font-size: 0.75rem;">Сбросить по умолчанию</button>
+                </div>
               </div>
               <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 12px;" id="eq-sliders-row">
                 <!-- 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz -->
@@ -823,13 +823,13 @@
         <!-- SCREEN 7: ARTIST PROFILE -->
         <section class="screen" id="screen-artist">
           <div id="artist-banner-box" style="width: 100%; height: 180px; border-radius: var(--md-shape-corner-large); overflow: hidden; background: #181822; position: relative;">
-            <img id="artist-banner-img" src="assets/default-cover.svg" alt="Banner" style="width: 100%; height: 100%; object-fit: cover;">
+            <img id="artist-banner-img" src="assets/oumusic.png" alt="Banner" style="width: 100%; height: 100%; object-fit: cover;">
             <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);"></div>
           </div>
 
           <div style="display: flex; align-items: flex-end; gap: 16px; padding: 0 16px; margin-top: -40px; position: relative; z-index: 2;">
             <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 3px solid var(--md-sys-color-surface); background: #111;">
-              <img id="artist-avatar-img" src="assets/default-cover.svg" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+              <img id="artist-avatar-img" src="assets/oumusic.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
             <div style="flex: 1; padding-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -869,7 +869,7 @@
       <div class="mini-player" id="mini-player" style="display: none;">
         <div class="mini-player-progress-bar" id="mini-progress-bar"></div>
         <div class="mini-cover">
-          <img id="mini-cover-img" src="assets/default-cover.svg" alt="Cover">
+          <img id="mini-cover-img" src="assets/oumusic.png" alt="Cover">
         </div>
         <div class="mini-info" id="mini-info-clickable">
           <div class="mini-title" id="mini-title">Не играет</div>
@@ -894,13 +894,13 @@
           <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-home"></use></svg></div>
           <span class="tab-label" data-i18n="nav_home">Главная</span>
         </button>
-        <button class="nav-tab" data-nav="wave">
-          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-wave"></use></svg></div>
-          <span class="tab-label" data-i18n="nav_wave">Волна</span>
-        </button>
         <button class="nav-tab" data-nav="library">
           <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-library"></use></svg></div>
           <span class="tab-label" data-i18n="nav_library">Библиотека</span>
+        </button>
+        <button class="nav-tab" data-nav="studio">
+          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-studio"></use></svg></div>
+          <span class="tab-label" data-i18n="nav_studio">Студия</span>
         </button>
         <button class="nav-tab" data-nav="profile">
           <div class="tab-icon-wrap">
@@ -936,7 +936,7 @@
       <div class="player-cover-container">
         <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="380" height="380"></canvas>
         <div class="player-cover-box" id="player-cover-clickable" title="Нажмите, чтобы открыть обложку">
-          <img id="fs-cover-img" src="assets/default-cover.svg" alt="Cover" class="player-cover-img">
+          <img id="fs-cover-img" src="assets/oumusic.png" alt="Cover" class="player-cover-img">
         </div>
       </div>
 

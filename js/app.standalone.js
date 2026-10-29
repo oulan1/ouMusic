@@ -758,8 +758,8 @@
      6. ARTISTS & VERIFICATION
      ========================================================================== */
   const verifiedArtists = new Map();
-  verifiedArtists.set('oulan1', { avatar: 'assets/default-cover.svg', banner: 'assets/default-cover.svg', verified: true });
-  verifiedArtists.set('m-core', { avatar: 'assets/default-cover.svg', banner: 'assets/default-cover.svg', verified: true });
+  verifiedArtists.set('oulan1', { avatar: 'assets/oumusic.png', banner: 'assets/oumusic.png', verified: true });
+  verifiedArtists.set('m-core', { avatar: 'assets/oumusic.png', banner: 'assets/oumusic.png', verified: true });
 
   async function loadArtistsVerification() {
     try {
@@ -772,8 +772,8 @@
           const [name, av, ban, ver] = l.split(' - ').map((s) => s.trim());
           if (name) {
             verifiedArtists.set(name.toLowerCase(), {
-              avatar: av || 'assets/default-cover.svg',
-              banner: ban || 'assets/default-cover.svg',
+              avatar: av || 'assets/oumusic.png',
+              banner: ban || 'assets/oumusic.png',
               verified: ver === '1'
             });
           }
@@ -828,13 +828,136 @@
     console.log('[ouMusic] Client engine ready!');
   });
 
+  /* Semicircular Convex Arc Navigation (Infinite Protruding Left-to-Right Wheel) */
+  function initArcNavigation() {
+    const container = document.getElementById('arc-wheel-container');
+    const sidebar = document.getElementById('arc-sidebar');
+    const toggleBtn = document.getElementById('arc-toggle-btn');
+    const screensContainer = document.getElementById('screens-container');
+    if (!container || !sidebar) return;
+
+    const ARC_NAV_ITEMS = [
+      { id: 'home', label: 'Главная', icon: 'icon-home' },
+      { id: 'library', label: 'Библиотека', icon: 'icon-library' },
+      { id: 'studio', label: 'Студия', icon: 'icon-studio' },
+      { id: 'profile', label: 'Профиль', icon: 'icon-user' },
+      { id: 'settings', label: 'Настройки', icon: 'icon-settings' }
+    ];
+
+    const N = ARC_NAV_ITEMS.length;
+    let activeIndex = 0;
+
+    // Render navigation buttons
+    container.innerHTML = '';
+    const itemElements = ARC_NAV_ITEMS.map((item, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'arc-nav-item';
+      btn.setAttribute('data-nav', item.id);
+      btn.setAttribute('title', item.label);
+      btn.innerHTML = `
+        <div class="item-icon-box">
+          <svg class="svg-icon" style="width: 20px; height: 20px; fill: currentColor;"><use href="#${item.icon}"></use></svg>
+        </div>
+        <span class="item-label">${item.label}</span>
+      `;
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        rotateToIndex(idx);
+        navigateTo(item.id);
+      });
+
+      container.appendChild(btn);
+      return btn;
+    });
+
+    // Toggle Collapse / Expand
+    toggleBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = sidebar.classList.toggle('collapsed');
+      screensContainer?.classList.toggle('arc-collapsed', isCollapsed);
+    });
+
+    // Mouse wheel scrolling over sidebar rotates the wheel infinitely
+    let wheelCooldown = false;
+    sidebar.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (wheelCooldown) return;
+      wheelCooldown = true;
+      setTimeout(() => { wheelCooldown = false; }, 160);
+
+      if (e.deltaY > 0) {
+        const nextIdx = (activeIndex + 1) % N;
+        rotateToIndex(nextIdx);
+        navigateTo(ARC_NAV_ITEMS[nextIdx].id);
+      } else if (e.deltaY < 0) {
+        const prevIdx = (activeIndex - 1 + N) % N;
+        rotateToIndex(prevIdx);
+        navigateTo(ARC_NAV_ITEMS[prevIdx].id);
+      }
+    }, { passive: false });
+
+    // Mathematical convex arc layout calculation (bulging left-to-right)
+    function updateArcLayout() {
+      const R = 185; // Arc circle radius in pixels
+      const X0 = -60; // Left-offset so peak curves outward into the screen
+      const Y0 = 220; // Vertical midpoint of sidebar container
+      const deltaTheta = 0.54; // Angular distance between adjacent items in radians (~31 deg)
+
+      itemElements.forEach((el, idx) => {
+        // Shortest distance on modular circular loop
+        let diff = ((idx - activeIndex) % N + N) % N;
+        if (diff > N / 2) diff -= N;
+
+        const angle = diff * deltaTheta; // 0 rad is center apex (furthest right bulge)
+        const x = X0 + R * Math.cos(angle);
+        const y = Y0 + R * Math.sin(angle);
+
+        const isActive = idx === activeIndex;
+        const isVisible = Math.abs(diff) <= 2;
+
+        el.classList.toggle('active', isActive);
+
+        if (!isVisible) {
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          el.style.transform = `translate(${x}px, ${y - 24}px) scale(0.6)`;
+        } else {
+          const scale = isActive ? 1.08 : (Math.abs(diff) === 1 ? 0.94 : 0.82);
+          const opacity = isActive ? 1 : (Math.abs(diff) === 1 ? 0.85 : 0.55);
+          el.style.opacity = `${opacity}`;
+          el.style.pointerEvents = 'auto';
+          el.style.transform = `translate(${x}px, ${y - 24}px) scale(${scale})`;
+        }
+      });
+    }
+
+    function rotateToIndex(targetIdx) {
+      if (targetIdx < 0 || targetIdx >= N) return;
+      activeIndex = targetIdx;
+      updateArcLayout();
+    }
+
+    // Expose sync helper so any navigation source updates the wheel
+    window.syncArcNav = function(screenId) {
+      const idx = ARC_NAV_ITEMS.findIndex((it) => it.id === screenId);
+      if (idx !== -1 && idx !== activeIndex) {
+        rotateToIndex(idx);
+      }
+    };
+
+    updateArcLayout();
+  }
+
   /* Navigation & Tabs */
   function initNavigation() {
+    initArcNavigation();
+
     document.querySelectorAll('[data-nav]').forEach((tab) => {
       tab.addEventListener('click', (e) => {
         e.preventDefault();
         const screenId = tab.getAttribute('data-nav');
-        navigateTo(screenId);
+        if (screenId) navigateTo(screenId);
       });
     });
 
@@ -857,9 +980,12 @@
         chip.classList.add('active');
         const tabKey = chip.getAttribute('data-tab');
 
-        document.getElementById('lib-tab-playlists').style.display = tabKey === 'playlists' ? 'block' : 'none';
-        document.getElementById('lib-tab-likes').style.display = tabKey === 'likes' ? 'block' : 'none';
-        document.getElementById('lib-tab-downloads').style.display = tabKey === 'downloads' ? 'block' : 'none';
+        const p = document.getElementById('lib-tab-playlists');
+        const l = document.getElementById('lib-tab-likes');
+        const d = document.getElementById('lib-tab-downloads');
+        if (p) p.style.display = tabKey === 'playlists' ? 'block' : 'none';
+        if (l) l.style.display = tabKey === 'likes' ? 'block' : 'none';
+        if (d) d.style.display = tabKey === 'downloads' ? 'block' : 'none';
 
         if (tabKey === 'likes') renderLikesTab();
         if (tabKey === 'downloads') renderDownloadsTab();
@@ -888,10 +1014,15 @@
     const backBtn = document.getElementById('top-back-btn');
     if (backBtn) backBtn.style.display = (screenId === 'artist' || screenId === 'studio') ? 'inline-flex' : 'none';
 
+    if (window.syncArcNav) {
+      window.syncArcNav(screenId);
+    }
+
     if (pushHash && !window.location.hash.includes('=')) {
       window.location.hash = screenId;
     }
   }
+  window.navigateTo = navigateTo;
 
   function handleHash() {
     const hash = window.location.hash.slice(1);
@@ -905,7 +1036,7 @@
       const name = decodeURIComponent(hash.slice(7));
       renderArtistScreen(name);
       navigateTo('artist', false);
-    } else if (['home', 'wave', 'library', 'studio', 'profile', 'settings'].includes(hash)) {
+    } else if (['home', 'library', 'studio', 'profile', 'settings'].includes(hash)) {
       navigateTo(hash, false);
     }
   }
@@ -996,7 +1127,7 @@
 
     row.innerHTML = `
       <div class="track-cover-wrap">
-        <img class="track-cover-img" src="${track.thumbBase64 || 'assets/default-cover.svg'}" alt="">
+        <img class="track-cover-img" src="${track.thumbBase64 || 'assets/oumusic.png'}" alt="">
       </div>
       <div class="track-info">
         <div class="track-title">
@@ -1023,6 +1154,9 @@
   }
 
   function filterTracksFeed(query) {
+    const list = document.getElementById('home-tracks-list');
+    if (!list) return;
+
     if (!query) {
       renderCatalogFeed(catalogTracks);
       return;
@@ -1033,6 +1167,33 @@
       const genreMatch = Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(query));
       return titleMatch || artistMatch || genreMatch;
     });
+
+    if (filtered.length === 0) {
+      const escaped = query.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      list.innerHTML = `
+        <div class="search-empty-state">
+          <div class="search-empty-icon">
+            <svg class="svg-icon"><use href="#icon-search"></use></svg>
+          </div>
+          <div class="search-empty-title">Ничего не найдено</div>
+          <div class="search-empty-subtitle">По запросу «${escaped}» подходящих треков или артистов не найдено. Попробуйте изменить формулировку.</div>
+          <button class="btn btn-tonal" id="clear-search-btn">
+            <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-close"></use></svg>
+            <span>Очистить поиск</span>
+          </button>
+        </div>
+      `;
+      document.getElementById('clear-search-btn')?.addEventListener('click', () => {
+        const s = document.getElementById('global-search-input');
+        if (s) {
+          s.value = '';
+          s.focus();
+        }
+        renderCatalogFeed(catalogTracks);
+      });
+      return;
+    }
+
     renderCatalogFeed(filtered);
   }
 
@@ -1084,7 +1245,7 @@
       el.textContent = track.artist || 'Артист';
     });
     document.querySelectorAll('#mini-cover-img, #fs-cover-img').forEach((img) => {
-      img.src = track.coverUrl || track.thumbBase64 || 'assets/default-cover.svg';
+      img.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
     });
 
     updateLikeDislikeState(track.id);
@@ -1330,7 +1491,7 @@
     render();
   }
 
-  /* Wave Screen & Sphere Animation */
+  /* Wave Screen & Sphere Animation (Integrated on Home Hero Card) */
   function initWaveUI() {
     const canvas = document.getElementById('wave-sphere-canvas');
     if (canvas) {
@@ -1350,14 +1511,14 @@
           bass = sum / 16 / 255;
         }
 
-        angle += 0.02 + bass * 0.04;
-        const r = 70 + bass * 40;
+        angle += 0.02 + bass * 0.05;
+        const r = 52 + bass * 26;
 
         ctx.save();
         ctx.beginPath();
         for (let i = 0; i <= 60; i++) {
           const th = (i / 60) * Math.PI * 2;
-          const dist = Math.sin(th * 6 + angle) * (6 + bass * 14);
+          const dist = Math.sin(th * 6 + angle) * (4 + bass * 12);
           const rad = r + dist;
           const x = cx + Math.cos(th) * rad;
           const y = cy + Math.sin(th) * rad;
@@ -1365,10 +1526,11 @@
           else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3.5;
         ctx.strokeStyle = '#FFFFFF';
-        ctx.shadowColor = '#8B5CF6';
-        ctx.shadowBlur = 15 + bass * 20;
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
+        ctx.shadowColor = primaryColor;
+        ctx.shadowBlur = 14 + bass * 22;
         ctx.stroke();
         ctx.restore();
 
@@ -1377,35 +1539,117 @@
       renderWave();
     }
 
-    // Genre chips in Wave
-    const genreBox = document.getElementById('wave-genre-chips');
-    if (genreBox) {
-      genreBox.innerHTML = '<button class="chip active">Все жанры</button>';
-      EXTENDED_GENRES.slice(0, 20).forEach((g) => {
-        const b = document.createElement('button');
-        b.className = 'chip';
-        b.textContent = g;
-        genreBox.appendChild(b);
+    // Populate Genre Dropdown in Wave Hero Card
+    const genreSelect = document.getElementById('wave-select-genre');
+    if (genreSelect) {
+      genreSelect.innerHTML = '<option value="all">Все жанры</option>';
+      EXTENDED_GENRES.forEach((g) => {
+        const opt = document.createElement('option');
+        opt.value = g.toLowerCase();
+        opt.textContent = g;
+        genreSelect.appendChild(opt);
       });
     }
 
-    document.getElementById('hero-start-wave-btn')?.addEventListener('click', () => {
-      if (catalogTracks.length > 0) {
-        playbackQueue = [...catalogTracks].sort(() => Math.random() - 0.5);
-        playTrack(playbackQueue[0]);
+    const moodSelect = document.getElementById('wave-select-mood');
+    const charSelect = document.getElementById('wave-select-char');
+    const startBtn = document.getElementById('hero-start-wave-btn');
+    const skipBtn = document.getElementById('wave-skip-btn');
+    const dislikeBtn = document.getElementById('wave-dislike-btn');
+
+    // Filter catalog tracks based on Wave dropdown selections
+    function getFilteredWaveTracks() {
+      const selGenre = genreSelect ? genreSelect.value.toLowerCase() : 'all';
+      const selMood = moodSelect ? moodSelect.value : 'all';
+      const selChar = charSelect ? charSelect.value : 'any';
+
+      let pool = [...catalogTracks];
+
+      // Filter by genre
+      if (selGenre && selGenre !== 'all') {
+        const matching = pool.filter((t) => {
+          return Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(selGenre));
+        });
+        if (matching.length > 0) pool = matching;
+      }
+
+      // Filter by character
+      if (selChar === 'familiar') {
+        pool.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
+      } else if (selChar === 'popular') {
+        pool.sort((a, b) => ((b.likesCount || 0) - (a.likesCount || 0)));
+      } else {
+        pool.sort(() => Math.random() - 0.5);
+      }
+
+      return pool;
+    }
+
+    function updateWaveCardInfo(track) {
+      const titleEl = document.getElementById('wave-np-title');
+      const artistEl = document.getElementById('wave-np-artist');
+      if (track) {
+        if (titleEl) titleEl.textContent = track.title || 'Безымянный трек';
+        if (artistEl) artistEl.textContent = track.artist || 'Неизвестный исполнитель';
+      }
+    }
+
+    // Start / Pause Wave
+    startBtn?.addEventListener('click', () => {
+      if (engine.isPlaying && currentTrack) {
+        engine.togglePlay();
+        return;
+      }
+      const stream = getFilteredWaveTracks();
+      if (stream.length > 0) {
+        playbackQueue = stream;
+        queueIndex = 0;
+        playTrack(stream[0]);
+        updateWaveCardInfo(stream[0]);
       }
     });
 
-    document.getElementById('wave-play-toggle-btn')?.addEventListener('click', () => {
-      engine.togglePlay();
-    });
-
-    document.getElementById('wave-skip-btn')?.addEventListener('click', () => {
-      if (catalogTracks.length > 0) {
-        const rand = catalogTracks[Math.floor(Math.random() * catalogTracks.length)];
-        playTrack(rand);
+    // Skip to next recommendation
+    skipBtn?.addEventListener('click', () => {
+      const stream = getFilteredWaveTracks();
+      if (stream.length > 0) {
+        const next = stream[Math.floor(Math.random() * stream.length)];
+        playTrack(next);
+        updateWaveCardInfo(next);
       }
     });
+
+    // Dislike current track
+    dislikeBtn?.addEventListener('click', () => {
+      if (currentTrack) {
+        addToBlacklist(currentTrack.id, currentTrack.title);
+        skipBtn?.click();
+      }
+    });
+
+    // React immediately to any dropdown change
+    [moodSelect, charSelect, genreSelect].forEach((sel) => {
+      sel?.addEventListener('change', () => {
+        const stream = getFilteredWaveTracks();
+        if (stream.length > 0 && engine.isPlaying) {
+          playbackQueue = stream;
+          queueIndex = 0;
+          playTrack(stream[0]);
+          updateWaveCardInfo(stream[0]);
+        }
+      });
+    });
+
+    // Hook play state to update hero button icon
+    const origStateChange = engine.onPlayStateChange;
+    engine.onPlayStateChange = (playing) => {
+      if (origStateChange) origStateChange(playing);
+      const icon = startBtn?.querySelector('use');
+      if (icon) {
+        icon.setAttribute('href', playing ? '#icon-pause' : '#icon-play');
+      }
+      if (currentTrack) updateWaveCardInfo(currentTrack);
+    };
   }
 
   /* My Studio: Waveform Trimmer & Lyrics Constructor */
@@ -1702,10 +1946,144 @@
       document.documentElement.setAttribute('data-amoled', amoledToggle.checked ? 'true' : 'false');
     });
 
+    // Font size selector
+    document.querySelectorAll('[data-fontsize]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-fontsize]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const size = btn.getAttribute('data-fontsize') || 'medium';
+        document.documentElement.setAttribute('data-font-size', size);
+      });
+    });
+
+    // Accent Color System & Custom Palette Picker
+    function applyAccentColor(colorHex) {
+      if (!colorHex) return;
+      const root = document.documentElement;
+      root.style.setProperty('--md-sys-color-primary', colorHex);
+      root.style.setProperty('--glow-accent', colorHex);
+
+      let hex = colorHex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+      const r = parseInt(hex.substring(0, 2), 16) || 139;
+      const g = parseInt(hex.substring(2, 4), 16) || 92;
+      const b = parseInt(hex.substring(4, 6), 16) || 246;
+
+      root.style.setProperty('--md-sys-color-primary-container', `rgba(${r}, ${g}, ${b}, 0.28)`);
+      root.style.setProperty('--md-sys-color-on-primary-container', `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 60)}, ${Math.min(255, b + 60)}, 1)`);
+      root.style.setProperty('--glow-color-1', `rgba(${r}, ${g}, ${b}, 0.45)`);
+
+      try {
+        localStorage.setItem('oumusic_accent_color', colorHex);
+      } catch (e) {}
+
+      let matchedPreset = false;
+      document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((btn) => {
+        const btnColor = btn.getAttribute('data-color');
+        if (btnColor && btnColor.toLowerCase() === colorHex.toLowerCase()) {
+          btn.classList.add('active');
+          btn.style.borderColor = '#FFFFFF';
+          matchedPreset = true;
+        } else {
+          btn.classList.remove('active');
+          btn.style.borderColor = 'transparent';
+        }
+      });
+
+      const customBtn = document.getElementById('custom-accent-btn');
+      if (customBtn) {
+        if (!matchedPreset) {
+          customBtn.classList.add('active');
+          customBtn.style.borderColor = '#FFFFFF';
+          customBtn.style.boxShadow = `0 0 14px ${colorHex}`;
+        } else {
+          customBtn.classList.remove('active');
+          customBtn.style.borderColor = 'transparent';
+          customBtn.style.boxShadow = 'none';
+        }
+      }
+    }
+
+    // Connect preset circles
+    document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const c = btn.getAttribute('data-color');
+        if (c) applyAccentColor(c);
+      });
+    });
+
+    // Custom palette button & picker
+    const customAccentBtn = document.getElementById('custom-accent-btn');
+    const customColorPicker = document.getElementById('custom-accent-color-picker');
+
+    customAccentBtn?.addEventListener('click', () => {
+      customColorPicker?.click();
+    });
+
+    customColorPicker?.addEventListener('input', (e) => {
+      applyAccentColor(e.target.value);
+    });
+
+    customColorPicker?.addEventListener('change', (e) => {
+      applyAccentColor(e.target.value);
+    });
+
+    // Restore saved accent color
+    try {
+      const savedColor = localStorage.getItem('oumusic_accent_color');
+      if (savedColor) applyAccentColor(savedColor);
+    } catch (e) {}
+
     // Normalizer switch
     const normToggle = document.getElementById('normalizer-toggle');
     normToggle?.addEventListener('change', () => {
       engine.setNormalizer(normToggle.checked);
+    });
+
+    // Crossfade slider
+    const crossfadeSlider = document.getElementById('crossfade-slider');
+    const crossfadeLabel = document.getElementById('crossfade-value-label');
+    crossfadeSlider?.addEventListener('input', () => {
+      const v = crossfadeSlider.value;
+      if (crossfadeLabel) crossfadeLabel.textContent = `${v} сек`;
+    });
+
+    // 5-Band Equalizer Presets & Default Reset
+    const eqSelect = document.getElementById('eq-presets-select');
+    const eqResetBtn = document.getElementById('eq-reset-btn');
+    const eqSliders = document.querySelectorAll('.eq-band');
+
+    function updateEQSliders(gains) {
+      eqSliders.forEach((slider) => {
+        const band = parseInt(slider.getAttribute('data-band'), 10);
+        if (!isNaN(band) && gains[band] !== undefined) {
+          slider.value = gains[band];
+        }
+      });
+    }
+
+    eqSelect?.addEventListener('change', () => {
+      const preset = eqSelect.value;
+      engine.ensureContext();
+      const gains = engine.applyEQPreset(preset);
+      updateEQSliders(gains);
+    });
+
+    eqResetBtn?.addEventListener('click', () => {
+      engine.ensureContext();
+      const gains = engine.applyEQPreset('flat');
+      if (eqSelect) eqSelect.value = 'flat';
+      updateEQSliders(gains);
+    });
+
+    eqSliders.forEach((slider) => {
+      slider.addEventListener('input', () => {
+        const band = parseInt(slider.getAttribute('data-band'), 10);
+        const val = parseFloat(slider.value);
+        engine.ensureContext();
+        engine.setEQBand(band, val);
+        if (eqSelect) eqSelect.value = 'custom';
+      });
     });
 
     // Docs dialog
@@ -1952,7 +2330,7 @@
       r.className = `track-row ${i === queueIndex ? 'active' : ''}`;
       r.innerHTML = `
         <div class="track-cover-wrap" style="width: 36px; height: 36px;">
-          <img class="track-cover-img" src="${t.thumbBase64 || 'assets/default-cover.svg'}" alt="">
+          <img class="track-cover-img" src="${t.thumbBase64 || 'assets/oumusic.png'}" alt="">
         </div>
         <div class="track-info">
           <div class="track-title" style="font-size: 0.85rem;">${t.title || 'Трек'}</div>
@@ -2037,7 +2415,7 @@
         card.style.padding = '12px';
         card.innerHTML = `
           <div style="width: 100%; aspect-ratio: 1; border-radius: var(--md-shape-corner-small); overflow: hidden; background: #111; margin-bottom: 8px;">
-            <img src="${pl.coverBase64 || 'assets/default-cover.svg'}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+            <img src="${pl.coverBase64 || 'assets/oumusic.png'}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
           </div>
           <div style="font-weight: 600; font-size: 0.9rem;">${pl.name}</div>
         `;

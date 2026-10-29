@@ -469,7 +469,7 @@ class MCoreEngine {
   setupMediaSession(track) {
     if (!('mediaSession' in navigator)) return;
 
-    const coverUrl = track.thumbBase64 || 'assets/default-cover.svg';
+    const coverUrl = track.thumbBase64 || 'assets/oumusic.png';
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title || 'ouMusic Track',

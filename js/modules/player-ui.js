@@ -47,7 +47,7 @@ export function updatePlayerDisplay(track) {
   if (miniTitle) miniTitle.textContent = track.title || 'Безымянный трек';
   if (miniArtist) miniArtist.textContent = track.artist || 'Неизвестный исполнитель';
   if (miniCover) {
-    miniCover.src = track.thumbBase64 || track.coverUrl || 'assets/default-cover.svg';
+    miniCover.src = track.thumbBase64 || track.coverUrl || 'assets/oumusic.png';
   }
 
   // Fullscreen player
@@ -59,7 +59,7 @@ export function updatePlayerDisplay(track) {
   if (fsTitle) fsTitle.textContent = track.title || 'Безымянный трек';
   if (fsArtist) fsArtist.textContent = track.artist || 'Неизвестный исполнитель';
   if (fsCover) {
-    fsCover.src = track.coverUrl || track.thumbBase64 || 'assets/default-cover.svg';
+    fsCover.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
     extractDominantColors(fsCover);
   }
   if (fsAlbum) fsAlbum.textContent = track.album || 'ouMusic';
@@ -577,7 +577,7 @@ function renderQueueList(onTrackSelect) {
         <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-drag"></use></svg>
       </div>
       <div class="track-cover-wrap" style="width: 36px; height: 36px;">
-        <img class="track-cover-img" src="${track.thumbBase64 || 'assets/default-cover.svg'}" alt="">
+        <img class="track-cover-img" src="${track.thumbBase64 || 'assets/oumusic.png'}" alt="">
       </div>
       <div class="track-info">
         <div class="track-title" style="font-size: 0.88rem;">${track.title || 'Трек'}</div>

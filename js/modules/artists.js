@@ -17,8 +17,8 @@ export async function loadArtistsVerification() {
       if (parts.length >= 4) {
         const [idOrName, avatar, banner, isVerified] = parts;
         verifiedDatabase.set(idOrName.toLowerCase(), {
-          avatar: avatar || 'assets/default-cover.svg',
-          banner: banner || 'assets/default-cover.svg',
+          avatar: avatar || 'assets/oumusic.png',
+          banner: banner || 'assets/oumusic.png',
           verified: isVerified === '1'
         });
       }
@@ -61,10 +61,10 @@ export function renderArtistScreen(artistName, onTrackSelect, onPlayAll) {
   if (nameTitle) nameTitle.textContent = cleanName;
 
   if (bannerImg) {
-    bannerImg.src = profile?.banner || 'assets/default-cover.svg';
+    bannerImg.src = profile?.banner || 'assets/oumusic.png';
   }
   if (avatarImg) {
-    avatarImg.src = profile?.avatar || 'assets/default-cover.svg';
+    avatarImg.src = profile?.avatar || 'assets/oumusic.png';
   }
 
   const isVer = profile ? profile.verified : false;
@@ -115,7 +115,7 @@ export function renderArtistScreen(artistName, onTrackSelect, onPlayAll) {
 
       row.innerHTML = `
         <div class="track-cover-wrap">
-          <img class="track-cover-img" src="${track.thumbBase64 || 'assets/default-cover.svg'}" alt="">
+          <img class="track-cover-img" src="${track.thumbBase64 || 'assets/oumusic.png'}" alt="">
         </div>
         <div class="track-info">
           <div class="track-title">${track.title}</div>

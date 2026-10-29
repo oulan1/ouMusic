@@ -153,7 +153,7 @@ export async function playTrack(track, autoPlay = true) {
   // Update track object with full cover if available
   const fullTrack = {
     ...track,
-    coverUrl: coverSource || track.thumbBase64 || 'assets/default-cover.svg'
+    coverUrl: coverSource || track.thumbBase64 || 'assets/oumusic.png'
   };
 
   updatePlayerDisplay(fullTrack);
@@ -319,7 +319,7 @@ function createTrackRowElement(track, onRowClick) {
 
   row.innerHTML = `
     <div class="track-cover-wrap">
-      <img class="track-cover-img" src="${track.thumbBase64 || 'assets/default-cover.svg'}" alt="Cover">
+      <img class="track-cover-img" src="${track.thumbBase64 || 'assets/oumusic.png'}" alt="Cover">
     </div>
     <div class="track-info">
       <div class="track-title">
@@ -442,7 +442,7 @@ async function renderLibraryPlaylists() {
 
     card.innerHTML = `
       <div style="width: 100%; aspect-ratio: 1; border-radius: var(--md-shape-corner-small); overflow: hidden; background: #111; margin-bottom: 8px;">
-        <img src="${pl.coverBase64 || 'assets/default-cover.svg'}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+        <img src="${pl.coverBase64 || 'assets/oumusic.png'}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
       </div>
       <div style="font-weight: 600; font-size: 0.9rem;">${pl.name}</div>
       <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">${pl.trackIds ? pl.trackIds.length : 0} треков</div>

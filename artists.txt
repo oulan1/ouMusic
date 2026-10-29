@@ -3,5 +3,5 @@
 # Статус 1: отображает фирменную фиолетовую SVG-галочку с музыкальной нотой (официально подтвержденный артист).
 # Статус 0: отображает кастомные аватарку и баннер без знака верификации.
 
-oulan1 - assets/default-cover.svg - assets/default-cover.svg - 1
-M-Core - assets/default-cover.svg - assets/default-cover.svg - 1
+oulan1 - assets/oumusic.png - assets/oumusic.png - 1
+M-Core - assets/oumusic.png - assets/oumusic.png - 1

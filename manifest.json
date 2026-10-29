@@ -10,27 +10,27 @@
   "theme_color": "#121212",
   "icons": [
     {
-      "src": "./assets/default-cover.svg",
+      "src": "./assets/oumusic.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
   "categories": ["music", "entertainment", "audio"],
   "shortcuts": [
     {
-      "name": "Моя Волна",
-      "short_name": "Волна",
-      "description": "Запустить персональную волну музыки",
-      "url": "./index.html#wave",
-      "icons": [{ "src": "./assets/default-cover.svg", "sizes": "96x96" }]
+      "name": "Главная",
+      "short_name": "Главная",
+      "description": "Открыть ouMusic",
+      "url": "./index.html#home",
+      "icons": [{ "src": "./assets/oumusic.png", "sizes": "96x96" }]
     },
     {
       "name": "Моя Студия",
       "short_name": "Студия",
       "description": "Создать и обрезать новый .oump3 трек",
       "url": "./index.html#studio",
-      "icons": [{ "src": "./assets/default-cover.svg", "sizes": "96x96" }]
+      "icons": [{ "src": "./assets/oumusic.png", "sizes": "96x96" }]
     }
   ]
 }
