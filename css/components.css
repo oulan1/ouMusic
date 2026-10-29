@@ -603,45 +603,61 @@
 }
 
 /* ==========================================================================
-   Wave Hero Card & Material 3 Dropdowns (Integrated on Home Screen)
+   Wave Home Section — Authentic Immersive "Моя Волна" Experience
    ========================================================================== */
 
-.wave-hero-card {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(236, 72, 153, 0.12) 50%, rgba(18, 18, 24, 0.7) 100%);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: var(--md-shape-corner-extra-large);
-  padding: 24px;
-  margin-bottom: 28px;
+.wave-home-section {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px 28px 20px;
+  margin-bottom: 32px;
+  background: radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.18) 0%, rgba(236, 72, 153, 0.08) 45%, rgba(18, 18, 24, 0) 75%);
+  border-radius: var(--md-shape-corner-extra-large);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 
-.wave-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
+.wave-ambient-glow {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-color-1, rgba(139, 92, 246, 0.35)) 0%, rgba(236, 72, 153, 0.15) 50%, transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+  animation: waveAmbientPulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes waveAmbientPulse {
+  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.95; }
+}
+
+.wave-header-center {
   position: relative;
   z-index: 2;
-}
-
-.wave-card-title-group {
-  flex: 1;
-  min-width: 200px;
+  margin-bottom: 6px;
 }
 
 .wave-badge-live {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 3px 12px;
   border-radius: var(--md-shape-corner-full);
   background: rgba(139, 92, 246, 0.2);
   border: 1px solid rgba(139, 92, 246, 0.4);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.8px;
   color: var(--md-sys-color-primary);
@@ -657,94 +673,110 @@
   animation: wavePulse 1.6s infinite ease-in-out;
 }
 
-@keyframes wavePulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
-}
-
-.wave-title {
-  font-size: 1.6rem;
+.wave-display-title {
+  font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--md-sys-color-on-surface);
   line-height: 1.2;
 }
 
-.wave-subtitle {
+.wave-display-subtitle {
   font-size: 0.88rem;
   color: var(--md-sys-color-on-surface-variant);
   margin-top: 4px;
 }
 
-/* Pulsating Sphere Visualizer */
-.wave-sphere-wrap {
+/* Large Majestic Pulsating Sphere Visualizer */
+.wave-visualizer-container {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 320px;
+  height: 320px;
+  max-width: 85vw;
+  max-height: 85vw;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  margin: 12px auto 8px auto;
+  z-index: 2;
 }
 
 .wave-sphere-canvas {
-  width: 140px;
-  height: 140px;
-  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  display: block;
 }
 
-.wave-center-play-btn {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 54px;
-  height: 54px;
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.5);
-  z-index: 3;
+/* Centered Track Info */
+.wave-track-meta {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 16px;
+  min-height: 48px;
 }
 
-/* Now Playing Strip */
-.wave-now-playing-strip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--md-shape-corner-medium);
-  padding: 10px 16px;
-  margin: 18px 0 16px 0;
-  gap: 12px;
-}
-
-.wave-np-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.wave-np-title {
-  font-size: 0.95rem;
+.wave-track-title {
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--md-sys-color-on-surface);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: -0.3px;
 }
 
-.wave-np-artist {
-  font-size: 0.8rem;
+.wave-track-artist {
+  font-size: 0.92rem;
   color: var(--md-sys-color-on-surface-variant);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-.wave-np-actions {
+/* Controls */
+.wave-controls-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  justify-content: center;
+  gap: 22px;
+  margin-bottom: 22px;
+  position: relative;
+  z-index: 2;
+}
+
+.wave-action-btn {
+  width: 48px;
+  height: 48px;
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.wave-action-btn:hover {
+  background: var(--md-sys-color-surface-container-highest);
+  transform: scale(1.08);
+}
+
+.wave-main-fab {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.5);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
+}
+
+.wave-main-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 30px rgba(139, 92, 246, 0.7);
+}
+
+.wave-main-fab:active {
+  transform: scale(0.96);
 }
 
 /* Material 3 Dropdowns Row */

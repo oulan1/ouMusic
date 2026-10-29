@@ -191,40 +191,68 @@ function initWaveCanvas() {
     const cy = canvas.height / 2;
 
     let bassEnergy = 0;
+    let midEnergy = 0;
     if (engine.analyserNode && engine.isPlaying) {
       const data = new Uint8Array(engine.analyserNode.frequencyBinCount);
       engine.analyserNode.getByteFrequencyData(data);
-      // Average lower bass bands
-      let sum = 0;
-      for (let i = 0; i < 16; i++) {
-        sum += data[i];
-      }
-      bassEnergy = sum / 16 / 255; // 0 to 1
+      let bassSum = 0;
+      for (let i = 0; i < 14; i++) bassSum += data[i];
+      bassEnergy = bassSum / 14 / 255; // 0 to 1
+
+      let midSum = 0;
+      for (let i = 14; i < 50; i++) midSum += data[i];
+      midEnergy = midSum / 36 / 255;
     }
 
-    angle += 0.02 + bassEnergy * 0.04;
+    angle += 0.018 + bassEnergy * 0.045;
+    const idlePulse = Math.sin(angle * 1.5) * 3.5;
+    const baseRadius = 88 + idlePulse + bassEnergy * 46;
 
-    const baseRadius = 70 + bassEnergy * 45;
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
 
-    // Glowing radial backdrop
-    const grad = ctx.createRadialGradient(cx, cy, baseRadius * 0.4, cx, cy, baseRadius * 1.6);
-    grad.addColorStop(0, 'rgba(139, 92, 246, 0.7)');
-    grad.addColorStop(0.5, 'rgba(236, 72, 153, 0.4)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    // 1. Radiant Glowing Backdrop Aura
+    const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.25, cx, cy, baseRadius * 1.55);
+    aura.addColorStop(0, primaryColor);
+    aura.addColorStop(0.42, 'rgba(236, 72, 153, 0.45)');
+    aura.addColorStop(0.78, 'rgba(59, 130, 246, 0.2)');
+    aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-    ctx.fillStyle = grad;
+    ctx.save();
+    ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.arc(cx, cy, baseRadius * 1.6, 0, Math.PI * 2);
+    ctx.arc(cx, cy, baseRadius * 1.55, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
-    // Wavy sphere outline
+    // 2. Inner Concentric Shimmer Ring
     ctx.save();
     ctx.beginPath();
-    const points = 60;
+    const innerPoints = 48;
+    const innerBase = baseRadius * 0.72;
+    for (let i = 0; i <= innerPoints; i++) {
+      const theta = (i / innerPoints) * Math.PI * 2;
+      const distInner = Math.sin(theta * 4 - angle * 1.4) * (3 + midEnergy * 8);
+      const rInner = innerBase + distInner;
+      const ix = cx + Math.cos(theta) * rInner;
+      const iy = cy + Math.sin(theta) * rInner;
+      if (i === 0) ctx.moveTo(ix, iy);
+      else ctx.lineTo(ix, iy);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Main Multi-Harmonic Organic Wave Sphere Contour
+    ctx.save();
+    ctx.beginPath();
+    const points = 72;
     for (let i = 0; i <= points; i++) {
       const theta = (i / points) * Math.PI * 2;
-      const distortion = Math.sin(theta * 6 + angle) * (6 + bassEnergy * 16) + Math.cos(theta * 3 - angle * 1.5) * (4 + bassEnergy * 10);
-      const r = baseRadius + distortion;
+      const distortion1 = Math.sin(theta * 6 + angle * 1.6) * (6 + bassEnergy * 20);
+      const distortion2 = Math.cos(theta * 3 - angle * 1.2) * (4 + midEnergy * 12);
+      const r = baseRadius + distortion1 + distortion2;
       const x = cx + Math.cos(theta) * r;
       const y = cy + Math.sin(theta) * r;
 
@@ -236,10 +264,10 @@ function initWaveCanvas() {
     }
     ctx.closePath();
 
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3.5 + bassEnergy * 2;
     ctx.strokeStyle = '#FFFFFF';
-    ctx.shadowColor = '#8B5CF6';
-    ctx.shadowBlur = 15 + bassEnergy * 20;
+    ctx.shadowColor = primaryColor;
+    ctx.shadowBlur = 18 + bassEnergy * 25;
     ctx.stroke();
     ctx.restore();
 

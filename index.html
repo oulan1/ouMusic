@@ -281,49 +281,49 @@
       <div class="screens-container" id="screens-container">
         <!-- SCREEN 1: HOME -->
         <section class="screen active" id="screen-home">
-          <!-- Wave Hero Card on Home (Personalized Continuous Flow) -->
-          <div class="wave-hero-card" id="wave-hero-card">
-            <div class="wave-card-header">
-              <div class="wave-card-title-group">
-                <div class="wave-badge-live">
-                  <span class="wave-live-dot"></span>
-                  <span>M-CORE FLOW</span>
-                </div>
-                <h2 class="wave-title" data-i18n="wave_title">Моя Волна</h2>
-                <p class="wave-subtitle" data-i18n="wave_subtitle">Бесконечный персональный поток под ваше настроение</p>
-              </div>
+          <!-- SECTION: МОЯ ВОЛНА (Authentic Captivating Style on Home) -->
+          <div class="wave-home-section" id="wave-home-section">
+            <div class="wave-ambient-glow" id="wave-ambient-glow"></div>
 
-              <!-- Interactive Wave Pulsating Sphere Visualizer Canvas -->
-              <div class="wave-sphere-wrap" id="wave-sphere-wrap">
-                <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="220" height="220"></canvas>
-                <button class="play-pause-fab wave-center-play-btn" id="hero-start-wave-btn" title="Запустить Волну">
-                  <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-play"></use></svg>
-                </button>
+            <div class="wave-header-center">
+              <div class="wave-badge-live">
+                <span class="wave-live-dot"></span>
+                <span>M-CORE FLOW</span>
               </div>
+              <h2 class="wave-display-title" data-i18n="wave_title">Моя Волна</h2>
+              <p class="wave-display-subtitle" data-i18n="wave_subtitle">Музыкальная сфера адаптируется под ритм музыки</p>
             </div>
 
-            <!-- Now Playing Strip inside Wave Card -->
-            <div class="wave-now-playing-strip" id="wave-now-playing-strip">
-              <div class="wave-np-info">
-                <div class="wave-np-title" id="wave-np-title">Выберите параметры и запустите Волну</div>
-                <div class="wave-np-artist" id="wave-np-artist">Музыкальный поток адаптируется под вас в реальном времени</div>
-              </div>
-              <div class="wave-np-actions">
-                <button class="icon-btn" id="wave-dislike-btn" title="Дизлайк (Не предлагать этот трек)">
-                  <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
-                </button>
-                <button class="icon-btn" id="wave-skip-btn" title="Следующий трек">
-                  <svg class="svg-icon"><use href="#icon-next"></use></svg>
-                </button>
-              </div>
+            <!-- Majestic 400x400 Pulsating Wave Sphere Canvas -->
+            <div class="wave-visualizer-container" id="wave-visualizer-container">
+              <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="400" height="400"></canvas>
             </div>
 
-            <!-- 3 Material 3 Dropdown Selects for Wave -->
+            <!-- Centered Track Metadata -->
+            <div class="wave-track-meta" id="wave-track-meta">
+              <div class="wave-track-title" id="wave-track-title">Не играет</div>
+              <div class="wave-track-artist" id="wave-track-artist">Выберите параметры и нажмите Старт</div>
+            </div>
+
+            <!-- Round Centered Controls -->
+            <div class="wave-controls-row">
+              <button class="icon-btn wave-action-btn" id="wave-dislike-btn" title="Дизлайк (Не предлагать)">
+                <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+              </button>
+              <button class="play-pause-fab wave-main-fab" id="hero-start-wave-btn" title="Запустить Волну">
+                <svg class="svg-icon" style="width: 28px; height: 28px;"><use href="#icon-play"></use></svg>
+              </button>
+              <button class="icon-btn wave-action-btn" id="wave-skip-btn" title="Следующий трек">
+                <svg class="svg-icon"><use href="#icon-next"></use></svg>
+              </button>
+            </div>
+
+            <!-- 3 Material 3 Dropdowns Row -->
             <div class="wave-dropdowns-row">
               <!-- Dropdown 1: Mood & Activity -->
               <div class="m3-select-wrapper">
                 <label class="m3-select-label" for="wave-select-mood">
-                  <span>Настроение и занятие</span>
+                  <span>Настроение и занятие:</span>
                 </label>
                 <div class="m3-select-container">
                   <select id="wave-select-mood" class="m3-select">
@@ -343,15 +343,15 @@
               <!-- Dropdown 2: Character -->
               <div class="m3-select-wrapper">
                 <label class="m3-select-label" for="wave-select-char">
-                  <span>Характер звучания</span>
+                  <span>Характер:</span>
                 </label>
                 <div class="m3-select-container">
                   <select id="wave-select-char" class="m3-select">
-                    <option value="any">Любой характер</option>
-                    <option value="familiar">Любимое и знакомое</option>
-                    <option value="unfamiliar">Новое и неизведанное</option>
-                    <option value="forgotten">Забытые треки</option>
-                    <option value="popular">Главные хиты и тренды</option>
+                    <option value="any">Любой</option>
+                    <option value="familiar">Знакомое</option>
+                    <option value="unfamiliar">Незнакомое</option>
+                    <option value="forgotten">Забытое</option>
+                    <option value="popular">Популярное</option>
                   </select>
                   <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
                 </div>
@@ -360,7 +360,7 @@
               <!-- Dropdown 3: Genre -->
               <div class="m3-select-wrapper">
                 <label class="m3-select-label" for="wave-select-genre">
-                  <span>Жанр музыки</span>
+                  <span>Фильтр по жанру:</span>
                 </label>
                 <div class="m3-select-container">
                   <select id="wave-select-genre" class="m3-select">

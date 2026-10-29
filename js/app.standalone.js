@@ -899,21 +899,19 @@
 
     // Mathematical convex arc layout calculation (bulging left-to-right)
     function updateArcLayout() {
-      const R = 185; // Arc circle radius in pixels
-      const X0 = -60; // Left-offset so peak curves outward into the screen
-      const Y0 = 220; // Vertical midpoint of sidebar container
-      const deltaTheta = 0.54; // Angular distance between adjacent items in radians (~31 deg)
+      const Y0 = 250; // Vertical center of 500px dome
+      const deltaTheta = 0.46; // radians between adjacent items (~26.4 deg)
 
       itemElements.forEach((el, idx) => {
-        // Shortest distance on modular circular loop
+        // Shortest distance on modular circular loop: -2, -1, 0, 1, 2
         let diff = ((idx - activeIndex) % N + N) % N;
         if (diff > N / 2) diff -= N;
 
-        const angle = diff * deltaTheta; // 0 rad is center apex (furthest right bulge)
-        const x = X0 + R * Math.cos(angle);
-        const y = Y0 + R * Math.sin(angle);
+        const angle = diff * deltaTheta;
+        const y = Y0 + 140 * Math.sin(angle);
+        const x = 45 - 32 * (1 - Math.cos(angle));
 
-        const isActive = idx === activeIndex;
+        const isActive = diff === 0;
         const isVisible = Math.abs(diff) <= 2;
 
         el.classList.toggle('active', isActive);
@@ -921,13 +919,13 @@
         if (!isVisible) {
           el.style.opacity = '0';
           el.style.pointerEvents = 'none';
-          el.style.transform = `translate(${x}px, ${y - 24}px) scale(0.6)`;
+          el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y - 22)}px) scale(0.6)`;
         } else {
-          const scale = isActive ? 1.08 : (Math.abs(diff) === 1 ? 0.94 : 0.82);
+          const scale = isActive ? 1.08 : (Math.abs(diff) === 1 ? 0.92 : 0.82);
           const opacity = isActive ? 1 : (Math.abs(diff) === 1 ? 0.85 : 0.55);
           el.style.opacity = `${opacity}`;
           el.style.pointerEvents = 'auto';
-          el.style.transform = `translate(${x}px, ${y - 24}px) scale(${scale})`;
+          el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y - 22)}px) scale(${scale})`;
         }
       });
     }
@@ -941,7 +939,7 @@
     // Expose sync helper so any navigation source updates the wheel
     window.syncArcNav = function(screenId) {
       const idx = ARC_NAV_ITEMS.findIndex((it) => it.id === screenId);
-      if (idx !== -1 && idx !== activeIndex) {
+      if (idx !== -1) {
         rotateToIndex(idx);
       }
     };
@@ -1248,6 +1246,11 @@
       img.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
     });
 
+    const waveTitle = document.getElementById('wave-track-title') || document.getElementById('wave-np-title');
+    const waveArtist = document.getElementById('wave-track-artist') || document.getElementById('wave-np-artist');
+    if (waveTitle) waveTitle.textContent = track.title || 'Трек';
+    if (waveArtist) waveArtist.textContent = track.artist || 'Артист';
+
     updateLikeDislikeState(track.id);
   }
 
@@ -1491,51 +1494,102 @@
     render();
   }
 
-  /* Wave Screen & Sphere Animation (Integrated on Home Hero Card) */
+  /* Wave Screen & Sphere Animation (Authentic Captivating Моя Волна on Home) */
   function initWaveUI() {
     const canvas = document.getElementById('wave-sphere-canvas');
     if (canvas) {
       const ctx = canvas.getContext('2d');
       let angle = 0;
+      let animFrameId = null;
+
       function renderWave() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
-        let bass = 0;
 
+        let bassEnergy = 0;
+        let midEnergy = 0;
         if (engine.analyserNode && engine.isPlaying) {
-          const data = new Uint8Array(engine.analyserNode.frequencyBinCount);
-          engine.analyserNode.getByteFrequencyData(data);
-          let sum = 0;
-          for (let i = 0; i < 16; i++) sum += data[i];
-          bass = sum / 16 / 255;
+          const freqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
+          engine.analyserNode.getByteFrequencyData(freqData);
+
+          let bassSum = 0;
+          for (let i = 0; i < 14; i++) bassSum += freqData[i];
+          bassEnergy = bassSum / 14 / 255;
+
+          let midSum = 0;
+          for (let i = 14; i < 50; i++) midSum += freqData[i];
+          midEnergy = midSum / 36 / 255;
         }
 
-        angle += 0.02 + bass * 0.05;
-        const r = 52 + bass * 26;
+        // Smooth continuous organic rotation and idle breathing
+        angle += 0.018 + bassEnergy * 0.045;
+        const idlePulse = Math.sin(angle * 1.5) * 3.5;
+        const baseRadius = 88 + idlePulse + bassEnergy * 46;
+
+        // Dynamic primary accent color from CSS variables
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
+
+        // 1. Radiant Glowing Radial Backdrop Aura
+        const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.25, cx, cy, baseRadius * 1.55);
+        aura.addColorStop(0, primaryColor);
+        aura.addColorStop(0.42, 'rgba(236, 72, 153, 0.45)'); // neon magenta
+        aura.addColorStop(0.78, 'rgba(59, 130, 246, 0.2)'); // electric blue
+        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.save();
+        ctx.fillStyle = aura;
         ctx.beginPath();
-        for (let i = 0; i <= 60; i++) {
-          const th = (i / 60) * Math.PI * 2;
-          const dist = Math.sin(th * 6 + angle) * (4 + bass * 12);
-          const rad = r + dist;
-          const x = cx + Math.cos(th) * rad;
-          const y = cy + Math.sin(th) * rad;
+        ctx.arc(cx, cy, baseRadius * 1.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 2. Inner Concentric Shimmer Ring
+        ctx.save();
+        ctx.beginPath();
+        const innerPoints = 48;
+        const innerBase = baseRadius * 0.72;
+        for (let i = 0; i <= innerPoints; i++) {
+          const theta = (i / innerPoints) * Math.PI * 2;
+          const distInner = Math.sin(theta * 4 - angle * 1.4) * (3 + midEnergy * 8);
+          const rInner = innerBase + distInner;
+          const ix = cx + Math.cos(theta) * rInner;
+          const iy = cy + Math.sin(theta) * rInner;
+          if (i === 0) ctx.moveTo(ix, iy);
+          else ctx.lineTo(ix, iy);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+        ctx.restore();
+
+        // 3. Main Multi-Harmonic Organic Wave Sphere Contour
+        ctx.save();
+        ctx.beginPath();
+        const points = 72;
+        for (let i = 0; i <= points; i++) {
+          const theta = (i / points) * Math.PI * 2;
+          const harmonic1 = Math.sin(theta * 6 + angle * 1.6) * (6 + bassEnergy * 20);
+          const harmonic2 = Math.cos(theta * 3 - angle * 1.2) * (4 + midEnergy * 12);
+          const r = baseRadius + harmonic1 + harmonic2;
+          const x = cx + Math.cos(theta) * r;
+          const y = cy + Math.sin(theta) * r;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = 3.5 + bassEnergy * 2;
         ctx.strokeStyle = '#FFFFFF';
-        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
         ctx.shadowColor = primaryColor;
-        ctx.shadowBlur = 14 + bass * 22;
+        ctx.shadowBlur = 18 + bassEnergy * 25;
         ctx.stroke();
         ctx.restore();
 
-        requestAnimationFrame(renderWave);
+        animFrameId = requestAnimationFrame(renderWave);
       }
+
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       renderWave();
     }
 
@@ -1586,13 +1640,17 @@
     }
 
     function updateWaveCardInfo(track) {
-      const titleEl = document.getElementById('wave-np-title');
-      const artistEl = document.getElementById('wave-np-artist');
+      const titleEl = document.getElementById('wave-track-title') || document.getElementById('wave-np-title');
+      const artistEl = document.getElementById('wave-track-artist') || document.getElementById('wave-np-artist');
       if (track) {
         if (titleEl) titleEl.textContent = track.title || 'Безымянный трек';
         if (artistEl) artistEl.textContent = track.artist || 'Неизвестный исполнитель';
+      } else {
+        if (titleEl) titleEl.textContent = 'Не играет';
+        if (artistEl) artistEl.textContent = 'Выберите параметры и нажмите Старт';
       }
     }
+    window.updateWaveCardInfo = updateWaveCardInfo;
 
     // Start / Pause Wave
     startBtn?.addEventListener('click', () => {
