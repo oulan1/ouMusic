@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark" data-font-size="medium">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#121218">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="ouMusic — прогрессивный музыкальный сервис на веб-движке M-Core">
+  <title>ouMusic</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/default-cover.svg">
+
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/player.css">
+
+  <!-- JSZip CDN for .oump3 and .oulist containers -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <!-- Inlined SVG icons container -->
+  <div id="svg-icons-container" style="display: none;"></div>
+
+  <div id="app">
+    <!-- Desktop Left Sidebar -->
+    <aside class="desktop-sidebar">
+      <div class="brand-logo" id="brand-logo-btn">
+        <img src="assets/default-cover.svg" alt="ouMusic" class="brand-icon">
+        <div class="brand-title">ouMusic <span class="brand-badge">M-CORE</span></div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="sidebar-item active" data-nav="home">
+          <svg class="svg-icon"><use href="#icon-home"></use></svg>
+          <span data-i18n="nav_home">Главная</span>
+        </button>
+        <button class="sidebar-item" data-nav="wave">
+          <svg class="svg-icon"><use href="#icon-wave"></use></svg>
+          <span data-i18n="nav_wave">Моя Волна</span>
+        </button>
+        <button class="sidebar-item" data-nav="library">
+          <svg class="svg-icon"><use href="#icon-library"></use></svg>
+          <span data-i18n="nav_library">Библиотека</span>
+        </button>
+        <button class="sidebar-item" data-nav="studio">
+          <svg class="svg-icon"><use href="#icon-studio"></use></svg>
+          <span data-i18n="nav_studio">Моя Студия</span>
+        </button>
+        <button class="sidebar-item" data-nav="profile">
+          <svg class="svg-icon"><use href="#icon-user"></use></svg>
+          <span data-i18n="nav_profile">Мой профиль</span>
+          <span class="notif-badge" id="sidebar-recap-badge"></span>
+        </button>
+        <button class="sidebar-item" data-nav="settings">
+          <svg class="svg-icon"><use href="#icon-settings"></use></svg>
+          <span data-i18n="nav_settings">Настройки</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main View Area -->
+    <main class="main-view">
+      <!-- Top App Bar -->
+      <header class="top-app-bar">
+        <div class="top-bar-left">
+          <button class="icon-btn" id="top-back-btn" style="display: none;" title="Назад">
+            <svg class="svg-icon"><use href="#icon-prev"></use></svg>
+          </button>
+          <div class="top-search-container">
+            <svg class="svg-icon" style="width: 18px; height: 18px; fill: var(--md-sys-color-outline);"><use href="#icon-search"></use></svg>
+            <input type="text" id="global-search-input" class="top-search-input" placeholder="Поиск треков, артистов..." data-i18n-placeholder="search_placeholder">
+          </div>
+        </div>
+
+        <div class="top-bar-right">
+          <button class="icon-btn" id="top-studio-btn" title="Моя Студия">
+            <svg class="svg-icon"><use href="#icon-studio"></use></svg>
+          </button>
+          <button class="icon-btn" id="top-settings-btn" title="Настройки">
+            <svg class="svg-icon"><use href="#icon-settings"></use></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Screens Container -->
+      <div class="screens-container" id="screens-container">
+        <!-- SCREEN 1: HOME -->
+        <section class="screen active" id="screen-home">
+          <!-- Wave Hero Card -->
+          <div class="wave-hero-card" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(236, 72, 153, 0.15)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: var(--md-shape-corner-extra-large); padding: 20px; margin-bottom: 24px; position: relative; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--md-sys-color-on-surface);" data-i18n="wave_title">Моя Волна</h2>
+                <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;" data-i18n="wave_subtitle">Бесконечный поток под ваше настроение</p>
+              </div>
+              <button class="play-pause-fab" id="hero-start-wave-btn" style="width: 52px; height: 52px;" title="Запустить Волну">
+                <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-play"></use></svg>
+              </button>
+            </div>
+
+            <!-- Wave Filters: Mood -->
+            <div style="margin-top: 16px;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--md-sys-color-outline); font-weight: 600;" data-i18n="wave_mood_label">Настроение и занятие:</div>
+              <div class="chips-scroll-row" id="wave-mood-chips">
+                <button class="chip active" data-mood="all" data-i18n="mood_all">Все</button>
+                <button class="chip" data-mood="work" data-i18n="mood_work">Для работы</button>
+                <button class="chip" data-mood="rest" data-i18n="mood_rest">Отдых</button>
+                <button class="chip" data-mood="sleep" data-i18n="mood_sleep">Засыпаю</button>
+                <button class="chip" data-mood="workout" data-i18n="mood_workout">Тренировка</button>
+                <button class="chip" data-mood="road" data-i18n="mood_road">В дорогу</button>
+                <button class="chip" data-mood="energy" data-i18n="mood_energy">Бодрость</button>
+                <button class="chip" data-mood="melancholy" data-i18n="mood_melancholy">Меланхолия</button>
+              </div>
+            </div>
+
+            <!-- Wave Filters: Character -->
+            <div style="margin-top: 8px;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--md-sys-color-outline); font-weight: 600;" data-i18n="wave_character_label">Характер:</div>
+              <div class="chips-scroll-row" id="wave-character-chips">
+                <button class="chip active" data-char="any" data-i18n="char_any">Любой</button>
+                <button class="chip" data-char="familiar" data-i18n="char_familiar">Знакомое</button>
+                <button class="chip" data-char="unfamiliar" data-i18n="char_unfamiliar">Незнакомое</button>
+                <button class="chip" data-char="forgotten" data-i18n="char_forgotten">Забытое</button>
+                <button class="chip" data-char="popular" data-i18n="char_popular">Популярное</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Tracks Feed -->
+          <div class="section-header">
+            <h3 class="section-title" data-i18n="feed_title">Лента треков</h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-tonal" id="catalog-sort-toggle" style="padding: 6px 14px; font-size: 0.8rem;">
+                <span id="catalog-sort-label">Сначала новые</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="tracks-list" id="home-tracks-list">
+            <!-- Dynamic tracks items -->
+          </div>
+
+          <!-- Section: Locally Imported / Community Tracks -->
+          <div class="section-header" style="margin-top: 36px;">
+            <h3 class="section-title" data-i18n="manual_tracks_title">Добавлено вручную</h3>
+            <button class="btn btn-outlined" id="home-upload-custom-btn" style="padding: 6px 14px; font-size: 0.8rem;">
+              <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-plus"></use></svg>
+              <span data-i18n="btn_upload_oump3">Загрузить свой .oump3</span>
+            </button>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-bottom: 12px;" data-i18n="manual_tracks_subtitle">
+            Треки, загруженные вами локально. Хранятся вечно в IndexedDB и доступны 100% оффлайн.
+          </p>
+
+          <div class="tracks-list" id="home-manual-tracks-list">
+            <!-- Dynamic manual tracks -->
+          </div>
+        </section>
+
+        <!-- SCREEN 2: WAVE SCREEN -->
+        <section class="screen" id="screen-wave">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <h2 style="font-size: 1.5rem; font-weight: 700;" data-i18n="nav_wave">Моя Волна</h2>
+            <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant);" data-i18n="wave_sphere_subtitle">Музыкальная сфера адаптируется под ритм музыки</p>
+          </div>
+
+          <!-- Reactive Wave Pulsating Canvas -->
+          <div class="wave-visualizer-container">
+            <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="400" height="400"></canvas>
+          </div>
+
+          <div id="wave-current-track-info" style="text-align: center; margin: 16px 0;">
+            <div id="wave-track-title" style="font-size: 1.25rem; font-weight: 700;">Не играет</div>
+            <div id="wave-track-artist" style="font-size: 0.95rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">Выберите фильтр и нажмите Старт</div>
+          </div>
+
+          <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin: 24px 0;">
+            <button class="icon-btn" id="wave-dislike-btn" title="Дизлайк (Не предлагать)" style="width: 48px; height: 48px; background: var(--md-sys-color-surface-container-high);">
+              <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+            </button>
+            <button class="play-pause-fab" id="wave-play-toggle-btn" style="width: 64px; height: 64px;">
+              <svg class="svg-icon" style="width: 28px; height: 28px;"><use href="#icon-play"></use></svg>
+            </button>
+            <button class="icon-btn" id="wave-skip-btn" title="Следующий трек" style="width: 48px; height: 48px; background: var(--md-sys-color-surface-container-high);">
+              <svg class="svg-icon"><use href="#icon-next"></use></svg>
+            </button>
+          </div>
+
+          <!-- Genres Filter for Wave -->
+          <div style="margin-top: 24px;">
+            <div class="section-title" style="font-size: 1rem; margin-bottom: 8px;" data-i18n="wave_genre_label">Фильтр по жанру:</div>
+            <div class="chips-scroll-row" id="wave-genre-chips">
+              <!-- Injected by wave.js -->
+            </div>
+          </div>
+        </section>
+
+        <!-- SCREEN 3: LIBRARY -->
+        <section class="screen" id="screen-library">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 style="font-size: 1.5rem; font-weight: 700;" data-i18n="nav_library">Библиотека</h2>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-tonal" id="lib-import-tunemymusic-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+                <span data-i18n="btn_tunemymusic">TuneMyMusic</span>
+              </button>
+              <button class="btn btn-primary" id="lib-upload-oump3-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+                <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-download"></use></svg>
+                <span data-i18n="btn_upload_oump3">Загрузить .oump3</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Library Tabs -->
+          <div class="chips-scroll-row" id="library-tabs">
+            <button class="chip active" data-tab="playlists" data-i18n="tab_playlists">Плейлисты</button>
+            <button class="chip" data-tab="likes" data-i18n="tab_likes">Понравившиеся</button>
+            <button class="chip" data-tab="downloads" data-i18n="tab_downloads">Скачанные</button>
+          </div>
+
+          <!-- Tab Content: Playlists -->
+          <div class="lib-tab-content active" id="lib-tab-playlists">
+            <div style="display: flex; gap: 12px; margin: 16px 0;">
+              <button class="btn btn-tonal" id="create-playlist-btn">
+                <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-plus"></use></svg>
+                <span data-i18n="btn_create_playlist">Создать плейлист</span>
+              </button>
+              <button class="btn btn-outlined" id="import-playlist-oulist-btn">
+                <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-download"></use></svg>
+                <span data-i18n="btn_import_oulist">Импорт .oulist</span>
+              </button>
+            </div>
+            <div id="playlists-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px;">
+              <!-- Dynamic playlists -->
+            </div>
+          </div>
+
+          <!-- Tab Content: Likes -->
+          <div class="lib-tab-content" id="lib-tab-likes" style="display: none;">
+            <div class="tracks-list" id="likes-tracks-list" style="margin-top: 16px;">
+              <!-- Dynamic liked tracks -->
+            </div>
+          </div>
+
+          <!-- Tab Content: Downloads -->
+          <div class="lib-tab-content" id="lib-tab-downloads" style="display: none;">
+            <div class="tracks-list" id="downloads-tracks-list" style="margin-top: 16px;">
+              <!-- Dynamic offline tracks -->
+            </div>
+          </div>
+        </section>
+
+        <!-- SCREEN 4: MY PROFILE & ACHIEVEMENTS & RECAP -->
+        <section class="screen" id="screen-profile">
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-extra-large); padding: 24px; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <div id="profile-avatar-container" style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: #222; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0; cursor: pointer;">
+                <img id="profile-avatar-img" src="assets/default-cover.svg" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h2 id="profile-name-display" style="font-size: 1.35rem; font-weight: 700;">Пользователь</h2>
+                  <button class="icon-btn" id="edit-profile-btn" style="width: 28px; height: 28px;" title="Изменить">
+                    <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-edit"></use></svg>
+                  </button>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 2px;">Профиль ouMusic</div>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
+              <div style="background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 14px; text-align: center;">
+                <div id="stat-month-hours" style="font-size: 1.4rem; font-weight: 700; color: var(--md-sys-color-primary);">0 ч</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;" data-i18n="stat_month">За этот месяц</div>
+              </div>
+              <div style="background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 14px; text-align: center;">
+                <div id="stat-all-hours" style="font-size: 1.4rem; font-weight: 700; color: var(--md-sys-color-secondary);">0 ч</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;" data-i18n="stat_total">За всё время</div>
+              </div>
+            </div>
+
+            <!-- Year Recap Button -->
+            <button class="btn btn-primary" id="open-year-recap-btn" style="width: 100%; margin-top: 16px; justify-content: center; position: relative;">
+              <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-sparkles"></use></svg>
+              <span data-i18n="btn_year_recap">Ваши итоги года</span>
+              <span class="notif-badge" id="recap-btn-badge"></span>
+            </button>
+          </div>
+
+          <!-- Achievements Shelf -->
+          <div class="section-header">
+            <h3 class="section-title" data-i18n="achievements_title">Достижения</h3>
+            <span style="font-size: 0.85rem; color: var(--md-sys-color-outline);" id="achievements-count">0 / 5</span>
+          </div>
+          <div class="achievements-grid" id="achievements-grid">
+            <!-- Dynamic achievements -->
+          </div>
+
+          <!-- Profile Backup -->
+          <div class="section-header" style="margin-top: 32px;">
+            <h3 class="section-title" data-i18n="backup_title">Резервная копия</h3>
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <button class="btn btn-tonal" id="export-profile-json-btn">
+              <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-download"></use></svg>
+              <span data-i18n="btn_export_backup">Экспорт профиля (JSON)</span>
+            </button>
+            <button class="btn btn-outlined" id="import-profile-json-btn">
+              <span data-i18n="btn_import_backup">Импорт профиля</span>
+            </button>
+          </div>
+
+          <!-- History -->
+          <div class="section-header" style="margin-top: 32px;">
+            <h3 class="section-title" data-i18n="history_title">История прослушиваний</h3>
+            <button class="btn btn-outlined" id="clear-history-btn" style="padding: 4px 10px; font-size: 0.75rem;">Очистить</button>
+          </div>
+          <div class="tracks-list" id="profile-history-list">
+            <!-- Dynamic history -->
+          </div>
+        </section>
+
+        <!-- SCREEN 5: SETTINGS -->
+        <section class="screen" id="screen-settings">
+          <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 20px;" data-i18n="nav_settings">Настройки</h2>
+
+          <!-- Theme -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px;" data-i18n="settings_appearance">Внешний вид</div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+              <button class="chip active" id="theme-dark-btn">Тёмная</button>
+              <button class="chip" id="theme-light-btn">Светлая</button>
+            </div>
+
+            <!-- AMOLED Switch -->
+            <label class="m3-switch">
+              <div>
+                <div class="switch-label">AMOLED режим (#000000)</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Радикально черный фон для экономии батареи</div>
+              </div>
+              <input type="checkbox" id="amoled-toggle" class="switch-input">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </label>
+
+            <!-- Accent Hue Picker -->
+            <div style="margin-top: 16px;">
+              <div style="font-size: 0.85rem; margin-bottom: 8px;">Акцентный цвет интерфейса:</div>
+              <div style="display: flex; gap: 10px; align-items: center;" id="accent-colors-row">
+                <button class="accent-color-circle active" data-hue="260" style="width: 28px; height: 28px; border-radius: 50%; background: #8B5CF6; border: 2px solid #FFF; cursor: pointer;"></button>
+                <button class="accent-color-circle" data-hue="330" style="width: 28px; height: 28px; border-radius: 50%; background: #EC4899; border: 2px solid transparent; cursor: pointer;"></button>
+                <button class="accent-color-circle" data-hue="210" style="width: 28px; height: 28px; border-radius: 50%; background: #3B82F6; border: 2px solid transparent; cursor: pointer;"></button>
+                <button class="accent-color-circle" data-hue="160" style="width: 28px; height: 28px; border-radius: 50%; background: #10B981; border: 2px solid transparent; cursor: pointer;"></button>
+                <button class="accent-color-circle" data-hue="35" style="width: 28px; height: 28px; border-radius: 50%; background: #F59E0B; border: 2px solid transparent; cursor: pointer;"></button>
+              </div>
+            </div>
+
+            <!-- Font Size -->
+            <div style="margin-top: 16px;">
+              <div style="font-size: 0.85rem; margin-bottom: 8px;">Размер интерфейса:</div>
+              <div class="chips-scroll-row">
+                <button class="chip" data-fontsize="small">Маленький</button>
+                <button class="chip active" data-fontsize="medium">Стандартный</button>
+                <button class="chip" data-fontsize="large">Крупный</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sound Engine M-Core Settings -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px;" data-i18n="settings_audio">Аудиодвижок M-Core</div>
+
+            <!-- Loudness Normalizer (Default: ON) -->
+            <label class="m3-switch">
+              <div>
+                <div class="switch-label">Выравнивание громкости (Normalizer)</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Устраняет перепады громкости между разными треками</div>
+              </div>
+              <input type="checkbox" id="normalizer-toggle" class="switch-input" checked>
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </label>
+
+            <!-- Crossfade -->
+            <div class="m3-slider-group">
+              <div class="m3-slider-header">
+                <span>Плавное сведение (Crossfade)</span>
+                <span id="crossfade-value-label" class="m3-slider-value">0 сек</span>
+              </div>
+              <input type="range" id="crossfade-slider" class="m3-range-input" min="0" max="12" step="1" value="0">
+            </div>
+
+            <!-- Equalizer -->
+            <div style="margin-top: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.9rem; font-weight: 500;">5-полосный эквалайзер</span>
+                <select id="eq-presets-select" style="background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 4px 8px; font-size: 0.8rem;">
+                  <option value="flat">Flat</option>
+                  <option value="bass">Bass Boost</option>
+                  <option value="vocal">Vocal</option>
+                  <option value="rock">Rock</option>
+                  <option value="electronic">Electronic</option>
+                </select>
+              </div>
+              <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 12px;" id="eq-sliders-row">
+                <!-- 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz -->
+                <div style="text-align: center; flex: 1;">
+                  <input type="range" class="m3-range-input eq-band" data-band="0" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">60Hz</div>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                  <input type="range" class="m3-range-input eq-band" data-band="1" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">230Hz</div>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                  <input type="range" class="m3-range-input eq-band" data-band="2" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">910Hz</div>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                  <input type="range" class="m3-range-input eq-band" data-band="3" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">3.6k</div>
+                </div>
+                <div style="text-align: center; flex: 1;">
+                  <input type="range" class="m3-range-input eq-band" data-band="4" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">14k</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Blacklist / Disliked Tracks -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 8px;">Скрытые треки (Черный список)</div>
+            <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">Треки, которым был поставлен Дизлайк, не звучат в Волне и рекомендациях.</div>
+            <div class="tracks-list" id="settings-blacklist-list">
+              <!-- Dynamic blacklisted tracks -->
+            </div>
+          </div>
+
+          <!-- Documentation & About -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px;">О сервисе и документация</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn btn-tonal" id="open-mcore-docs-btn" style="justify-content: flex-start;">
+                <span>Документация о M-Core</span>
+              </button>
+              <button class="btn btn-outlined" id="download-ai-spec-btn" style="justify-content: flex-start;">
+                <span>Скачать инструкцию для ИИ (.txt)</span>
+              </button>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
+              Версия: <span id="app-version-label">1.0.0</span> • Разработчик: oulan1
+            </div>
+          </div>
+        </section>
+
+        <!-- SCREEN 6: MY STUDIO (CREATOR MODULE) -->
+        <section class="screen" id="screen-studio">
+          <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Моя Студия</h2>
+            <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">
+              Двухэтапный конструктор: 1. Визуальная обрезка звука -> 2. Умная Тап-разметка текста -> Сборка .oump3
+            </p>
+          </div>
+
+          <!-- Metadata card -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px;">Метаданные трека</div>
+
+            <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
+              <!-- Cover Drag-and-drop -->
+              <div id="studio-cover-dropzone" style="width: 120px; height: 120px; border-radius: var(--md-shape-corner-medium); border: 2px dashed var(--md-sys-color-outline); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; overflow: hidden; position: relative; background: #111;">
+                <img id="studio-cover-preview" src="" alt="" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                <div id="studio-cover-placeholder">
+                  <svg class="svg-icon" style="width: 24px; height: 24px; fill: var(--md-sys-color-outline);"><use href="#icon-plus"></use></svg>
+                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">Обложка<br>(до 10 МБ)</div>
+                </div>
+                <input type="file" id="studio-cover-file" accept="image/jpeg,image/png,image/webp" style="display: none;">
+              </div>
+
+              <!-- Title & Artist inputs -->
+              <div style="flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" id="studio-title-input" placeholder="Название трека *" style="background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 10px 14px; color: var(--md-sys-color-on-surface); outline: none;">
+                
+                <div style="position: relative;">
+                  <input type="text" id="studio-artist-input" placeholder="Артист (или несколько через запятую) *" style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 10px 14px; color: var(--md-sys-color-on-surface); outline: none;">
+                  <div id="studio-artist-suggestions" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--md-sys-color-surface-container-highest); border-radius: var(--md-shape-corner-small); max-height: 120px; overflow-y: auto; z-index: 10; display: none;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Genre Multiselect Chips -->
+            <div>
+              <div style="font-size: 0.85rem; margin-bottom: 6px;">Жанры (выберите один или несколько):</div>
+              <div class="chips-scroll-row" id="studio-genres-chips" style="max-height: 100px; flex-wrap: wrap;">
+                <!-- 60+ genres chips injected by studio.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 1: WAVEFORM TRIMMER -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 600;">ШАГ 1: Загрузка аудио и обрезка волны</div>
+              <span id="studio-audio-status" class="badge-beta" style="background: #3B82F6;">Ожидание файла</span>
+            </div>
+
+            <div style="margin: 12px 0;">
+              <input type="file" id="studio-audio-file" accept="audio/mp3,audio/wav,audio/mpeg,.mp3,.wav" style="display: none;">
+              <button class="btn btn-tonal" id="studio-choose-audio-btn">
+                <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-music"></use></svg>
+                <span>Выбрать аудио (.mp3 или .wav)</span>
+              </button>
+            </div>
+
+            <!-- Waveform Canvas Box -->
+            <div id="studio-waveform-box" style="display: none;">
+              <div class="waveform-container" id="waveform-container">
+                <canvas id="studio-waveform-canvas" class="waveform-canvas"></canvas>
+                <div id="trim-handle-start" class="trim-handle" style="left: 0;"></div>
+                <div id="trim-handle-end" class="trim-handle" style="right: 0;"></div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">
+                <span>Старт: <strong id="trim-start-label" style="color: var(--md-sys-color-primary);">00:00.0</strong></span>
+                <span>Конец: <strong id="trim-end-label" style="color: var(--md-sys-color-primary);">00:00.0</strong></span>
+                <span>Длительность: <strong id="trim-duration-label">0 сек</strong></span>
+              </div>
+
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn btn-tonal" id="studio-play-trim-btn">
+                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-play"></use></svg>
+                  <span>Прослушать отрезок</span>
+                </button>
+                <button class="btn btn-primary" id="studio-confirm-trim-btn">
+                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-check"></use></svg>
+                  <span>Подтвердить обрезку</span>
+                </button>
+                <button class="btn btn-outlined" id="studio-keep-original-btn">
+                  <span>Оставить без обрезки</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 2: DYNAMIC LYRICS CONSTRUCTOR -->
+          <div id="studio-step-2-box" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 600;">ШАГ 2: Конструктор синхронизированного текста</div>
+              <span class="badge-beta">Шаг 2 из 2</span>
+            </div>
+
+            <!-- Paste Full Lyrics Area -->
+            <div style="margin-bottom: 16px;">
+              <textarea id="studio-paste-lyrics-textarea" rows="4" placeholder="Вставьте полный текст песни целиком (студия сама разобьет его на строки)..." style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 10px 14px; color: var(--md-sys-color-on-surface); outline: none; font-family: inherit; font-size: 0.85rem; resize: vertical;"></textarea>
+              <button class="btn btn-tonal" id="studio-apply-pasted-lyrics-btn" style="margin-top: 8px;">
+                <span>Разбить на строки для разметки</span>
+              </button>
+            </div>
+
+            <!-- Live Tap-Sync Player Bar -->
+            <div style="background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 12px; margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 600;">Плеер Студии (зафиксированный отрезок)</span>
+                <span id="studio-player-timer" style="font-family: var(--font-family-mono); font-weight: 700; color: var(--md-sys-color-primary);">00:00.0</span>
+              </div>
+
+              <!-- Scrubber slider -->
+              <input type="range" id="studio-sync-scrubber" class="m3-range-input" min="0" max="100" step="0.1" value="0" style="margin-bottom: 10px;">
+
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-tonal" id="studio-seek-back-5" style="padding: 6px 10px; font-size: 0.75rem;">-5 сек</button>
+                  <button class="btn btn-tonal" id="studio-seek-fwd-5" style="padding: 6px 10px; font-size: 0.75rem;">+5 сек</button>
+                  <button class="btn btn-tonal" id="studio-speed-toggle-btn" style="padding: 6px 10px; font-size: 0.75rem;">1.0x</button>
+                </div>
+                <button class="btn btn-primary" id="studio-sync-play-btn" style="padding: 8px 18px;">
+                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-play"></use></svg>
+                  <span id="studio-sync-play-label">Воспроизвести</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tap button -->
+            <button class="btn btn-primary" id="studio-tap-record-btn" style="width: 100%; padding: 16px; font-size: 1.1rem; justify-content: center; background: linear-gradient(135deg, #8B5CF6, #EC4899); box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4); margin-bottom: 16px;">
+              <span>ТАП — Записать тайминг строки (Пробел)</span>
+            </button>
+
+            <!-- Rows table -->
+            <div class="tap-sync-list" id="studio-lyrics-rows-list">
+              <!-- Dynamic rows with editable text, mm:ss and delete icon -->
+            </div>
+
+            <button class="btn btn-outlined" id="studio-add-empty-line-btn" style="margin-top: 8px;">
+              <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-plus"></use></svg>
+              <span>Добавить строку вручную</span>
+            </button>
+          </div>
+
+          <!-- Build .oump3 Button -->
+          <button class="btn btn-primary" id="studio-build-oump3-btn" style="width: 100%; padding: 14px; font-size: 1.05rem; justify-content: center;">
+            <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-download"></use></svg>
+            <span>Собрать контейнер .oump3</span>
+          </button>
+        </section>
+
+        <!-- SCREEN 7: ARTIST PROFILE -->
+        <section class="screen" id="screen-artist">
+          <div id="artist-banner-box" style="width: 100%; height: 180px; border-radius: var(--md-shape-corner-large); overflow: hidden; background: #181822; position: relative;">
+            <img id="artist-banner-img" src="assets/default-cover.svg" alt="Banner" style="width: 100%; height: 100%; object-fit: cover;">
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);"></div>
+          </div>
+
+          <div style="display: flex; align-items: flex-end; gap: 16px; padding: 0 16px; margin-top: -40px; position: relative; z-index: 2;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 3px solid var(--md-sys-color-surface); background: #111;">
+              <img id="artist-avatar-img" src="assets/default-cover.svg" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div style="flex: 1; padding-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <h2 id="artist-name-title" style="font-size: 1.4rem; font-weight: 700;">Артист</h2>
+                <div id="artist-verified-badge" class="badge-verified" style="display: none;" title="Официально подтвержденный артист">
+                  <svg class="svg-icon"><use href="#icon-verified"></use></svg>
+                  <div class="tooltip-box">Данный музыкант официально подтвердил свою страницу на ouMusic</div>
+                </div>
+              </div>
+              <div id="artist-tracks-counter" style="font-size: 0.85rem; color: var(--md-sys-color-outline);">0 треков на платформе</div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div style="display: flex; gap: 10px; margin: 20px 0;">
+            <button class="btn btn-primary" id="artist-play-all-btn">
+              <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-play"></use></svg>
+              <span>Слушать все</span>
+            </button>
+            <button class="btn btn-tonal" id="artist-share-btn">
+              <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-share"></use></svg>
+              <span>Поделиться</span>
+            </button>
+          </div>
+
+          <!-- Artist Releases -->
+          <div class="section-header">
+            <h3 class="section-title">Треки и релизы</h3>
+          </div>
+          <div class="tracks-list" id="artist-tracks-list">
+            <!-- Dynamic artist tracks -->
+          </div>
+        </section>
+      </div>
+
+      <!-- Mini Player Capsule / Dock -->
+      <div class="mini-player" id="mini-player" style="display: none;">
+        <div class="mini-player-progress-bar" id="mini-progress-bar"></div>
+        <div class="mini-cover">
+          <img id="mini-cover-img" src="assets/default-cover.svg" alt="Cover">
+        </div>
+        <div class="mini-info" id="mini-info-clickable">
+          <div class="mini-title" id="mini-title">Не играет</div>
+          <div class="mini-artist" id="mini-artist">M-Core Engine</div>
+        </div>
+        <div class="mini-controls">
+          <button class="icon-btn" id="mini-like-btn" title="Лайк">
+            <svg class="svg-icon"><use href="#icon-heart"></use></svg>
+          </button>
+          <button class="icon-btn" id="mini-play-btn" title="Пауза / Плей">
+            <svg class="svg-icon"><use href="#icon-play"></use></svg>
+          </button>
+          <button class="icon-btn" id="mini-next-btn" title="Вперед">
+            <svg class="svg-icon"><use href="#icon-next"></use></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Bottom Navigation Capsule -->
+      <nav class="mobile-nav-capsule">
+        <button class="nav-tab active" data-nav="home">
+          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-home"></use></svg></div>
+          <span class="tab-label" data-i18n="nav_home">Главная</span>
+        </button>
+        <button class="nav-tab" data-nav="wave">
+          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-wave"></use></svg></div>
+          <span class="tab-label" data-i18n="nav_wave">Волна</span>
+        </button>
+        <button class="nav-tab" data-nav="library">
+          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-library"></use></svg></div>
+          <span class="tab-label" data-i18n="nav_library">Библиотека</span>
+        </button>
+        <button class="nav-tab" data-nav="profile">
+          <div class="tab-icon-wrap">
+            <svg class="svg-icon"><use href="#icon-user"></use></svg>
+            <span class="notif-badge" id="mobile-recap-badge"></span>
+          </div>
+          <span class="tab-label" data-i18n="nav_profile">Профиль</span>
+        </button>
+      </nav>
+    </main>
+  </div>
+
+  <!-- FULLSCREEN PLAYER OVERLAY -->
+  <div class="fullscreen-player" id="fullscreen-player">
+    <div class="player-glow-bg" id="player-glow-bg"></div>
+
+    <div class="player-content">
+      <!-- Top bar -->
+      <div class="player-top-bar">
+        <button class="icon-btn" id="close-fullscreen-player-btn" title="Свернуть">
+          <svg class="svg-icon"><use href="#icon-chevron-down"></use></svg>
+        </button>
+        <div class="player-top-center">
+          <div class="player-top-caption">СЕЙЧАС ИГРАЕТ</div>
+          <div class="player-top-album" id="fs-album-title">ouMusic</div>
+        </div>
+        <button class="icon-btn" id="fs-more-options-btn" title="Опции">
+          <svg class="svg-icon"><use href="#icon-more-vert"></use></svg>
+        </button>
+      </div>
+
+      <!-- Cover & 60 FPS Spectrum Area -->
+      <div class="player-cover-container">
+        <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="380" height="380"></canvas>
+        <div class="player-cover-box" id="player-cover-clickable" title="Нажмите, чтобы открыть обложку">
+          <img id="fs-cover-img" src="assets/default-cover.svg" alt="Cover" class="player-cover-img">
+        </div>
+      </div>
+
+      <!-- Meta Row -->
+      <div class="player-meta-row">
+        <div class="player-meta-text">
+          <div class="player-title" id="fs-title">Название трека</div>
+          <div class="player-artist" id="fs-artist">Исполнитель</div>
+        </div>
+        <div class="player-meta-actions">
+          <button class="icon-btn" id="fs-dislike-btn" title="Дизлайк (Не предлагать)">
+            <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+          </button>
+          <button class="icon-btn" id="fs-like-btn" title="Нравится">
+            <svg class="svg-icon"><use href="#icon-heart"></use></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrubber -->
+      <div class="player-scrubber-box">
+        <input type="range" id="fs-scrubber" class="m3-range-input" min="0" max="100" step="0.1" value="0">
+        <div class="player-time-labels">
+          <span id="fs-time-current">00:00</span>
+          <span id="fs-time-duration">00:00</span>
+        </div>
+      </div>
+
+      <!-- Transport Controls -->
+      <div class="player-main-controls">
+        <button class="icon-btn" id="fs-shuffle-btn" title="Перемешать">
+          <svg class="svg-icon"><use href="#icon-shuffle"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-prev-btn" title="Назад (10 сек)" style="width: 48px; height: 48px;">
+          <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-prev"></use></svg>
+        </button>
+        <button class="play-pause-fab" id="fs-play-btn" title="Пауза / Плей">
+          <svg class="svg-icon"><use href="#icon-play"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-next-btn" title="Вперед" style="width: 48px; height: 48px;">
+          <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-next"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-repeat-btn" title="Повтор">
+          <svg class="svg-icon"><use href="#icon-repeat"></use></svg>
+        </button>
+      </div>
+
+      <!-- Bottom Utils -->
+      <div class="player-bottom-utils">
+        <button class="icon-btn" id="fs-open-lyrics-btn" title="Текст песни (Караоке)">
+          <svg class="svg-icon"><use href="#icon-mic"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-open-queue-btn" title="Очередь воспроизведения">
+          <svg class="svg-icon"><use href="#icon-queue"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-sleep-timer-btn" title="Таймер сна">
+          <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-share-track-btn" title="Поделиться треком">
+          <svg class="svg-icon"><use href="#icon-share"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DYNAMIC LYRICS OVERLAY -->
+  <div class="lyrics-overlay" id="lyrics-overlay">
+    <div class="lyrics-top-bar">
+      <button class="icon-btn" id="close-lyrics-btn" title="Назад в плеер">
+        <svg class="svg-icon"><use href="#icon-chevron-down"></use></svg>
+      </button>
+      
+      <!-- Vocal Remover BETA Button -->
+      <button class="vocal-remover-btn" id="lyrics-vocal-remover-toggle">
+        <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-mic"></use></svg>
+        <span>Минусовка</span>
+        <span class="badge-beta">BETA</span>
+      </button>
+
+      <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+        <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
+        <span>Цитата</span>
+      </button>
+    </div>
+
+    <!-- 3-2-1 Countdown visual -->
+    <div class="lyrics-countdown-banner" id="lyrics-countdown-banner">3... 2... 1...</div>
+
+    <!-- Synchronized Lyrics Auto-Scroll Box -->
+    <div class="lyrics-scroll-container" id="lyrics-scroll-container">
+      <!-- Dynamic lyric lines -->
+    </div>
+  </div>
+
+  <!-- BOTTOM SHEET: 3 DOTS TRACK OPTIONS & REAL-TIME FX -->
+  <div class="bottom-sheet-backdrop" id="track-options-backdrop">
+    <div class="bottom-sheet" id="track-options-sheet">
+      <div class="bottom-sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title" id="sheet-track-title">Опции трека</div>
+        <button class="icon-btn" id="close-track-options-btn"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+
+      <!-- Real-Time M-Core FX Section -->
+      <div style="background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 14px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-primary);">Аудиоэффекты M-Core FX</span>
+          <button class="btn btn-outlined" id="fx-reset-all-btn" style="padding: 4px 10px; font-size: 0.72rem;">Сбросить эффекты</button>
+        </div>
+
+        <!-- Slider 1: Slowed / Speed Up -->
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>Скорость и Тон (Slowed / Speed)</span>
+            <span id="fx-speed-val" class="m3-slider-value">1.00x</span>
+          </div>
+          <input type="range" id="fx-speed-slider" class="m3-range-input" min="0.70" max="1.35" step="0.01" value="1.00">
+        </div>
+
+        <!-- Slider 2: Reverb -->
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>Пространство (Reverb)</span>
+            <span id="fx-reverb-val" class="m3-slider-value">0%</span>
+          </div>
+          <input type="range" id="fx-reverb-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+        </div>
+
+        <!-- Slider 3: 8D Audio -->
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>8D Аудио (Вращение)</span>
+            <span id="fx-spatial-val" class="m3-slider-value">0%</span>
+          </div>
+          <input type="range" id="fx-spatial-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <button class="sheet-action-item" id="sheet-act-like">
+          <svg class="svg-icon"><use href="#icon-heart"></use></svg>
+          <span id="sheet-like-label">Добавить в понравившиеся</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-play-next">
+          <svg class="svg-icon"><use href="#icon-next"></use></svg>
+          <span>Включить следующим</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-add-queue">
+          <svg class="svg-icon"><use href="#icon-queue"></use></svg>
+          <span>Добавить в конец очереди</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-add-playlist">
+          <svg class="svg-icon"><use href="#icon-plus"></use></svg>
+          <span>Добавить в плейлист</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-download">
+          <svg class="svg-icon"><use href="#icon-download"></use></svg>
+          <span id="sheet-download-label">Скачать в кэш</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-share">
+          <svg class="svg-icon"><use href="#icon-share"></use></svg>
+          <span>Поделиться треком</span>
+        </button>
+        <button class="sheet-action-item danger" id="sheet-act-dislike">
+          <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+          <span>Не предлагать / Скрыть трек</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM SHEET: PLAYBACK QUEUE -->
+  <div class="bottom-sheet-backdrop" id="queue-backdrop">
+    <div class="bottom-sheet" id="queue-sheet">
+      <div class="bottom-sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">Очередь воспроизведения</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outlined" id="queue-clear-btn" style="padding: 4px 10px; font-size: 0.75rem;">Очистить</button>
+          <button class="icon-btn" id="close-queue-btn"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+        </div>
+      </div>
+      <div class="tracks-list" id="queue-tracks-list">
+        <!-- Reorderable queue tracks -->
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM SHEET: SLEEP TIMER -->
+  <div class="bottom-sheet-backdrop" id="sleep-timer-backdrop">
+    <div class="bottom-sheet" id="sleep-timer-sheet">
+      <div class="bottom-sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="sheet-title">Таймер сна</div>
+        <button class="icon-btn" id="close-sleep-timer-btn"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="sheet-action-item" data-timer-mins="0"><span>Выключить таймер</span></button>
+        <button class="sheet-action-item" data-timer-mins="15"><span>15 минут</span></button>
+        <button class="sheet-action-item" data-timer-mins="30"><span>30 минут</span></button>
+        <button class="sheet-action-item" data-timer-mins="45"><span>45 минут</span></button>
+        <button class="sheet-action-item" data-timer-mins="60"><span>60 минут</span></button>
+        <button class="sheet-action-item" data-timer-mins="end-track"><span>До конца текущего трека</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TUNEMYMUSIC IMPORTER -->
+  <div class="dialog-backdrop" id="tunemymusic-dialog">
+    <div class="dialog-card">
+      <div class="dialog-title">Импорт из TuneMyMusic</div>
+      <div class="dialog-content">
+        Загрузите файл со списком треков (.txt или .csv) в формате <code>Артист - Название</code>. Система выполнит пошаговый поиск и добавит найденные треки в плейлист.
+      </div>
+
+      <input type="file" id="tunemymusic-file-input" accept=".txt,.csv" style="display: none;">
+      <button class="btn btn-tonal" id="tunemymusic-choose-file-btn" style="width: 100%; margin-bottom: 16px;">
+        <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-download"></use></svg>
+        <span>Выбрать .txt или .csv файл</span>
+      </button>
+
+      <!-- Scan Report List -->
+      <div id="tunemymusic-report-container" style="max-height: 220px; overflow-y: auto; display: none; margin-bottom: 16px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 8px;">
+        <div class="tracks-list" id="tunemymusic-report-list"></div>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="btn btn-outlined" id="tunemymusic-close-btn">Закрыть</button>
+        <button class="btn btn-primary" id="tunemymusic-save-playlist-btn" style="display: none;">Сохранить как плейлист</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CANVAS QUOTE CARD GENERATOR -->
+  <div class="dialog-backdrop" id="quote-card-dialog">
+    <div class="dialog-card" style="max-width: 440px;">
+      <div class="dialog-title">Карточка с цитатой</div>
+      <div class="dialog-content">
+        Выберите 1–4 строчки текста для создания открытки:
+      </div>
+
+      <div id="quote-lines-selector" style="max-height: 160px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;"></div>
+
+      <div class="quote-card-preview" id="quote-card-preview-container">
+        <canvas id="quote-render-canvas" class="quote-canvas" width="720" height="960"></canvas>
+      </div>
+
+      <div class="dialog-actions" style="margin-top: 16px;">
+        <button class="btn btn-outlined" id="quote-dialog-close-btn">Отмена</button>
+        <button class="btn btn-tonal" id="quote-download-btn">Скачать PNG</button>
+        <button class="btn btn-primary" id="quote-share-btn">Поделиться</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: YEAR RECAP STORIES -->
+  <div class="dialog-backdrop" id="recap-stories-dialog">
+    <div class="dialog-card" style="background: linear-gradient(145deg, #181824, #0D0D14); border-color: rgba(139, 92, 246, 0.4); max-width: 420px; text-align: center;">
+      <!-- Stories progress bar -->
+      <div style="display: flex; gap: 4px; margin-bottom: 16px;" id="recap-progress-bars">
+        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 100%;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 0%;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 0%;"></div></div>
+      </div>
+
+      <div id="recap-story-content" style="min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 0;">
+        <!-- Injected story card content -->
+      </div>
+
+      <div class="dialog-actions" style="justify-content: space-between; margin-top: 16px;">
+        <button class="btn btn-outlined" id="recap-prev-slide-btn">Назад</button>
+        <button class="btn btn-primary" id="recap-next-slide-btn">Далее</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: APP UPDATE ANNOUNCEMENT -->
+  <div class="dialog-backdrop" id="app-update-dialog">
+    <div class="dialog-card">
+      <div class="dialog-title" style="display: flex; align-items: center; gap: 8px;">
+        <svg class="svg-icon" style="width: 24px; height: 24px; fill: var(--md-sys-color-primary);"><use href="#icon-sparkles"></use></svg>
+        <span>Что нового в ouMusic</span>
+      </div>
+      <div class="dialog-content" id="app-update-changelog-content">
+        <!-- Injected release notes -->
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-primary" id="app-update-confirm-btn">Понятно</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: M-CORE ARCHITECTURE DOCS -->
+  <div class="dialog-backdrop" id="mcore-docs-dialog">
+    <div class="dialog-card" style="max-width: 600px;">
+      <div class="dialog-title">Архитектура движка M-Core</div>
+      <div class="dialog-content" style="font-size: 0.88rem; line-height: 1.6; max-height: 60vh; overflow-y: auto;">
+        <p><strong>M-Core (Music Core)</strong> — это проприетарный высокопроизводительный клиентский движок воспроизведения и обработки звука на базе гибридной цепочки <code>&lt;audio&gt;</code> и Web Audio API.</p>
+        <br>
+        <p><strong>1. Гибридный звуковой граф:</strong> В качестве источника используется нативный потоковый тег с отключенной коррекцией высоты тона (<code>preservesPitch = false</code>), заведенный в Web Audio API через <code>MediaElementAudioSourceNode</code>. Это обеспечивает 100% работу в фоне и островках iOS/Android, а также натуральный эффект Slowed / Nightcore.</p>
+        <br>
+        <p><strong>2. Vocal Remover BETA:</strong> Узел разделения стереоканалов с противофазным вычитанием вокала (<code>L - R</code>) и параллельным НЧ-фильтром 200 Гц для сохранения плотности баса.</p>
+        <br>
+        <p><strong>3. Формат контейнера .oump3:</strong> ZIP-архив с предварительным сохранением <code>header.json</code> (с обложкой <code>thumbBase64</code>) в первых 64 КБ без сжатия (метод <code>STORE</code>). Это позволяет клиенту мгновенно извлекать обложку и метаданные через Range-запрос без выкачивания всего аудиофайла.</p>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-primary" id="mcore-docs-close-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App Entry -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

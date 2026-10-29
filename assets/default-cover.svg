@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1A24"/>
+      <stop offset="50%" stop-color="#12121A"/>
+      <stop offset="100%" stop-color="#0A0A0F"/>
+    </linearGradient>
+    <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="50%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="500" height="500" rx="32" fill="url(#bgGradient)"/>
+
+  <!-- Subtle circles -->
+  <circle cx="250" cy="250" r="180" fill="none" stroke="#2A2A38" stroke-width="2" stroke-dasharray="6,6"/>
+  <circle cx="250" cy="250" r="130" fill="none" stroke="#353548" stroke-width="1.5"/>
+
+  <!-- Glowing vinyl center -->
+  <circle cx="250" cy="250" r="85" fill="#181822" stroke="url(#neonGradient)" stroke-width="4" filter="url(#glow)"/>
+
+  <!-- Modern Music / M-Core Symbol -->
+  <path d="M230 195v70a30 30 0 1 1-20-28.3V195h70v50a30 30 0 1 1-20-28.3V215h-30z" fill="url(#neonGradient)"/>
+
+  <!-- Logo text -->
+  <text x="250" y="420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700" fill="#E2E8F0" text-anchor="middle" letter-spacing="4">ouMusic</text>
+  <text x="250" y="445" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="#94A3B8" text-anchor="middle" letter-spacing="2">M-CORE ENGINE</text>
+</svg>

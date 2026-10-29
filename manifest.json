@@ -1,0 +1,36 @@
+{
+  "name": "ouMusic",
+  "short_name": "ouMusic",
+  "description": "Прогрессивное веб-приложение для прослушивания музыки на базе M-Core",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#121212",
+  "icons": [
+    {
+      "src": "./assets/default-cover.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment", "audio"],
+  "shortcuts": [
+    {
+      "name": "Моя Волна",
+      "short_name": "Волна",
+      "description": "Запустить персональную волну музыки",
+      "url": "./index.html#wave",
+      "icons": [{ "src": "./assets/default-cover.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Моя Студия",
+      "short_name": "Студия",
+      "description": "Создать и обрезать новый .oump3 трек",
+      "url": "./index.html#studio",
+      "icons": [{ "src": "./assets/default-cover.svg", "sizes": "96x96" }]
+    }
+  ]
+}
