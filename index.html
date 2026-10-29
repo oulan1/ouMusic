@@ -560,6 +560,9 @@
             <div style="margin-top: 16px;">
               <div style="font-size: 0.85rem; margin-bottom: 8px;">Акцентный цвет интерфейса:</div>
               <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" id="accent-colors-row">
+                <button class="accent-color-circle adaptive-accent-circle" id="adaptive-accent-btn" title="Адаптивный (автоматически подстраивается под обложку трека)" style="width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(from 180deg at 50% 50%, #8B5CF6 0deg, #EC4899 72deg, #F59E0B 144deg, #10B981 216deg, #06B6D4 288deg, #8B5CF6 360deg); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                  <svg class="svg-icon" style="width: 14px; height: 14px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));"><use href="#icon-sparkles"></use></svg>
+                </button>
                 <button class="accent-color-circle active" data-color="#8B5CF6" title="Фиолетовый" style="width: 32px; height: 32px; border-radius: 50%; background: #8B5CF6; border: 2px solid #FFF; cursor: pointer; transition: transform 0.2s;"></button>
                 <button class="accent-color-circle" data-color="#EC4899" title="Розовый" style="width: 32px; height: 32px; border-radius: 50%; background: #EC4899; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
                 <button class="accent-color-circle" data-color="#3B82F6" title="Синий" style="width: 32px; height: 32px; border-radius: 50%; background: #3B82F6; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
@@ -673,6 +676,24 @@
               Версия: <span id="app-version-label">1.0.0</span> • Разработчик: oulan1
             </div>
           </div>
+
+          <!-- Cache Management & Full Wipe Safety Trigger -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.25);">
+            <div style="font-weight: 600; margin-bottom: 6px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
+              <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-trash"></use></svg>
+              <span>Управление кэшем и памятью</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 14px;">
+              Защита от случайного нажатия: для полной очистки кэша и базы данных нажмите кнопку 10 раз подряд.
+            </div>
+            <button class="btn btn-outlined danger" id="settings-clear-cache-btn" style="width: 100%; justify-content: center; border-color: var(--md-sys-color-error); color: var(--md-sys-color-error); font-weight: 600;">
+              <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-trash"></use></svg>
+              <span id="clear-cache-btn-text">Очистить весь кэш (Нажмите 10 раз)</span>
+            </button>
+            <div id="clear-cache-hint" style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 8px; text-align: center;">
+              Быстро нажмите кнопку 10 раз для вызова подтверждения
+            </div>
+          </div>
         </section>
 
         <!-- SCREEN 6: MY STUDIO (CREATOR MODULE) -->
@@ -710,6 +731,19 @@
               </div>
             </div>
 
+            <!-- Explicit / 18+ Toggle -->
+            <label class="m3-switch" style="margin-bottom: 14px;">
+              <div>
+                <div class="switch-label" style="display: flex; align-items: center; gap: 6px;">
+                  <span class="badge-explicit">E</span>
+                  <span>Ненормативная лексика (Explicit / 18+)</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Метка трека с нецензурной лексикой</div>
+              </div>
+              <input type="checkbox" id="studio-explicit-toggle" class="switch-input">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </label>
+
             <!-- Genre Multiselect Chips -->
             <div>
               <div style="font-size: 0.85rem; margin-bottom: 6px;">Жанры (выберите один или несколько):</div>
@@ -738,8 +772,9 @@
             <div id="studio-waveform-box" style="display: none;">
               <div class="waveform-container" id="waveform-container">
                 <canvas id="studio-waveform-canvas" class="waveform-canvas"></canvas>
-                <div id="trim-handle-start" class="trim-handle" style="left: 0;"></div>
-                <div id="trim-handle-end" class="trim-handle" style="right: 0;"></div>
+                <div id="trim-highlight" class="trim-region-highlight" style="left: 0%; width: 100%;"></div>
+                <div id="trim-handle-start" class="trim-handle" style="left: 0%;"></div>
+                <div id="trim-handle-end" class="trim-handle" style="left: 100%;"></div>
               </div>
 
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">
@@ -884,7 +919,7 @@
           <img id="mini-cover-img" src="assets/oumusic.png" alt="Cover">
         </div>
         <div class="mini-info" id="mini-info-clickable">
-          <div class="mini-title" id="mini-title">Не играет</div>
+          <div class="mini-title" style="display: flex; align-items: center;"><span id="mini-title">Не играет</span><span class="badge-explicit" id="mini-explicit-badge" style="display: none;" title="Ненормативная лексика">E</span></div>
           <div class="mini-artist" id="mini-artist">M-Core Engine</div>
         </div>
         <div class="mini-controls">
@@ -946,7 +981,7 @@
 
       <!-- Cover & 60 FPS Spectrum Area -->
       <div class="player-cover-container">
-        <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="380" height="380"></canvas>
+        <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="580" height="580"></canvas>
         <div class="player-cover-box" id="player-cover-clickable" title="Нажмите, чтобы открыть обложку">
           <img id="fs-cover-img" src="assets/oumusic.png" alt="Cover" class="player-cover-img">
         </div>
@@ -955,7 +990,7 @@
       <!-- Meta Row -->
       <div class="player-meta-row">
         <div class="player-meta-text">
-          <div class="player-title" id="fs-title">Название трека</div>
+          <div class="player-title" style="display: flex; align-items: center;"><span id="fs-title">Название трека</span><span class="badge-explicit" id="fs-explicit-badge" style="display: none;" title="Ненормативная лексика">E</span></div>
           <div class="player-artist" id="fs-artist">Исполнитель</div>
         </div>
         <div class="player-meta-actions">
@@ -1014,32 +1049,62 @@
     </div>
   </div>
 
-  <!-- DYNAMIC LYRICS OVERLAY -->
+  <!-- DYNAMIC LYRICS OVERLAY (Modern Yandex Music / Spotify 2-Column Karaoke) -->
   <div class="lyrics-overlay" id="lyrics-overlay">
-    <div class="lyrics-top-bar">
-      <button class="icon-btn" id="close-lyrics-btn" title="Назад в плеер">
-        <svg class="svg-icon"><use href="#icon-chevron-down"></use></svg>
-      </button>
-      
-      <!-- Vocal Remover BETA Button -->
-      <button class="vocal-remover-btn" id="lyrics-vocal-remover-toggle">
-        <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-mic"></use></svg>
-        <span>Минусовка</span>
-        <span class="badge-beta">BETA</span>
-      </button>
+    <!-- Atmospheric Ambient Glow Backdrop -->
+    <div class="lyrics-glow-backdrop" id="lyrics-glow-backdrop"></div>
 
-      <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 6px 12px; font-size: 0.8rem;">
-        <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
-        <span>Цитата</span>
+    <!-- Top Action Bar -->
+    <div class="lyrics-top-bar">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <!-- Vocal Remover BETA Button -->
+        <button class="vocal-remover-btn" id="lyrics-vocal-remover-toggle" title="Отключить / включить голос исполнителя">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-mic"></use></svg>
+          <span>Минусовка</span>
+          <span class="badge-beta">BETA</span>
+        </button>
+
+        <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 7px 14px; font-size: 0.82rem; background: rgba(255,255,255,0.08); color: #FFF; border: 1px solid rgba(255,255,255,0.15);">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
+          <span>Цитата</span>
+        </button>
+      </div>
+
+      <!-- Circular Close Chevron Button (Top-Right like screenshot) -->
+      <button class="lyrics-close-circle-btn" id="close-lyrics-btn" title="Свернуть караоке">
+        <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-chevron-down"></use></svg>
       </button>
     </div>
 
     <!-- 3-2-1 Countdown visual -->
     <div class="lyrics-countdown-banner" id="lyrics-countdown-banner">3... 2... 1...</div>
 
-    <!-- Synchronized Lyrics Auto-Scroll Box -->
-    <div class="lyrics-scroll-container" id="lyrics-scroll-container">
-      <!-- Dynamic lyric lines -->
+    <!-- 2-Column Responsive Layout -->
+    <div class="lyrics-split-layout">
+      <!-- Left Column: Album Art, Title, Artist, Minimalist Progress Line -->
+      <div class="lyrics-left-col">
+        <div class="lyrics-cover-card" id="lyrics-cover-card">
+          <img id="lyrics-cover-img" src="assets/oumusic.png" alt="Cover" class="lyrics-cover-image">
+        </div>
+        <div class="lyrics-track-meta">
+          <div class="lyrics-track-title-row">
+            <span class="lyrics-track-title" id="lyrics-track-title">Название трека</span>
+            <span class="badge-explicit" id="lyrics-explicit-badge" style="display: none;" title="Ненормативная лексика">E</span>
+          </div>
+          <div class="lyrics-track-artist" id="lyrics-track-artist">Исполнитель</div>
+        </div>
+        <!-- Minimalist Progress Bar Line directly below Track Info (matching user screenshot) -->
+        <div class="lyrics-progress-track" id="lyrics-progress-track" title="Перемотка">
+          <div class="lyrics-progress-fill" id="lyrics-progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Right Column: Auto-scrolling Large Bold Synchronized Lyrics -->
+      <div class="lyrics-right-col">
+        <div class="lyrics-scroll-container" id="lyrics-scroll-container">
+          <!-- Dynamic lyric lines -->
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1116,6 +1181,10 @@
         <button class="sheet-action-item danger" id="sheet-act-dislike">
           <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
           <span>Не предлагать / Скрыть трек</span>
+        </button>
+        <button class="sheet-action-item danger" id="sheet-act-delete-track">
+          <svg class="svg-icon" style="color: var(--md-sys-color-error);"><use href="#icon-trash"></use></svg>
+          <span style="color: var(--md-sys-color-error); font-weight: 600;">Удалить локальный трек</span>
         </button>
       </div>
     </div>
@@ -1263,5 +1332,39 @@
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
   <script src="js/app.standalone.js"></script>
+  <!-- MODAL: CONFIRM CLEAR CACHE (10 CLICKS CONFIRMATION) -->
+  <div class="dialog-backdrop" id="clear-cache-confirm-dialog">
+    <div class="dialog-card" style="max-width: 440px;">
+      <div class="dialog-title" style="color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
+        <svg class="svg-icon" style="width: 24px; height: 24px; fill: currentColor;"><use href="#icon-trash"></use></svg>
+        <span>Полная очистка кэша</span>
+      </div>
+      <div class="dialog-content" style="font-size: 0.88rem; line-height: 1.6; color: var(--md-sys-color-on-surface-variant);">
+        Вы уверены, что хотите безвозвратно очистить весь кэш приложения, сохранённые локальные треки, историю прослушиваний и данные IndexedDB? Приложение будет полностью перезагружено в исходное состояние.
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-outlined" id="cancel-clear-cache-btn">Отмена</button>
+        <button class="btn btn-primary" id="execute-clear-cache-btn" style="background: var(--md-sys-color-error); color: #FFFFFF; font-weight: 600;">Да, очистить всё</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRM DELETE TRACK -->
+  <div class="dialog-backdrop" id="delete-track-confirm-dialog">
+    <div class="dialog-card" style="max-width: 420px;">
+      <div class="dialog-title" style="color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
+        <svg class="svg-icon" style="width: 22px; height: 22px; fill: currentColor;"><use href="#icon-trash"></use></svg>
+        <span>Удаление трека</span>
+      </div>
+      <div class="dialog-content" id="delete-track-dialog-content" style="font-size: 0.88rem; line-height: 1.6;">
+        Вы действительно хотите удалить этот трек из локального хранилища?
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-outlined" id="cancel-delete-track-btn">Отмена</button>
+        <button class="btn btn-primary" id="execute-delete-track-btn" style="background: var(--md-sys-color-error); color: #FFFFFF; font-weight: 600;">Удалить</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

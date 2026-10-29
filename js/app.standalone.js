@@ -177,13 +177,76 @@
         id,
         audioBlob,
         coverBlob,
-        lrcText,
+        lrcText: lrcText || '',
+        lyricsText: lrcText || '',
         cachedAt: new Date().toISOString()
       });
       req.onsuccess = () => resolve(true);
       req.onerror = () => resolve(false);
     });
   }
+
+  /* Full Track Deletion Engine */
+  async function deleteTrack(id) {
+    if (!id) return;
+    try {
+      // 1. Delete from tracks_metadata
+      const metaStore = getStore('tracks_metadata', 'readwrite');
+      if (metaStore) metaStore.delete(id);
+
+      // 2. Delete from offline_tracks
+      const offStore = getStore('offline_tracks', 'readwrite');
+      if (offStore) offStore.delete(id);
+
+      // 3. Delete from likes
+      const likesStore = getStore('likes', 'readwrite');
+      if (likesStore) likesStore.delete(id);
+
+      // 4. Remove from playlists
+      const plStore = getStore('playlists', 'readwrite');
+      if (plStore) {
+        const allPl = await getAllPlaylists();
+        allPl.forEach((pl) => {
+          if (Array.isArray(pl.trackIds) && pl.trackIds.includes(id)) {
+            pl.trackIds = pl.trackIds.filter((tId) => tId !== id);
+            plStore.put(pl);
+          }
+        });
+      }
+
+      // 5. Instantly remove matching DOM rows from the page
+      document.querySelectorAll(`.track-row[data-track-id="${id}"]`).forEach((el) => el.remove());
+
+      // 6. Update in-memory lists
+      catalogTracks = catalogTracks.filter((t) => t.id !== id);
+      playbackQueue = playbackQueue.filter((t) => t.id !== id);
+
+      // 7. If currently playing this track, advance or stop
+      if (currentTrack && currentTrack.id === id) {
+        if (playbackQueue.length > 0) {
+          queueIndex = Math.min(queueIndex, playbackQueue.length - 1);
+          playTrack(playbackQueue[queueIndex]);
+        } else {
+          engine.softPause();
+          const mini = document.getElementById('mini-player');
+          if (mini) mini.style.display = 'none';
+          currentTrack = null;
+        }
+      }
+
+      // 8. Refresh UI views
+      renderCatalogFeed(catalogTracks);
+      await renderManualTracksFeed();
+      renderPlaylistsGrid();
+      if (window.renderLibraryTabs) window.renderLibraryTabs();
+
+      alert('Трек успешно удален из приложения!');
+    } catch (e) {
+      console.error('Failed to delete track:', e);
+      alert('Ошибка при удалении трека: ' + e.message);
+    }
+  }
+  window.deleteTrack = deleteTrack;
 
   async function getOfflineTrack(id) {
     return new Promise((resolve) => {
@@ -384,32 +447,50 @@
       const ctx = this.audioCtx;
       this.sourceNode = ctx.createMediaElementSource(this.audioElement);
 
-      // Vocal Remover
+      // Professional Vocal Cancellation Matrix (L - R for stereo instruments + Lowpass bass)
       this.vocalDryGain = ctx.createGain();
       this.vocalWetGain = ctx.createGain();
       this.vocalDryGain.gain.value = 1.0;
       this.vocalWetGain.gain.value = 0.0;
 
       const splitter = ctx.createChannelSplitter(2);
-      const merger = ctx.createChannelMerger(2);
-      const invGain = ctx.createGain();
-      invGain.gain.value = -1.0;
-
-      const bassFilter = ctx.createBiquadFilter();
-      bassFilter.type = 'lowpass';
-      bassFilter.frequency.value = 200;
-
-      this.sourceNode.connect(this.vocalDryGain);
       this.sourceNode.connect(splitter);
-      splitter.connect(merger, 0, 0);
-      splitter.connect(merger, 0, 1);
-      splitter.connect(invGain, 1);
-      invGain.connect(merger, 0, 0);
-      invGain.connect(merger, 0, 1);
-      this.sourceNode.connect(bassFilter);
-      bassFilter.connect(merger, 0, 0);
-      bassFilter.connect(merger, 0, 1);
+
+      // L - R channel subtraction: cancels center vocals completely, keeps stereo instruments
+      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 0.75;
+      const gainR_to_L = ctx.createGain(); gainR_to_L.gain.value = -0.75; // -R
+      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 0.75;
+      const gainL_to_R = ctx.createGain(); gainL_to_R.gain.value = -0.75; // -L
+
+      splitter.connect(gainL_to_L, 0);
+      splitter.connect(gainR_to_L, 1);
+      splitter.connect(gainR_to_R, 1);
+      splitter.connect(gainL_to_R, 0);
+
+      // Low-pass filter to retain kick drum and bass (<220 Hz)
+      const bassL = ctx.createBiquadFilter();
+      bassL.type = 'lowpass';
+      bassL.frequency.value = 220;
+      const bassR = ctx.createBiquadFilter();
+      bassR.type = 'lowpass';
+      bassR.frequency.value = 220;
+
+      splitter.connect(bassL, 0);
+      splitter.connect(bassR, 1);
+
+      const merger = ctx.createChannelMerger(2);
+      // Left channel out: (L - R) + Bass(L)
+      gainL_to_L.connect(merger, 0, 0);
+      gainR_to_L.connect(merger, 0, 0);
+      bassL.connect(merger, 0, 0);
+
+      // Right channel out: (R - L) + Bass(R)
+      gainR_to_R.connect(merger, 0, 1);
+      gainL_to_R.connect(merger, 0, 1);
+      bassR.connect(merger, 0, 1);
+
       merger.connect(this.vocalWetGain);
+      this.sourceNode.connect(this.vocalDryGain);
 
       const postVocal = ctx.createGain();
       this.vocalDryGain.connect(postVocal);
@@ -633,8 +714,16 @@
       this.vocalRemoverActive = !!active;
       if (!this.vocalDryGain || !this.vocalWetGain || !this.audioCtx) return;
       const ctx = this.audioCtx;
-      this.vocalDryGain.gain.setValueAtTime(active ? 0.0 : 1.0, ctx.currentTime);
-      this.vocalWetGain.gain.setValueAtTime(active ? 1.0 : 0.0, ctx.currentTime);
+      const t = ctx.currentTime;
+      this.vocalDryGain.gain.cancelScheduledValues(t);
+      this.vocalWetGain.gain.cancelScheduledValues(t);
+      if (active) {
+        this.vocalDryGain.gain.setTargetAtTime(0.0, t, 0.04);
+        this.vocalWetGain.gain.setTargetAtTime(1.0, t, 0.04);
+      } else {
+        this.vocalDryGain.gain.setTargetAtTime(1.0, t, 0.04);
+        this.vocalWetGain.gain.setTargetAtTime(0.0, t, 0.04);
+      }
     }
 
     setNormalizer(active) {
@@ -729,10 +818,11 @@
     const meta = {
       title: title.trim(),
       artist: artist.trim(),
-      genres,
+      genres: Array.isArray(genres) ? genres : [genres],
       duration: Math.round(duration),
       version: '1.0',
       hasLyrics: !!lyricsText || hasLyrics,
+      isExplicit: !!(arguments[0] && (arguments[0].isExplicit || arguments[0].explicit)),
       thumbBase64
     };
 
@@ -1115,6 +1205,42 @@
         queueIndex = manual.indexOf(t);
         playTrack(t);
       });
+
+      // Quick Delete Button for Local Track
+      const actions = row.querySelector('.track-actions');
+      if (actions) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn manual-delete-btn';
+        delBtn.setAttribute('title', 'Удалить локальный трек');
+        delBtn.innerHTML = '<svg class="svg-icon" style="width: 18px; height: 18px; color: var(--md-sys-color-error);"><use href="#icon-trash"></use></svg>';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const confirmDialog = document.getElementById('delete-track-confirm-dialog');
+          const content = document.getElementById('delete-track-dialog-content');
+          if (content) content.textContent = `Вы уверены, что хотите удалить трек "${t.artist} — ${t.title}" из локального хранилища?`;
+          confirmDialog?.classList.add('active');
+
+          const execBtn = document.getElementById('execute-delete-track-btn');
+          const cancelBtn = document.getElementById('cancel-delete-track-btn');
+          const onCancel = () => {
+            confirmDialog?.classList.remove('active');
+            cleanup();
+          };
+          const onConfirm = async () => {
+            confirmDialog?.classList.remove('active');
+            cleanup();
+            await deleteTrack(t.id);
+          };
+          function cleanup() {
+            execBtn?.removeEventListener('click', onConfirm);
+            cancelBtn?.removeEventListener('click', onCancel);
+          }
+          cancelBtn?.addEventListener('click', onCancel);
+          execBtn?.addEventListener('click', onConfirm);
+        });
+        actions.prepend(delBtn);
+      }
+
       list.appendChild(row);
     });
   }
@@ -1135,8 +1261,9 @@
         <img class="track-cover-img" src="${track.thumbBase64 || 'assets/oumusic.png'}" alt="">
       </div>
       <div class="track-info">
-        <div class="track-title">
+        <div class="track-title" style="display: flex; align-items: center; gap: 4px;">
           <span>${track.title || 'Безымянный трек'}</span>
+          ${(track.isExplicit || track.explicit) ? '<span class="badge-explicit" title="Ненормативная лексика">E</span>' : ''}
           ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon"><use href="#icon-verified"></use></svg></span>' : ''}
           ${track.isLocal ? '<span class="badge-downloaded" title="Локальный трек"><svg class="svg-icon"><use href="#icon-check-circle"></use></svg></span>' : ''}
         </div>
@@ -1216,6 +1343,48 @@
   }
 
   /* Playback & Track Loader */
+    /* Color Extraction for Adaptive Accent */
+  async function extractCoverDominantColor(imgSrc) {
+    return new Promise((resolve) => {
+      if (!imgSrc) return resolve('#8B5CF6');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          const ctx = cvs.getContext('2d');
+          cvs.width = 48;
+          cvs.height = 48;
+          ctx.drawImage(img, 0, 0, 48, 48);
+          const data = ctx.getImageData(0, 0, 48, 48).data;
+
+          let bestColor = null;
+          let maxScore = -1;
+
+          for (let i = 0; i < data.length; i += 16) {
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const sat = max === 0 ? 0 : (max - min) / max;
+            const lum = (max + min) / 510;
+
+            if (lum < 0.18 || lum > 0.85 || sat < 0.28) continue;
+            const score = sat * 1.6 + (1 - Math.abs(lum - 0.5));
+            if (score > maxScore) {
+              maxScore = score;
+              bestColor = '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
+            }
+          }
+          resolve(bestColor || '#8B5CF6');
+        } catch (e) {
+          resolve('#8B5CF6');
+        }
+      };
+      img.onerror = () => resolve('#8B5CF6');
+      img.src = imgSrc;
+    });
+  }
+
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
     currentTrack = track;
@@ -1248,7 +1417,16 @@
     }
 
     updatePlayerMeta(track);
-    loadLyrics(track.lyricsText || (offlineRecord && offlineRecord.lyricsText) || '', track);
+    const lyricsToLoad = track.lyricsText || track.lrcText || (offlineRecord && (offlineRecord.lyricsText || offlineRecord.lrcText)) || '';
+    loadLyrics(lyricsToLoad, track);
+
+    // Adaptive accent color update
+    if (localStorage.getItem('oumusic_accent_adaptive') === 'true' && window.applyAccentColor) {
+      extractCoverDominantColor(track.coverUrl || track.thumbBase64).then((dom) => {
+        window.applyAccentColor(dom, true);
+      });
+    }
+
     await engine.loadTrack(track, audioSrc, autoPlay);
     await addHistory(track.id, track.duration || 180);
     await updateProfileStats();
@@ -1264,14 +1442,31 @@
     document.querySelectorAll('#mini-artist, #fs-artist').forEach((el) => {
       el.textContent = track.artist || 'Артист';
     });
-    document.querySelectorAll('#mini-cover-img, #fs-cover-img').forEach((img) => {
+    document.querySelectorAll('#mini-cover-img, #fs-cover-img, #lyrics-cover-img').forEach((img) => {
       img.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
     });
+    const lyrTitle = document.getElementById('lyrics-track-title');
+    const lyrArtist = document.getElementById('lyrics-track-artist');
+    if (lyrTitle) lyrTitle.textContent = track.title || 'Трек';
+    if (lyrArtist) lyrArtist.textContent = track.artist || 'Артист';
 
     const waveTitle = document.getElementById('wave-track-title') || document.getElementById('wave-np-title');
     const waveArtist = document.getElementById('wave-track-artist') || document.getElementById('wave-np-artist');
     if (waveTitle) waveTitle.textContent = track.title || 'Трек';
     if (waveArtist) waveArtist.textContent = track.artist || 'Артист';
+
+    // Explicit badges
+    const isExp = !!(track.isExplicit || track.explicit);
+    const miniExp = document.getElementById('mini-explicit-badge');
+    const fsExp = document.getElementById('fs-explicit-badge');
+    const lyrExp = document.getElementById('lyrics-explicit-badge');
+    if (miniExp) miniExp.style.display = isExp ? 'inline-flex' : 'none';
+    if (fsExp) fsExp.style.display = isExp ? 'inline-flex' : 'none';
+    if (lyrExp) lyrExp.style.display = isExp ? 'inline-flex' : 'none';
+
+    // Hide share on local tracks
+    const fsShare = document.getElementById('fs-share-track-btn');
+    if (fsShare) fsShare.style.display = track.isLocal ? 'none' : 'flex';
 
     updateLikeDislikeState(track.id);
   }
@@ -1324,12 +1519,61 @@
       });
     };
 
-    // Next track
+    // Repeat modes: 'none' | 'all' | 'one'
+    let repeatMode = 'none';
+    let isShuffle = false;
+
+    const repeatBtn = document.getElementById('fs-repeat-btn');
+    repeatBtn?.addEventListener('click', () => {
+      if (repeatMode === 'none') {
+        repeatMode = 'all';
+        repeatBtn.className = 'icon-btn active-all';
+        repeatBtn.setAttribute('title', 'Повтор: весь плейлист');
+      } else if (repeatMode === 'all') {
+        repeatMode = 'one';
+        repeatBtn.className = 'icon-btn active-one';
+        repeatBtn.setAttribute('title', 'Повтор: один трек');
+      } else {
+        repeatMode = 'none';
+        repeatBtn.className = 'icon-btn';
+        repeatBtn.setAttribute('title', 'Повтор выключен');
+      }
+    });
+
+    const shuffleBtn = document.getElementById('fs-shuffle-btn');
+    shuffleBtn?.addEventListener('click', () => {
+      isShuffle = !isShuffle;
+      shuffleBtn.classList.toggle('active', isShuffle);
+      shuffleBtn.setAttribute('title', isShuffle ? 'Перемешивание включено' : 'Перемешать');
+    });
+
+    // Next track with repeat and shuffle support
     const nextHandler = () => {
       if (playbackQueue.length === 0) return;
-      queueIndex = (queueIndex + 1) % playbackQueue.length;
+
+      if (repeatMode === 'one') {
+        engine.seek(0);
+        engine.softPlay();
+        return;
+      }
+
+      if (isShuffle && playbackQueue.length > 1) {
+        let rand = queueIndex;
+        while (rand === queueIndex) {
+          rand = Math.floor(Math.random() * playbackQueue.length);
+        }
+        queueIndex = rand;
+      } else {
+        if (repeatMode === 'none' && queueIndex >= playbackQueue.length - 1) {
+          engine.softPause();
+          return;
+        }
+        queueIndex = (queueIndex + 1) % playbackQueue.length;
+      }
+
       playTrack(playbackQueue[queueIndex]);
     };
+
     document.getElementById('mini-next-btn')?.addEventListener('click', nextHandler);
     document.getElementById('fs-next-btn')?.addEventListener('click', nextHandler);
     engine.onTrackEnd = nextHandler;
@@ -1382,12 +1626,21 @@
     document.getElementById('mini-like-btn')?.addEventListener('click', likeToggleHandler);
     document.getElementById('fs-like-btn')?.addEventListener('click', likeToggleHandler);
 
-    // Dislike
+    // Dislike: removes track from queue & advances gracefully without restarting
     document.getElementById('fs-dislike-btn')?.addEventListener('click', async () => {
       if (!currentTrack) return;
-      await toggleDislike(currentTrack.id);
-      updateLikeDislikeState(currentTrack.id);
-      nextHandler();
+      const dislikedId = currentTrack.id;
+      await toggleDislike(dislikedId);
+      updateLikeDislikeState(dislikedId);
+
+      playbackQueue = playbackQueue.filter((t) => t.id !== dislikedId);
+      if (playbackQueue.length > 0) {
+        queueIndex = queueIndex % playbackQueue.length;
+        playTrack(playbackQueue[queueIndex]);
+      } else {
+        engine.softPause();
+        alert('Трек скрыт и удален из очереди.');
+      }
     });
 
     initTrackOptionsSheet();
@@ -1458,6 +1711,8 @@
   }
 
   /* 3-Dots Options & FX Bottom Sheet */
+  let selectedSheetTrack = null;
+
   function initTrackOptionsSheet() {
     const backdrop = document.getElementById('track-options-backdrop');
     const sheet = document.getElementById('track-options-sheet');
@@ -1473,6 +1728,102 @@
     closeBtn?.addEventListener('click', closeSheet);
     backdrop?.addEventListener('click', (e) => {
       if (e.target === backdrop) closeSheet();
+    });
+
+    // Track Actions Wiring
+    document.getElementById('sheet-act-like')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      await toggleLike(selectedSheetTrack.id);
+      await updateLikeDislikeState(selectedSheetTrack.id);
+      closeSheet();
+    });
+
+    document.getElementById('sheet-act-play-next')?.addEventListener('click', () => {
+      if (!selectedSheetTrack) return;
+      const idx = queueIndex + 1;
+      playbackQueue.splice(idx, 0, selectedSheetTrack);
+      closeSheet();
+      alert(`Трек "${selectedSheetTrack.title}" будет воспроизведен следующим!`);
+    });
+
+    document.getElementById('sheet-act-add-queue')?.addEventListener('click', () => {
+      if (!selectedSheetTrack) return;
+      playbackQueue.push(selectedSheetTrack);
+      closeSheet();
+      alert(`Трек "${selectedSheetTrack.title}" добавлен в конец очереди!`);
+    });
+
+    document.getElementById('sheet-act-add-playlist')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      const plName = prompt('Введите имя плейлиста для добавления:');
+      if (plName && plName.trim()) {
+        const store = getStore('playlists', 'readwrite');
+        if (store) {
+          const pl = { id: 'pl_' + Date.now(), name: plName.trim(), trackIds: [selectedSheetTrack.id] };
+          store.put(pl);
+          renderPlaylistsGrid();
+          alert(`Трек добавлен в плейлист "${plName.trim()}"!`);
+        }
+      }
+      closeSheet();
+    });
+
+    document.getElementById('sheet-act-download')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      closeSheet();
+      alert(`Трек "${selectedSheetTrack.title}" сохранен в локальный оффлайн-кэш!`);
+    });
+
+    document.getElementById('sheet-act-share')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      const text = `${selectedSheetTrack.artist} — ${selectedSheetTrack.title} на ouMusic`;
+      if (navigator.share) {
+        try { await navigator.share({ title: 'ouMusic', text, url: window.location.href }); } catch (e) {}
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        alert('Информация о треке скопирована в буфер обмена!');
+      }
+      closeSheet();
+    });
+
+    document.getElementById('sheet-act-dislike')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      await toggleDislike(selectedSheetTrack.id);
+      if (currentTrack && currentTrack.id === selectedSheetTrack.id) {
+        playNextTrack();
+      }
+      closeSheet();
+      alert(`Трек "${selectedSheetTrack.title}" скрыт и не будет предлагаться.`);
+    });
+
+    // Delete Track from Bottom Sheet
+    document.getElementById('sheet-act-delete-track')?.addEventListener('click', () => {
+      if (!selectedSheetTrack) return;
+      const t = selectedSheetTrack;
+      closeSheet();
+
+      const confirmDialog = document.getElementById('delete-track-confirm-dialog');
+      const content = document.getElementById('delete-track-dialog-content');
+      if (content) content.textContent = `Вы действительно хотите удалить трек "${t.artist} — ${t.title}" из приложения?`;
+      confirmDialog?.classList.add('active');
+
+      const execBtn = document.getElementById('execute-delete-track-btn');
+      const cancelBtn = document.getElementById('cancel-delete-track-btn');
+      const onCancel = () => {
+        confirmDialog?.classList.remove('active');
+        cleanup();
+      };
+      const onConfirm = async () => {
+        confirmDialog?.classList.remove('active');
+        cleanup();
+        await deleteTrack(t.id);
+      };
+      function cleanup() {
+        execBtn?.removeEventListener('click', onConfirm);
+        cancelBtn?.removeEventListener('click', onCancel);
+      }
+      cancelBtn?.addEventListener('click', onCancel);
+      execBtn?.addEventListener('click', onConfirm);
     });
 
     // FX Sliders
@@ -1520,54 +1871,123 @@
 
   function openTrackOptionsSheet(track) {
     if (!track) return;
+    selectedSheetTrack = track;
     const backdrop = document.getElementById('track-options-backdrop');
     const sheet = document.getElementById('track-options-sheet');
     const title = document.getElementById('sheet-track-title');
     if (title) title.textContent = `${track.artist} — ${track.title}`;
+
+    // Hide share button for local tracks
+    const shareBtn = document.getElementById('sheet-act-share');
+    if (shareBtn) shareBtn.style.display = track.isLocal ? 'none' : 'flex';
+
     backdrop?.classList.add('active');
     sheet?.classList.add('active');
   }
 
-  /* 60 FPS Audio Spectrum Canvas */
+  /* Modern Calm Audio-Reactive Waves around Album Cover (No Clipping, Soft Gentle Flow) */
   function initCircularSpectrum() {
     const canvas = document.getElementById('cover-spectrum-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
+    let smoothVol = 0;
+    let smoothBass = 0;
+    let waveTime = 0;
+
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      const radius = 150;
+      const coverRadius = 175; // Fits 350-380px cover box
+
+      let curVol = 0;
+      let curBass = 0;
 
       if (engine.analyserNode && engine.isPlaying) {
-        const data = new Uint8Array(engine.analyserNode.frequencyBinCount);
-        engine.analyserNode.getByteFrequencyData(data);
+        const freqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
+        engine.analyserNode.getByteFrequencyData(freqData);
 
-        const bars = 64;
-        const step = (Math.PI * 2) / bars;
+        let bassSum = 0;
+        for (let i = 1; i < 8; i++) bassSum += freqData[i];
+        curBass = bassSum / 7 / 255;
 
-        ctx.save();
-        for (let i = 0; i < bars; i++) {
-          const val = data[i * 2] || 0;
-          const h = (val / 255) * 45;
-          const ang = i * step;
-
-          const x1 = cx + Math.cos(ang) * (radius + 2);
-          const y1 = cy + Math.sin(ang) * (radius + 2);
-          const x2 = cx + Math.cos(ang) * (radius + 2 + h);
-          const y2 = cy + Math.sin(ang) * (radius + 2 + h);
-
-          ctx.strokeStyle = `hsl(${(i * 360) / bars}, 85%, 65%)`;
-          ctx.lineWidth = 3;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-        }
-        ctx.restore();
+        let totalSum = 0;
+        for (let i = 0; i < 40; i++) totalSum += freqData[i];
+        curVol = totalSum / 40 / 255;
       }
+
+      // Calm easing
+      smoothVol += (curVol - smoothVol) * 0.08;
+      smoothBass += (curBass - smoothBass) * 0.12;
+      waveTime += 0.02;
+
+      // Color interpolation: Pure soft white (quiet) -> User Accent Color (loud)
+      const rootStyle = getComputedStyle(document.documentElement);
+      const accentProp = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
+
+      let targetR = 139, targetG = 92, targetB = 246;
+      if (accentProp.startsWith('#')) {
+        let h = accentProp.replace('#', '');
+        if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+        targetR = parseInt(h.substring(0, 2), 16) || targetR;
+        targetG = parseInt(h.substring(2, 4), 16) || targetG;
+        targetB = parseInt(h.substring(4, 6), 16) || targetB;
+      } else if (accentProp.startsWith('rgb')) {
+        const m = accentProp.match(/\d+/g);
+        if (m && m.length >= 3) {
+          targetR = parseInt(m[0], 10);
+          targetG = parseInt(m[1], 10);
+          targetB = parseInt(m[2], 10);
+        }
+      }
+
+      const intensity = Math.min(1.0, Math.max(0, smoothVol * 1.8));
+      const r = Math.round(255 + (targetR - 255) * intensity);
+      const g = Math.round(255 + (targetG - 255) * intensity);
+      const b = Math.round(255 + (targetB - 255) * intensity);
+
+      ctx.save();
+
+      // 1. Soft Breathing Bloom
+      const bloomRadius = coverRadius + 14 + smoothBass * 32;
+      const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.8, cx, cy, bloomRadius);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.12 + smoothVol * 0.25})`);
+      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.04 + smoothVol * 0.12})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2. Calm Concentric Undulating Fluid Waves (Gentle harmonic curves)
+      const rings = 3;
+      for (let k = 0; k < rings; k++) {
+        const ringBase = coverRadius + 8 + k * 18 + smoothBass * (10 + k * 8);
+        const ringAlpha = (0.28 + intensity * 0.45) * (1 - k * 0.25);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
+        ctx.lineWidth = 1.8 - k * 0.3;
+        ctx.beginPath();
+
+        const points = 80;
+        const step = (Math.PI * 2) / points;
+
+        for (let p = 0; p <= points; p++) {
+          const theta = p * step;
+          const wave = Math.sin(theta * 3 + waveTime * 0.8 + k) * (2.5 + smoothBass * 5) +
+                       Math.cos(theta * 6 - waveTime * 0.5) * (1.5 + smoothVol * 3);
+          const rad = ringBase + wave;
+          const x = cx + Math.cos(theta) * rad;
+          const y = cy + Math.sin(theta) * rad;
+
+          if (p === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      ctx.restore();
       requestAnimationFrame(render);
     }
     render();
@@ -1876,46 +2296,235 @@
       }
     });
 
-    function drawWaveform(buf) {
-      const c = document.getElementById('studio-waveform-canvas');
-      if (!c || !buf) return;
-      const ctx = c.getContext('2d');
-      c.width = c.offsetWidth || 600;
-      c.height = c.offsetHeight || 140;
+    // Helper: encode AudioBuffer slice to genuine WAV Blob offline
+    function audioBufferToWav(buffer, startSec = 0, endSec = buffer.duration) {
+      const sampleRate = buffer.sampleRate;
+      const numChannels = buffer.numberOfChannels;
+      const startSample = Math.max(0, Math.floor(startSec * sampleRate));
+      const endSample = Math.min(buffer.length, Math.floor(endSec * sampleRate));
+      const length = Math.max(1, endSample - startSample);
 
-      const data = buf.getChannelData(0);
+      const wavBuffer = new ArrayBuffer(44 + length * numChannels * 2);
+      const view = new DataView(wavBuffer);
+
+      function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      }
+
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + length * numChannels * 2, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * 2, true);
+      view.setUint16(32, numChannels * 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, length * numChannels * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[startSample + i] || 0));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+      return new Blob([wavBuffer], { type: 'audio/wav' });
+    }
+
+    // State for fragment trimming & validation
+    let trimStartTime = 0;
+    let trimEndTime = 0;
+    let isFragmentConfirmed = false;
+    let previewSourceNode = null;
+    let isPreviewPlaying = false;
+
+    function updateWaveformVisuals() {
+      const c = document.getElementById('studio-waveform-canvas');
+      const startHandle = document.getElementById('trim-handle-start');
+      const endHandle = document.getElementById('trim-handle-end');
+      const highlight = document.getElementById('trim-highlight');
+      if (!c || !studioAudioBuf) return;
+
+      const dur = studioAudioBuf.duration || 1;
+      const startPct = Math.max(0, Math.min(100, (trimStartTime / dur) * 100));
+      const endPct = Math.max(0, Math.min(100, (trimEndTime / dur) * 100));
+
+      if (startHandle) startHandle.style.left = `${startPct}%`;
+      if (endHandle) endHandle.style.left = `${endPct}%`;
+      if (highlight) {
+        highlight.style.left = `${startPct}%`;
+        highlight.style.width = `${Math.max(0, endPct - startPct)}%`;
+      }
+
+      const startLbl = document.getElementById('trim-start-label');
+      const endLbl = document.getElementById('trim-end-label');
+      const durLbl = document.getElementById('trim-duration-label');
+      if (startLbl) startLbl.textContent = formatSec(trimStartTime);
+      if (endLbl) endLbl.textContent = formatSec(trimEndTime);
+      if (durLbl) durLbl.textContent = `${(trimEndTime - trimStartTime).toFixed(1)} сек`;
+
+      // Redraw canvas with vibrant selected region and dimmed unselected regions
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+
+      const data = studioAudioBuf.getChannelData(0);
       const step = Math.ceil(data.length / c.width);
       const amp = c.height / 2;
 
-      ctx.clearRect(0, 0, c.width, c.height);
-      ctx.fillStyle = '#8B5CF6';
+      const startPx = Math.floor((trimStartTime / dur) * c.width);
+      const endPx = Math.floor((trimEndTime / dur) * c.width);
 
       for (let i = 0; i < c.width; i++) {
         let min = 1.0, max = -1.0;
         for (let j = 0; j < step; j++) {
-          const datum = data[i * step + j];
+          const datum = data[i * step + j] || 0;
           if (datum < min) min = datum;
           if (datum > max) max = datum;
         }
+        const isSelected = i >= startPx && i <= endPx;
+        ctx.fillStyle = isSelected ? '#8B5CF6' : 'rgba(255, 255, 255, 0.22)';
         ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
       }
     }
 
+    function drawWaveform(buf) {
+      const c = document.getElementById('studio-waveform-canvas');
+      if (!c || !buf) return;
+      c.width = c.offsetWidth || 600;
+      c.height = c.offsetHeight || 120;
+
+      trimStartTime = 0;
+      trimEndTime = buf.duration;
+      isFragmentConfirmed = false;
+
+      updateWaveformVisuals();
+    }
+
+    // Dragging trim handles & clicking waveform container
+    const waveContainer = document.getElementById('waveform-container');
+    const startHandle = document.getElementById('trim-handle-start');
+    const endHandle = document.getElementById('trim-handle-end');
+
+    let activeDrag = null;
+
+    startHandle?.addEventListener('pointerdown', (e) => {
+      activeDrag = 'start';
+      startHandle.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+    });
+
+    endHandle?.addEventListener('pointerdown', (e) => {
+      activeDrag = 'end';
+      endHandle.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+    });
+
+    waveContainer?.addEventListener('pointermove', (e) => {
+      if (!activeDrag || !studioAudioBuf) return;
+      const rect = waveContainer.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = studioAudioBuf.duration;
+      const targetSec = pct * dur;
+
+      if (activeDrag === 'start') {
+        trimStartTime = Math.min(targetSec, trimEndTime - 0.5);
+      } else if (activeDrag === 'end') {
+        trimEndTime = Math.max(targetSec, trimStartTime + 0.5);
+      }
+      updateWaveformVisuals();
+    });
+
+    const stopDrag = () => { activeDrag = null; };
+    waveContainer?.addEventListener('pointerup', stopDrag);
+    waveContainer?.addEventListener('pointercancel', stopDrag);
+
+    // Clicking on waveform container adjusts nearest handle
+    waveContainer?.addEventListener('click', (e) => {
+      if (e.target === startHandle || e.target === endHandle || !studioAudioBuf) return;
+      const rect = waveContainer.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetSec = pct * studioAudioBuf.duration;
+
+      const distToStart = Math.abs(targetSec - trimStartTime);
+      const distToEnd = Math.abs(targetSec - trimEndTime);
+
+      if (distToStart < distToEnd) {
+        trimStartTime = Math.min(targetSec, trimEndTime - 0.5);
+      } else {
+        trimEndTime = Math.max(targetSec, trimStartTime + 0.5);
+      }
+      updateWaveformVisuals();
+    });
+
+    const playTrimBtn = document.getElementById('studio-play-trim-btn');
+
+    function stopTrimPreview() {
+      if (previewSourceNode) {
+        try { previewSourceNode.stop(); } catch (e) {}
+        previewSourceNode.disconnect();
+        previewSourceNode = null;
+      }
+      isPreviewPlaying = false;
+      if (playTrimBtn) {
+        playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-play"></use></svg><span>Прослушать отрезок</span>';
+      }
+    }
+
+    playTrimBtn?.addEventListener('click', () => {
+      if (!studioAudioBuf || !studioAudioContext) return;
+      if (isPreviewPlaying) {
+        stopTrimPreview();
+        return;
+      }
+
+      stopTrimPreview();
+      const ctx = studioAudioContext;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      previewSourceNode = ctx.createBufferSource();
+      previewSourceNode.buffer = studioAudioBuf;
+      previewSourceNode.connect(ctx.destination);
+
+      const dur = trimEndTime > trimStartTime ? (trimEndTime - trimStartTime) : studioAudioBuf.duration;
+      previewSourceNode.start(0, trimStartTime, dur);
+      isPreviewPlaying = true;
+
+      playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-pause"></use></svg><span>Остановить</span>';
+      previewSourceNode.onended = () => {
+        stopTrimPreview();
+      };
+    });
+
     // Confirm trim & proceed to Step 2
     document.getElementById('studio-confirm-trim-btn')?.addEventListener('click', () => {
-      trimmedBlob = originalBlob;
+      stopTrimPreview();
+      isFragmentConfirmed = true;
+      if (studioAudioBuf && trimEndTime > trimStartTime) {
+        trimmedBlob = audioBufferToWav(studioAudioBuf, trimStartTime, trimEndTime);
+      } else {
+        trimmedBlob = originalBlob;
+      }
       waveBox.style.display = 'none';
       document.getElementById('studio-step-2-box').style.display = 'block';
       studioAudio.src = URL.createObjectURL(trimmedBlob);
       studioAudio.load();
+      alert(`Фрагмент аудио (${(trimEndTime - trimStartTime).toFixed(1)} сек) успешно обрезан и подтвержден! Переходите к Шагу 2.`);
     });
 
     document.getElementById('studio-keep-original-btn')?.addEventListener('click', () => {
+      stopTrimPreview();
+      isFragmentConfirmed = true;
       trimmedBlob = originalBlob;
       waveBox.style.display = 'none';
       document.getElementById('studio-step-2-box').style.display = 'block';
       studioAudio.src = URL.createObjectURL(trimmedBlob);
       studioAudio.load();
+      alert('Оригинальный аудиофайл сохранен без обрезки! Переходите к Шагу 2.');
     });
 
     // Step 2 Lyrics paste & Live Tap with Millisecond [00:00.00] Support
@@ -2013,17 +2622,27 @@
     };
     document.getElementById('studio-tap-record-btn')?.addEventListener('click', tapAction);
 
-    // Build .oump3 button
+    // Build .oump3 button with strict fragment & lyrics validation gate
     document.getElementById('studio-build-oump3-btn')?.addEventListener('click', async () => {
       const title = document.getElementById('studio-title-input')?.value.trim();
       const artist = document.getElementById('studio-artist-input')?.value.trim();
 
       if (!title || !artist) {
-        alert('Пожалуйста, укажите название трека и артиста!');
+        alert('Пожалуйста, укажите название трека и артиста в метаданных!');
         return;
       }
-      if (!trimmedBlob && !originalBlob) {
-        alert('Пожалуйста, загрузите аудиофайл на Шаге 1!');
+      if (!originalBlob) {
+        alert('Пожалуйста, выберите аудиофайл на Шаге 1!');
+        return;
+      }
+      if (!isFragmentConfirmed) {
+        alert('Пожалуйста, выберите и подтвердите фрагмент аудио на Шаге 1 перед скачиванием!');
+        return;
+      }
+
+      const validLines = lyricsLines.filter((l) => l.text && l.text.trim());
+      if (validLines.length === 0) {
+        alert('Запрещено скачивать трек без текста! Пожалуйста, добавьте текст песни на Шаге 2 (хотя бы 1 строку).');
         return;
       }
 
@@ -2032,12 +2651,16 @@
         .map((l) => `[${formatLrcTime(l.time)}]${l.text}`)
         .join('\n');
 
+      const isExplicitChecked = !!document.getElementById('studio-explicit-toggle')?.checked;
+
       try {
         const oump3Blob = await buildOump3Container({
           title,
           artist,
           duration: studioAudioBuf ? studioAudioBuf.duration : 180,
           hasLyrics: !!lrcText,
+          isExplicit: isExplicitChecked,
+          explicit: isExplicitChecked,
           thumbBase64,
           audioBlob: trimmedBlob || originalBlob,
           lyricsText: lrcText
@@ -2133,7 +2756,17 @@
       if (!container) return;
       const lines = container.querySelectorAll('.lyric-line');
       lines.forEach((l, idx) => {
-        l.classList.toggle('active', idx === newIdx);
+        const dist = Math.abs(idx - newIdx);
+        l.className = 'lyric-line';
+        if (dist === 0) {
+          l.classList.add('active');
+        } else if (dist === 1) {
+          l.classList.add('near-1');
+        } else if (dist === 2) {
+          l.classList.add('near-2');
+        } else {
+          l.classList.add('distant');
+        }
       });
       if (lines[newIdx]) {
         lines[newIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2143,11 +2776,68 @@
 
   function initLyricsUI() {
     const overlay = document.getElementById('lyrics-overlay');
-    document.getElementById('fs-open-lyrics-btn')?.addEventListener('click', () => {
+    const fsOpenBtn = document.getElementById('fs-open-lyrics-btn');
+    const closeBtn = document.getElementById('close-lyrics-btn');
+
+    const openKaraoke = async () => {
+      if (!currentTrack) return;
+      // Populate left showcase
+      const coverImg = document.getElementById('lyrics-cover-img');
+      const titleEl = document.getElementById('lyrics-track-title');
+      const artistEl = document.getElementById('lyrics-track-artist');
+
+      if (coverImg) coverImg.src = currentTrack.coverUrl || currentTrack.thumbBase64 || 'assets/oumusic.png';
+      if (titleEl) titleEl.textContent = currentTrack.title || 'Трек';
+      if (artistEl) artistEl.textContent = currentTrack.artist || 'Артист';
+
+      // If lyrics not loaded, try retrieving from offline store
+      if (currentParsedLyrics.length === 0) {
+        const off = await getOfflineTrack(currentTrack.id);
+        const lrc = currentTrack.lyricsText || currentTrack.lrcText || (off && (off.lyricsText || off.lrcText)) || '';
+        loadLyrics(lrc, currentTrack);
+      }
+
+      // Dynamic ambient color palette sampled from cover (matching Yandex Music style)
+      try {
+        const domHex = await extractCoverDominantColor(currentTrack.coverUrl || currentTrack.thumbBase64);
+        let r = 18, g = 60, b = 85; // default rich deep teal/petrol blue
+        if (domHex && domHex.startsWith('#')) {
+          let h = domHex.replace('#', '');
+          if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+          r = parseInt(h.substring(0, 2), 16) || r;
+          g = parseInt(h.substring(2, 4), 16) || g;
+          b = parseInt(h.substring(4, 6), 16) || b;
+        }
+        if (overlay) {
+          overlay.style.background = `radial-gradient(ellipse at 35% 35%, rgba(${Math.round(r * 0.35)}, ${Math.round(g * 0.35)}, ${Math.round(b * 0.4)}, 1) 0%, rgba(${Math.round(r * 0.16)}, ${Math.round(g * 0.16)}, ${Math.round(b * 0.2)}, 1) 55%, #05080E 100%)`;
+        }
+        const backdrop = document.getElementById('lyrics-glow-backdrop');
+        if (backdrop) {
+          backdrop.style.background = `radial-gradient(circle at 25% 45%, rgba(${r}, ${g}, ${b}, 0.42) 0%, rgba(${r}, ${g}, ${b}, 0.14) 50%, transparent 80%)`;
+        }
+        const closeCircle = document.getElementById('close-lyrics-btn');
+        if (closeCircle) {
+          closeCircle.style.background = `rgba(${r}, ${g}, ${b}, 0.55)`;
+          closeCircle.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
+        }
+      } catch (e) {}
+
       overlay?.classList.add('active');
-    });
-    document.getElementById('close-lyrics-btn')?.addEventListener('click', () => {
+    };
+
+    fsOpenBtn?.addEventListener('click', openKaraoke);
+    closeBtn?.addEventListener('click', () => {
       overlay?.classList.remove('active');
+    });
+
+    // Seeking on minimalist progress track under cover info
+    const progressTrack = document.getElementById('lyrics-progress-track');
+    progressTrack?.addEventListener('click', (e) => {
+      const rect = progressTrack.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (engine.audioElement.duration) {
+        engine.seek(ratio * engine.audioElement.duration);
+      }
     });
 
     // Vocal remover toggle
@@ -2160,10 +2850,16 @@
 
     // Timeupdate sync with engine
     engine.audioElement.addEventListener('timeupdate', () => {
-      if (!overlay?.classList.contains('active') && !document.getElementById('fullscreen-player')?.classList.contains('active')) {
-        return;
+      const cur = engine.audioElement.currentTime;
+      const dur = engine.audioElement.duration || 1;
+
+      if (overlay?.classList.contains('active')) {
+        const fill = document.getElementById('lyrics-progress-fill');
+        if (fill) fill.style.width = `${(cur / dur) * 100}%`;
+        updateActiveLyric(cur);
+      } else if (document.getElementById('fullscreen-player')?.classList.contains('active')) {
+        updateActiveLyric(cur);
       }
-      updateActiveLyric(engine.audioElement.currentTime);
     });
   }
 
@@ -2172,6 +2868,66 @@
     await updateProfileStats();
     document.getElementById('clear-history-btn')?.addEventListener('click', () => {
       alert('История прослушиваний очищена.');
+    });
+
+    // 10-Clicks Safety Easter Egg for Full Cache & DB Wipe
+    const clearCacheBtn = document.getElementById('settings-clear-cache-btn');
+    const clearCacheBtnText = document.getElementById('clear-cache-btn-text');
+    const clearCacheHint = document.getElementById('clear-cache-hint');
+    const clearCacheDialog = document.getElementById('clear-cache-confirm-dialog');
+    const cancelClearCacheBtn = document.getElementById('cancel-clear-cache-btn');
+    const executeClearCacheBtn = document.getElementById('execute-clear-cache-btn');
+
+    let cacheClicks = 0;
+    let lastCacheClickTime = 0;
+
+    clearCacheBtn?.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastCacheClickTime > 3500) {
+        cacheClicks = 0;
+      }
+      lastCacheClickTime = now;
+      cacheClicks++;
+
+      if (cacheClicks < 10) {
+        const remaining = 10 - cacheClicks;
+        if (clearCacheBtnText) clearCacheBtnText.textContent = `Очистить весь кэш (Осталось нажать: ${remaining})`;
+        if (clearCacheHint) clearCacheHint.textContent = `Нажмите еще ${remaining} раз(а) для подтверждения!`;
+      } else {
+        cacheClicks = 0;
+        if (clearCacheBtnText) clearCacheBtnText.textContent = 'Очистить весь кэш (Нажмите 10 раз)';
+        if (clearCacheHint) clearCacheHint.textContent = 'Быстро нажмите кнопку 10 раз для вызова подтверждения';
+        clearCacheDialog?.classList.add('active');
+      }
+    });
+
+    cancelClearCacheBtn?.addEventListener('click', () => {
+      clearCacheDialog?.classList.remove('active');
+    });
+
+    executeClearCacheBtn?.addEventListener('click', async () => {
+      clearCacheDialog?.classList.remove('active');
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        if (dbInstance) {
+          dbInstance.close();
+        }
+        await new Promise((resolve) => {
+          const req = indexedDB.deleteDatabase('oumusic_db');
+          req.onsuccess = resolve;
+          req.onerror = resolve;
+          req.onblocked = resolve;
+        });
+        localStorage.clear();
+        sessionStorage.clear();
+        alert('Все кэши и локальные данные успешно очищены! Приложение будет перезагружено.');
+        window.location.reload();
+      } catch (err) {
+        alert('Ошибка при очистке кэша: ' + err.message);
+      }
     });
   }
 
@@ -2217,6 +2973,7 @@
 
     // Accent Color System & Custom Palette Picker
     function applyAccentColor(colorHex) {
+      window.applyAccentColor = applyAccentColor;
       if (!colorHex) return;
       const root = document.documentElement;
       root.style.setProperty('--md-sys-color-primary', colorHex);
@@ -2263,9 +3020,29 @@
       }
     }
 
+    // Adaptive Accent Color Button
+    const adaptiveBtn = document.getElementById('adaptive-accent-btn');
+    adaptiveBtn?.addEventListener('click', async () => {
+      localStorage.setItem('oumusic_accent_adaptive', 'true');
+      adaptiveBtn.classList.add('active');
+
+      document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((b) => {
+        b.classList.remove('active');
+        b.style.borderColor = 'transparent';
+      });
+
+      if (currentTrack) {
+        const dom = await extractCoverDominantColor(currentTrack.coverUrl || currentTrack.thumbBase64);
+        applyAccentColor(dom, true);
+      }
+      alert('Включен адаптивный цвет! Интерфейс автоматически подстраивается под цвета обложки каждого трека.');
+    });
+
     // Connect preset circles
     document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        localStorage.setItem('oumusic_accent_adaptive', 'false');
+        adaptiveBtn?.classList.remove('active');
         const c = btn.getAttribute('data-color');
         if (c) applyAccentColor(c);
       });
@@ -2454,9 +3231,10 @@
       if (e.target === queueBackdrop) closeQueue();
     });
     document.getElementById('queue-clear-btn')?.addEventListener('click', () => {
-      playbackQueue = currentTrack ? [currentTrack] : [];
-      queueIndex = 0;
+      playbackQueue = [];
+      queueIndex = -1;
       renderQueueListUI();
+      alert('Очередь воспроизведения полностью очищена.');
     });
 
     // 3. Sleep Timer sheet
@@ -2584,6 +3362,10 @@
     const list = document.getElementById('queue-tracks-list');
     if (!list) return;
     list.innerHTML = '';
+    if (playbackQueue.length === 0) {
+      list.innerHTML = '<div style="text-align: center; color: var(--md-sys-color-outline); padding: 32px 16px; font-size: 0.9rem;">Очередь воспроизведения пуста</div>';
+      return;
+    }
     playbackQueue.forEach((t, i) => {
       const r = document.createElement('div');
       r.className = `track-row ${i === queueIndex ? 'active' : ''}`;
@@ -2684,5 +3466,19 @@
   }
 
   // Expose global for debugging if needed
-  window.ouMusic = { engine, playTrack, navigateTo };
+  window.ouMusic = {
+    engine,
+    playTrack,
+    navigateTo,
+    deleteTrack,
+    saveTrackMetadata,
+    saveOfflineTrack,
+    getAllTracksMetadata,
+    getOfflineTrack
+  };
+  window.saveTrackMetadata = saveTrackMetadata;
+  window.saveOfflineTrack = saveOfflineTrack;
+  window.getAllTracksMetadata = getAllTracksMetadata;
+  window.getOfflineTrack = getOfflineTrack;
+  window.engine = engine;
 })();
