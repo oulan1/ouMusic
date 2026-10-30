@@ -407,6 +407,35 @@ html, body {
   flex-shrink: 0;
 }
 
+
+/* Search Dynamic Caret Accent Blur Glow */
+.top-search-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.search-caret-glow {
+  position: absolute;
+  top: 50%;
+  left: 36px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  filter: blur(10px);
+  -webkit-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: transform 0.08s ease-out, opacity 0.25s ease;
+  z-index: 1;
+}
+
+.search-caret-glow.typing {
+  opacity: 0.9;
+  box-shadow: 0 0 20px 4px var(--md-sys-color-primary);
+}
+
 .top-search-container {
   display: flex;
   align-items: center;
@@ -623,7 +652,36 @@ html, body {
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.04) !important;
 }
 
-[data-theme="light"] .top-search-container {
+[data-theme="light"] 
+/* Search Dynamic Caret Accent Blur Glow */
+.top-search-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.search-caret-glow {
+  position: absolute;
+  top: 50%;
+  left: 36px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  filter: blur(10px);
+  -webkit-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: transform 0.08s ease-out, opacity 0.25s ease;
+  z-index: 1;
+}
+
+.search-caret-glow.typing {
+  opacity: 0.9;
+  box-shadow: 0 0 20px 4px var(--md-sys-color-primary);
+}
+
+.top-search-container {
   background: rgba(0, 0, 0, 0.04) !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
@@ -872,7 +930,36 @@ html, body {
 [data-liquid-glass="true"][data-theme="light"] .stat-card,
 [data-liquid-glass="true"][data-theme="light"] .home-wave-card,
 [data-liquid-glass="true"][data-theme="light"] .track-row,
-[data-liquid-glass="true"][data-theme="light"] .top-search-container {
+[data-liquid-glass="true"][data-theme="light"] 
+/* Search Dynamic Caret Accent Blur Glow */
+.top-search-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.search-caret-glow {
+  position: absolute;
+  top: 50%;
+  left: 36px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  filter: blur(10px);
+  -webkit-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: transform 0.08s ease-out, opacity 0.25s ease;
+  z-index: 1;
+}
+
+.search-caret-glow.typing {
+  opacity: 0.9;
+  box-shadow: 0 0 20px 4px var(--md-sys-color-primary);
+}
+
+.top-search-container {
   background: rgba(255, 255, 255, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.65) !important;
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
@@ -883,13 +970,34 @@ html, body {
   border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
+[data-liquid-glass="true"] .btn,
 [data-liquid-glass="true"] .btn-primary,
 [data-liquid-glass="true"] .btn-tonal,
-[data-liquid-glass="true"] .chip {
+[data-liquid-glass="true"] .btn-outlined,
+[data-liquid-glass="true"] .chip,
+[data-liquid-glass="true"] .icon-btn,
+[data-liquid-glass="true"] .vocal-remover-btn,
+[data-liquid-glass="true"] .lyrics-close-circle-btn,
+[data-liquid-glass="true"] .arc-toggle-btn {
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  overflow: hidden !important;
+  outline: none !important;
+}
+
+[data-liquid-glass="true"] .icon-btn,
+[data-liquid-glass="true"] .lyrics-close-circle-btn,
+[data-liquid-glass="true"] .arc-toggle-btn,
+[data-liquid-glass="true"] .accent-color-circle {
+  border-radius: 50% !important;
+}
+
+[data-liquid-glass="true"] .btn,
+[data-liquid-glass="true"] .chip,
+[data-liquid-glass="true"] .vocal-remover-btn {
+  border-radius: var(--md-shape-corner-full) !important;
 }
 
 /* Smooth color transitions (removed .arc-sidebar so its slide/hover physics stay buttery smooth) */

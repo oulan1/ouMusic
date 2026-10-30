@@ -280,9 +280,10 @@
           <button class="icon-btn" id="top-back-btn" style="display: none;" title="Назад">
             <svg class="svg-icon"><use href="#icon-prev"></use></svg>
           </button>
-          <div class="top-search-container">
-            <svg class="svg-icon" style="width: 18px; height: 18px; fill: var(--md-sys-color-outline);"><use href="#icon-search"></use></svg>
-            <input type="text" id="global-search-input" class="top-search-input" placeholder="Поиск треков, артистов..." data-i18n-placeholder="search_placeholder">
+          <div class="top-search-container" id="top-search-container">
+            <span class="search-caret-glow" id="search-caret-glow"></span>
+            <svg class="svg-icon" style="width: 18px; height: 18px; fill: var(--md-sys-color-outline); z-index: 2;"><use href="#icon-search"></use></svg>
+            <input type="text" id="global-search-input" class="top-search-input" placeholder="Поиск треков, артистов..." data-i18n-placeholder="search_placeholder" style="position: relative; z-index: 2;">
           </div>
         </div>
 
@@ -318,7 +319,7 @@
 
             <!-- Majestic 400x400 Pulsating Wave Sphere Canvas -->
             <div class="wave-visualizer-container" id="wave-visualizer-container">
-              <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="400" height="400"></canvas>
+              <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="540" height="540"></canvas>
             </div>
 
             <!-- Centered Track Metadata -->
@@ -924,6 +925,51 @@
             </button>
           </div>
 
+          <!-- STEP 3: INSTRUMENTAL & VOCAL REMOVER CONFIGURATION -->
+          <div id="studio-step-3-box" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-weight: 600;">ШАГ 3: Настройка минусовки (Опционально)</div>
+              <span class="badge-beta" style="background: var(--md-sys-color-primary); color: #FFF;">Караоке M-Core</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">
+              Вы можете настроить и протестировать режим минусовки для этого трека. Если включено, слушатели смогут включать минусовку в караоке.
+            </p>
+
+            <label class="m3-switch" style="margin-bottom: 12px;">
+              <div>
+                <div class="switch-label">Включить минусовку для трека</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Разрешить вырезание вокала в режиме караоке</div>
+              </div>
+              <input type="checkbox" id="studio-instrumental-toggle" class="switch-input">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </label>
+
+            <div id="studio-instrumental-controls" style="display: none; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+              <div class="m3-select-wrapper" style="margin-bottom: 12px;">
+                <label class="m3-select-label" for="studio-instrumental-mode">
+                  <span>Режим удаления вокала:</span>
+                </label>
+                <div class="m3-select-container">
+                  <select id="studio-instrumental-mode" class="m3-select">
+                    <option value="balanced" selected>Сбалансированная (Студийный баланс)</option>
+                    <option value="aggressive">Агрессивная (Максимальное удаление)</option>
+                    <option value="soft">Мягкая (Вырез частот 200–4000 Гц)</option>
+                  </select>
+                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+                </div>
+              </div>
+
+              <!-- Real-time Test Preview Button -->
+              <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+                <button class="btn btn-tonal" id="studio-test-instrumental-btn" style="border: 1px solid var(--md-sys-color-primary);">
+                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-mic"></use></svg>
+                  <span id="studio-test-instrumental-label">Прослушать минусовку</span>
+                </button>
+                <span id="studio-test-status" style="font-size: 0.8rem; color: var(--md-sys-color-outline);"></span>
+              </div>
+            </div>
+          </div>
+
           <!-- Build .oump3 Button -->
           <button class="btn btn-primary" id="studio-build-oump3-btn" style="width: 100%; padding: 14px; font-size: 1.05rem; justify-content: center;">
             <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-download"></use></svg>
@@ -1154,6 +1200,18 @@
       <div class="lyrics-left-col">
         <div class="lyrics-cover-card" id="lyrics-cover-card">
           <img id="lyrics-cover-img" src="assets/oumusic.png" alt="Cover" class="lyrics-cover-image">
+          <!-- Hover Playback Controls Overlay -->
+          <div class="lyrics-cover-hover-overlay" id="lyrics-cover-controls">
+            <button class="lyrics-cover-btn" id="lyrics-ctrl-prev" title="Предыдущий трек">
+              <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-prev"></use></svg>
+            </button>
+            <button class="lyrics-cover-btn play-main-btn" id="lyrics-ctrl-play" title="Пауза / Плей">
+              <svg class="svg-icon" id="lyrics-ctrl-play-icon" style="width: 28px; height: 28px;"><use href="#icon-play"></use></svg>
+            </button>
+            <button class="lyrics-cover-btn" id="lyrics-ctrl-next" title="Следующий трек">
+              <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-next"></use></svg>
+            </button>
+          </div>
         </div>
         <div class="lyrics-track-meta">
           <div class="lyrics-track-title-row">

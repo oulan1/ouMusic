@@ -1215,19 +1215,48 @@
       });
     });
 
-    // Global search input
+    // Global search input with dynamic caret accent glow
     const searchInput = document.getElementById('global-search-input');
+    const caretGlow = document.getElementById('search-caret-glow');
+    let typingTimer = null;
+
+    function updateCaretGlow() {
+      if (!searchInput || !caretGlow) return;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const cs = window.getComputedStyle(searchInput);
+      ctx.font = `${cs.fontSize} ${cs.fontFamily}`;
+      const caretPos = searchInput.selectionStart || 0;
+      const textUpToCaret = searchInput.value.substring(0, caretPos);
+      const measured = ctx.measureText(textUpToCaret).width;
+      // Position glow right behind caret
+      caretGlow.style.transform = `translate(${measured}px, -50%)`;
+      caretGlow.classList.add('typing');
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        caretGlow.classList.remove('typing');
+      }, 750);
+    }
+
     if (searchInput) {
       searchInput.addEventListener('input', () => {
+        updateCaretGlow();
         const query = searchInput.value.toLowerCase().trim();
         filterTracksFeed(query);
       });
       searchInput.addEventListener('keydown', (e) => {
+        updateCaretGlow();
         if (e.key === 'Escape') {
           searchInput.value = '';
           filterTracksFeed('');
           searchInput.blur();
+          caretGlow?.classList.remove('typing');
         }
+      });
+      searchInput.addEventListener('keyup', updateCaretGlow);
+      searchInput.addEventListener('click', updateCaretGlow);
+      searchInput.addEventListener('blur', () => {
+        caretGlow?.classList.remove('typing');
       });
     }
   }
@@ -1608,6 +1637,11 @@
     if (fsShare) fsShare.style.display = track.isLocal ? 'none' : 'flex';
 
     updateLikeDislikeState(track.id);
+
+    // If karaoke overlay is currently active, seamlessly reload lyrics and ambient tint
+    if (document.getElementById('lyrics-overlay')?.classList.contains('active')) {
+      window.updateKaraokeTrackUI?.(track);
+    }
   }
 
   async function updateLikeDislikeState(trackId) {
@@ -1735,7 +1769,10 @@
     engine.onTimeUpdate = (cur, dur) => {
       if (dur > 0) {
         const pct = (cur / dur) * 100;
-        if (scrubber && !scrubber.matches(':active')) scrubber.value = pct;
+        if (scrubber && !scrubber.matches(':active')) {
+          scrubber.value = pct;
+          scrubber.style.setProperty('--range-progress', `${pct}%`);
+        }
         if (miniProgress) miniProgress.style.width = `${pct}%`;
         if (curTimeEl) curTimeEl.textContent = formatSec(cur);
         if (durTimeEl) durTimeEl.textContent = formatSec(dur);
@@ -1744,12 +1781,14 @@
 
     if (scrubber) {
       scrubber.addEventListener('input', () => {
+        scrubber.style.setProperty('--range-progress', `${scrubber.value}%`);
         if (engine.audioElement.duration) {
           const t = (scrubber.value / 100) * engine.audioElement.duration;
           if (curTimeEl) curTimeEl.textContent = formatSec(t);
         }
       });
       scrubber.addEventListener('change', () => {
+        scrubber.style.setProperty('--range-progress', `${scrubber.value}%`);
         if (engine.audioElement.duration) {
           engine.seek((scrubber.value / 100) * engine.audioElement.duration);
         }
@@ -2188,7 +2227,8 @@
         // Smooth continuous organic rotation and idle breathing
         angle += 0.018 + bassEnergy * 0.045;
         const idlePulse = Math.sin(angle * 1.5) * 3.5;
-        const baseRadius = 88 + idlePulse + bassEnergy * 46;
+        // Calibrated base radius for 540x540 canvas with generous safety margin
+        const baseRadius = 78 + idlePulse + bassEnergy * 32;
 
         // Dynamic primary accent color from CSS variables
         const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
@@ -2230,7 +2270,7 @@
         // 3. Calm Concentric Multi-Harmonic Liquid Fluid Waves (matching cover visualizer aesthetic)
         const rings = 4;
         for (let k = 0; k < rings; k++) {
-          const ringBase = baseRadius * 0.72 + k * 20 + bassEnergy * (16 + k * 10);
+          const ringBase = baseRadius * 0.72 + k * 16 + bassEnergy * (12 + k * 8);
           const ringAlpha = (0.32 + bassEnergy * 0.45) * (1 - k * 0.22);
           ctx.save();
           ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0.08, ringAlpha)})`;
@@ -2794,6 +2834,65 @@
     };
     document.getElementById('studio-tap-record-btn')?.addEventListener('click', tapAction);
 
+    // Step 3: Instrumental configuration
+    const instToggle = document.getElementById('studio-instrumental-toggle');
+    const instControls = document.getElementById('studio-instrumental-controls');
+    const instMode = document.getElementById('studio-instrumental-mode');
+    const instTestBtn = document.getElementById('studio-test-instrumental-btn');
+    const instTestLabel = document.getElementById('studio-test-instrumental-label');
+    const instTestStatus = document.getElementById('studio-test-status');
+
+    let isTestingInstrumental = false;
+    let testAudioSource = null;
+
+    instToggle?.addEventListener('change', () => {
+      const active = instToggle.checked;
+      if (instControls) instControls.style.display = active ? 'block' : 'none';
+      if (!active && isTestingInstrumental) stopInstrumentalTest();
+    });
+
+    function stopInstrumentalTest() {
+      if (testAudioSource) {
+        try { testAudioSource.stop(); } catch (e) {}
+        testAudioSource = null;
+      }
+      isTestingInstrumental = false;
+      if (instTestLabel) instTestLabel.textContent = 'Прослушать минусовку';
+      if (instTestStatus) instTestStatus.textContent = '';
+      engine.setVocalRemover(false);
+    }
+
+    instTestBtn?.addEventListener('click', async () => {
+      if (isTestingInstrumental) {
+        stopInstrumentalTest();
+        return;
+      }
+
+      const bufferToPlay = trimmedAudioBuffer || studioAudioBuf;
+      if (!bufferToPlay) {
+        alert('Пожалуйста, сначала выберите аудиофайл на шаге 1.');
+        return;
+      }
+
+      await engine.ensureContext();
+      const ctx = engine.audioCtx;
+      testAudioSource = ctx.createBufferSource();
+      testAudioSource.buffer = bufferToPlay;
+
+      // Connect through vocal remover
+      engine.setVocalRemover(true, instMode?.value || 'balanced');
+      testAudioSource.connect(engine.spatialFilter);
+      testAudioSource.start(0);
+
+      isTestingInstrumental = true;
+      if (instTestLabel) instTestLabel.textContent = 'Остановить тест';
+      if (instTestStatus) instTestStatus.textContent = `▶ Звучит минусовка (${instMode?.value || 'balanced'})`;
+
+      testAudioSource.onended = () => {
+        stopInstrumentalTest();
+      };
+    });
+
     // Build .oump3 button with strict fragment & lyrics validation gate
     document.getElementById('studio-build-oump3-btn')?.addEventListener('click', async () => {
       const title = document.getElementById('studio-title-input')?.value.trim();
@@ -2824,6 +2923,8 @@
         .join('\n');
 
       const isExplicitChecked = !!document.getElementById('studio-explicit-toggle')?.checked;
+      const isInstChecked = !!document.getElementById('studio-instrumental-toggle')?.checked;
+      const instModeVal = document.getElementById('studio-instrumental-mode')?.value || 'balanced';
 
       try {
         const oump3Blob = await buildOump3Container({
@@ -2833,6 +2934,8 @@
           hasLyrics: !!lrcText,
           isExplicit: isExplicitChecked,
           explicit: isExplicitChecked,
+          hasInstrumental: isInstChecked,
+          instrumentalConfig: isInstChecked ? { mode: instModeVal } : null,
           thumbBase64,
           audioBlob: trimmedBlob || originalBlob,
           lyricsText: lrcText
@@ -2942,7 +3045,9 @@
         }
       });
       if (lines[newIdx]) {
-        lines[newIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const lineEl = lines[newIdx];
+        const targetY = lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2);
+        container.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
       }
     }
   }
@@ -3013,13 +3118,98 @@
       }
     });
 
-    // Vocal remover toggle
+    // Sync Karaoke screen when track changes
+    async function updateKaraokeTrackUI(track) {
+      if (!track) return;
+      const coverImg = document.getElementById('lyrics-cover-img');
+      const titleEl = document.getElementById('lyrics-track-title');
+      const artistEl = document.getElementById('lyrics-track-artist');
+      const explicitBadge = document.getElementById('lyrics-explicit-badge');
+      const vocalBtn = document.getElementById('lyrics-vocal-remover-toggle');
+
+      if (coverImg) coverImg.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
+      if (titleEl) titleEl.textContent = track.title || 'Трек';
+      if (artistEl) artistEl.textContent = track.artist || 'Исполнитель';
+      if (explicitBadge) explicitBadge.style.display = (track.isExplicit || track.explicit) ? 'inline-block' : 'none';
+
+      // Instrumental / Vocal remover availability
+      const hasInst = track.hasInstrumental || track.id === 'seroga_pirat_prosti' || track.id === 'sqwore_barry_dylan';
+      if (vocalBtn) {
+        if (!hasInst) {
+          vocalBtn.style.opacity = '0.45';
+          vocalBtn.style.cursor = 'not-allowed';
+          vocalBtn.title = 'Минусовка недоступна (не создана автором)';
+          vocalBtn.classList.remove('active');
+          engine.setVocalRemover(false);
+        } else {
+          vocalBtn.style.opacity = '1';
+          vocalBtn.style.cursor = 'pointer';
+          vocalBtn.title = 'Отключить / Включить голос исполнителя';
+        }
+      }
+
+      // Load lyrics for the new track
+      const off = await getOfflineTrack(track.id);
+      const lrc = track.lyricsText || track.lrcText || (off && (off.lyricsText || off.lrcText)) || '';
+      loadLyrics(lrc, track);
+
+      // Re-extract ambient tint
+      try {
+        const domHex = await extractCoverDominantColor(track.coverUrl || track.thumbBase64);
+        if (domHex) {
+          const bg = document.getElementById('lyrics-glow-backdrop');
+          if (bg) {
+            bg.style.background = `radial-gradient(circle at 30% 40%, ${domHex}88 0%, rgba(139, 92, 246, 0.25) 45%, transparent 75%)`;
+          }
+        }
+      } catch (e) {}
+    }
+    window.updateKaraokeTrackUI = updateKaraokeTrackUI;
+
+    // Vocal Remover Toggle with Creator Check
     const vocalBtn = document.getElementById('lyrics-vocal-remover-toggle');
-    vocalBtn?.addEventListener('click', () => {
+    vocalBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const hasInst = currentTrack?.hasInstrumental || currentTrack?.id === 'seroga_pirat_prosti' || currentTrack?.id === 'sqwore_barry_dylan';
+      if (!hasInst) {
+        showToast('Для этого трека автор не включил минусовку');
+        return;
+      }
       const isAct = !engine.vocalRemoverActive;
-      engine.setVocalRemover(isAct);
+      const mode = currentTrack?.instrumentalConfig?.mode || 'balanced';
+      engine.setVocalRemover(isAct, mode);
       vocalBtn.classList.toggle('active', isAct);
     });
+
+    // Karaoke Cover Controls: Play/Pause, Prev, Next
+    const ctrlPlay = document.getElementById('lyrics-ctrl-play');
+    const ctrlPrev = document.getElementById('lyrics-ctrl-prev');
+    const ctrlNext = document.getElementById('lyrics-ctrl-next');
+
+    ctrlPlay?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      engine.togglePlay();
+    });
+
+    ctrlPrev?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playPreviousTrack();
+    });
+
+    ctrlNext?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playNextTrack();
+    });
+
+    // Update play icon in karaoke cover overlay on play state change
+    const origPlayChange = engine.onPlayStateChange;
+    engine.onPlayStateChange = (playing) => {
+      if (origPlayChange) origPlayChange(playing);
+      const lyricsPlayIcon = document.getElementById('lyrics-ctrl-play-icon');
+      if (lyricsPlayIcon) {
+        lyricsPlayIcon.innerHTML = `<use href="${playing ? '#icon-pause' : '#icon-play'}"></use>`;
+      }
+    };
 
     // Timeupdate sync with engine
     engine.audioElement.addEventListener('timeupdate', () => {
@@ -3176,11 +3366,42 @@
     const amoledToggle = document.getElementById('amoled-toggle');
     const liquidGlassToggle = document.getElementById('liquid-glass-toggle');
 
+    const amoledLabel = amoledToggle?.closest('label');
+
+    function syncAmoledAvailability(isDark) {
+      if (!amoledToggle) return;
+      if (!isDark) {
+        // In Light Theme, AMOLED is strictly disabled
+        amoledToggle.checked = false;
+        amoledToggle.disabled = true;
+        document.documentElement.setAttribute('data-amoled', 'false');
+        try { localStorage.setItem('oumusic_amoled', 'false'); } catch (e) {}
+        if (amoledLabel) {
+          amoledLabel.style.opacity = '0.38';
+          amoledLabel.style.pointerEvents = 'none';
+          amoledLabel.title = 'AMOLED доступен только в тёмной теме';
+        }
+      } else {
+        amoledToggle.disabled = false;
+        if (amoledLabel) {
+          amoledLabel.style.opacity = '1';
+          amoledLabel.style.pointerEvents = 'auto';
+          amoledLabel.title = '';
+        }
+        const savedAm = (typeof localStorage !== 'undefined') ? localStorage.getItem('oumusic_amoled') : null;
+        if (savedAm === 'true') {
+          amoledToggle.checked = true;
+          document.documentElement.setAttribute('data-amoled', 'true');
+        }
+      }
+    }
+
     darkBtn?.addEventListener('click', () => {
       document.documentElement.setAttribute('data-theme', 'dark');
       darkBtn.classList.add('active');
       lightBtn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'dark'); } catch (e) {}
+      syncAmoledAvailability(true);
     });
 
     lightBtn?.addEventListener('click', () => {
@@ -3188,9 +3409,15 @@
       lightBtn.classList.add('active');
       darkBtn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'light'); } catch (e) {}
+      syncAmoledAvailability(false);
     });
 
     amoledToggle?.addEventListener('change', () => {
+      const curTheme = document.documentElement.getAttribute('data-theme');
+      if (curTheme === 'light') {
+        amoledToggle.checked = false;
+        return;
+      }
       const isAm = amoledToggle.checked;
       document.documentElement.setAttribute('data-amoled', isAm ? 'true' : 'false');
       try { localStorage.setItem('oumusic_amoled', isAm ? 'true' : 'false'); } catch (e) {}
@@ -3314,9 +3541,11 @@
       if (savedTheme === 'light') {
         lightBtn?.classList.add('active');
         darkBtn?.classList.remove('active');
+        syncAmoledAvailability(false);
       } else {
         darkBtn?.classList.add('active');
         lightBtn?.classList.remove('active');
+        syncAmoledAvailability(true);
       }
 
       // 2. AMOLED
