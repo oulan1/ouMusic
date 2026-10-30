@@ -290,6 +290,9 @@
           <button class="icon-btn" id="top-studio-btn" title="Моя Студия">
             <svg class="svg-icon"><use href="#icon-studio"></use></svg>
           </button>
+          <button class="icon-btn" id="top-profile-btn" data-nav="profile" title="Профиль">
+            <svg class="svg-icon"><use href="#icon-profile"></use></svg>
+          </button>
           <button class="icon-btn" id="top-settings-btn" title="Настройки">
             <svg class="svg-icon"><use href="#icon-settings"></use></svg>
           </button>
@@ -585,8 +588,8 @@
             <div style="margin-top: 16px;">
               <div style="font-size: 0.85rem; margin-bottom: 8px;">Акцентный цвет интерфейса:</div>
               <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;" id="accent-colors-row">
-                <button class="accent-color-circle adaptive-accent-circle" id="adaptive-accent-btn" title="Адаптивный (автоматически подстраивается под обложку трека)" style="width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(from 180deg at 50% 50%, #8B5CF6 0deg, #EC4899 72deg, #F59E0B 144deg, #10B981 216deg, #06B6D4 288deg, #8B5CF6 360deg); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
-                  <svg class="svg-icon" style="width: 14px; height: 14px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));"><use href="#icon-sparkles"></use></svg>
+                <button class="accent-color-circle adaptive-accent-circle" id="adaptive-accent-btn" title="Адаптивный (автоматически подстраивается под обложку трека)" style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #06B6D4 100%); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 3px 10px rgba(0,0,0,0.35);">
+                  <svg class="svg-icon" style="width: 16px; height: 16px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7));" viewBox="0 0 24 24"><path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29c-.39-.39-1.02-.39-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05c.39-.39.39-1.02 0-1.41l-2.33-2.35zm-1.06 3.47l-1.41-1.41 1.41-1.41 1.41 1.41-1.41 1.41z"/></svg>
                 </button>
                 <button class="accent-color-circle active" data-color="#8B5CF6" title="Фиолетовый" style="width: 32px; height: 32px; border-radius: 50%; background: #8B5CF6; border: 2px solid #FFF; cursor: pointer; transition: transform 0.2s;"></button>
                 <button class="accent-color-circle" data-color="#EC4899" title="Розовый" style="width: 32px; height: 32px; border-radius: 50%; background: #EC4899; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
@@ -594,8 +597,8 @@
                 <button class="accent-color-circle" data-color="#10B981" title="Изумрудный" style="width: 32px; height: 32px; border-radius: 50%; background: #10B981; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
                 <button class="accent-color-circle" data-color="#F59E0B" title="Янтарный" style="width: 32px; height: 32px; border-radius: 50%; background: #F59E0B; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
                 <button class="accent-color-circle" data-color="#06B6D4" title="Бирюзовый" style="width: 32px; height: 32px; border-radius: 50%; background: #06B6D4; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s;"></button>
-                <button class="accent-color-circle custom-accent-circle" id="custom-accent-btn" title="Выбрать свой цвет из палитры" style="width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.4); transition: transform 0.2s;">
-                  <svg class="svg-icon" style="width: 14px; height: 14px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));"><use href="#icon-edit"></use></svg>
+                <button class="accent-color-circle custom-accent-circle" id="custom-accent-btn" title="Выбрать свой цвет из палитры" style="width: 34px; height: 34px; border-radius: 50%; background: #1A1A28; border: 2px solid transparent; background-image: linear-gradient(#1A1A28, #1A1A28), linear-gradient(135deg, #f43f5e, #fbbf24, #10b981, #06b6d4, #8b5cf6); background-origin: border-box; background-clip: padding-box, border-box; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.4); transition: transform 0.2s;">
+                  <svg class="svg-icon" style="width: 17px; height: 17px; fill: #FFFFFF; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61.35.43.91.68 1.48.68h1.28c.83 0 1.5.67 1.5 1.5 0 .42-.17.81-.46 1.1-.38.38-.59.9-.59 1.44 0 1.13.92 2.05 2.05 2.05 6.35 0 11.77-5.42 11.77-11.77C22 7.48 17.52 3 12 3zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
                 </button>
                 <input type="color" id="custom-accent-color-picker" value="#8B5CF6" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;">
               </div>
@@ -625,6 +628,21 @@
               <input type="checkbox" id="normalizer-toggle" class="switch-input" checked>
               <div class="switch-track"><div class="switch-thumb"></div></div>
             </label>
+
+            <!-- Vocal Remover Intensity / Depth Mode -->
+            <div class="m3-select-wrapper" style="margin-top: 14px;">
+              <label class="m3-select-label" for="setting-vocal-depth">
+                <span>Глубина удаления вокала (Минусовка):</span>
+              </label>
+              <div class="m3-select-container">
+                <select id="setting-vocal-depth" class="m3-select">
+                  <option value="balanced" selected>Сбалансированная (Студийный баланс)</option>
+                  <option value="aggressive">Агрессивная (Максимально чистый минус)</option>
+                  <option value="soft">Мягкая (С легким бэк-вокалом)</option>
+                </select>
+                <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+              </div>
+            </div>
 
             <!-- Crossfade -->
             <div class="m3-slider-group">
@@ -900,14 +918,15 @@
 
         <!-- SCREEN 7: ARTIST PROFILE -->
         <section class="screen" id="screen-artist">
-          <div id="artist-banner-box" style="width: 100%; height: 180px; border-radius: var(--md-shape-corner-large); overflow: hidden; background: #181822; position: relative;">
-            <img id="artist-banner-img" src="assets/oumusic.png" alt="Banner" style="width: 100%; height: 100%; object-fit: cover;">
+          <div id="artist-banner-box" style="width: 100%; height: 180px; border-radius: var(--md-shape-corner-large); overflow: hidden; background: linear-gradient(135deg, rgba(30, 27, 45, 0.95) 0%, rgba(18, 18, 28, 0.95) 100%); position: relative; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <img id="artist-banner-img" src="" alt="Banner" style="width: 100%; height: 100%; object-fit: cover; display: none;">
             <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);"></div>
           </div>
 
           <div style="display: flex; align-items: flex-end; gap: 16px; padding: 0 16px; margin-top: -40px; position: relative; z-index: 2;">
-            <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 3px solid var(--md-sys-color-surface); background: #111;">
-              <img id="artist-avatar-img" src="assets/oumusic.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            <div id="artist-avatar-wrap" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 3px solid var(--md-sys-color-surface); background: linear-gradient(135deg, var(--md-sys-color-primary) 0%, #1e1b2d 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
+              <img id="artist-avatar-img" src="" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+              <span id="artist-avatar-initials" style="font-size: 1.8rem; font-weight: 800; color: #FFFFFF;"></span>
             </div>
             <div style="flex: 1; padding-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -1070,6 +1089,9 @@
         </button>
         <button class="icon-btn" id="fs-open-queue-btn" title="Очередь воспроизведения">
           <svg class="svg-icon"><use href="#icon-queue"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-profile-btn" title="Мой профиль">
+          <svg class="svg-icon"><use href="#icon-profile"></use></svg>
         </button>
         <button class="icon-btn" id="fs-sleep-timer-btn" title="Таймер сна">
           <svg class="svg-icon"><use href="#icon-sleep"></use></svg>

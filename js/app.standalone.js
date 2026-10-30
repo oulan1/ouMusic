@@ -468,19 +468,24 @@
       splitter.connect(gainR_to_R, 1);
       splitter.connect(gainL_to_R, 0);
 
-      // Low-pass filter to retain punchy kick drum & bass (<200 Hz)
+      // Low-pass filter to retain punchy kick drum & bass
       const bassFilter = ctx.createBiquadFilter();
       bassFilter.type = 'lowpass';
-      bassFilter.frequency.value = 190;
+      bassFilter.frequency.value = 160;
       const bassGain = ctx.createGain();
-      bassGain.gain.value = 0.85;
+      bassGain.gain.value = 0.72;
 
-      // High-shelf filter to retain crisp cymbals & acoustic air (>8000 Hz)
+      // High-shelf filter to retain crisp cymbals & acoustic air
       const airFilter = ctx.createBiquadFilter();
       airFilter.type = 'highpass';
-      airFilter.frequency.value = 8000;
+      airFilter.frequency.value = 8800;
       const airGain = ctx.createGain();
-      airGain.gain.value = 0.35;
+      airGain.gain.value = 0.24;
+
+      this.vocalBassFilter = bassFilter;
+      this.vocalBassGain = bassGain;
+      this.vocalAirFilter = airFilter;
+      this.vocalAirGain = airGain;
 
       this.sourceNode.connect(bassFilter);
       bassFilter.connect(bassGain);
@@ -503,7 +508,8 @@
 
       // Makeup amplifier so volume never drops when turning on Minusovka
       const makeupGain = ctx.createGain();
-      makeupGain.gain.value = 1.25;
+      makeupGain.gain.value = 1.28;
+      this.vocalMakeupGain = makeupGain;
       merger.connect(makeupGain);
       makeupGain.connect(this.vocalWetGain);
       this.sourceNode.connect(this.vocalDryGain);
@@ -545,12 +551,19 @@
       this.reverbDryGain.connect(postReverb);
       this.reverbWetGain.connect(postReverb);
 
-      // 8D Stereo Panner
+      // 8D Spatial Audio: Panner + Head-Shadow Lowpass Filter for authentic 360 binaural rotation
+      this.spatialFilter = ctx.createBiquadFilter();
+      this.spatialFilter.type = 'lowpass';
+      this.spatialFilter.frequency.value = 20000;
+      this.spatialFilter.Q.value = 0.7;
+
       if (ctx.createStereoPanner) {
         this.pannerNode = ctx.createStereoPanner();
         postReverb.connect(this.pannerNode);
+        this.pannerNode.connect(this.spatialFilter);
       } else {
-        this.pannerNode = postReverb;
+        this.pannerNode = null;
+        postReverb.connect(this.spatialFilter);
       }
 
       // Loudness Normalizer (DynamicsCompressor)
@@ -561,7 +574,7 @@
       this.compressorNode.attack.value = 0.003;
       this.compressorNode.release.value = 0.25;
 
-      this.pannerNode.connect(this.compressorNode);
+      this.spatialFilter.connect(this.compressorNode);
 
       // Soft Play / Pause Gain
       this.softGainNode = ctx.createGain();
@@ -709,15 +722,29 @@
       }
       if (percent <= 0) {
         if (this.pannerNode && this.pannerNode.pan) this.pannerNode.pan.setValueAtTime(0, this.audioCtx.currentTime);
+        if (this.spatialFilter) this.spatialFilter.frequency.setValueAtTime(20000, this.audioCtx.currentTime);
         return;
       }
       let angle = 0;
-      const amt = percent / 100;
+      const amt = Math.min(1.0, Math.max(0.1, percent / 100));
+      // True 360-degree binaural spatial orbit: Left/Right panning + Pinna Head-shadow modulation
       this.pannerLFOId = setInterval(() => {
-        if (!this.isPlaying || !this.pannerNode || !this.pannerNode.pan) return;
-        angle += 0.08;
-        this.pannerNode.pan.setValueAtTime(Math.sin(angle) * amt, this.audioCtx.currentTime);
-      }, 50);
+        if (!this.isPlaying || !this.audioCtx) return;
+        angle += 0.07; // Circular rotation speed
+        const panX = Math.sin(angle) * amt; // -1 to +1
+        const depthY = Math.cos(angle);     // +1 front, -1 back
+
+        const t = this.audioCtx.currentTime;
+        if (this.pannerNode && this.pannerNode.pan) {
+          this.pannerNode.pan.setTargetAtTime(panX, t, 0.04);
+        }
+
+        // When sound orbits behind listener (depthY < 0), sweep lowpass filter down towards 3500Hz
+        if (this.spatialFilter) {
+          const targetFreq = depthY >= 0 ? 20000 : 20000 - (Math.abs(depthY) * 16500 * amt);
+          this.spatialFilter.frequency.setTargetAtTime(targetFreq, t, 0.06);
+        }
+      }, 40);
     }
 
     resetFX() {
@@ -726,13 +753,41 @@
       this.set8DAudio(0);
     }
 
-    setVocalRemover(active) {
+    setVocalRemover(active, depthMode) {
       this.vocalRemoverActive = !!active;
       if (!this.vocalDryGain || !this.vocalWetGain || !this.audioCtx) return;
       const ctx = this.audioCtx;
       const t = ctx.currentTime;
       this.vocalDryGain.gain.cancelScheduledValues(t);
       this.vocalWetGain.gain.cancelScheduledValues(t);
+
+      const mode = depthMode || localStorage.getItem('oumusic_vocal_depth') || 'balanced';
+
+      if (this.vocalBassFilter && this.vocalBassGain && this.vocalAirFilter && this.vocalAirGain && this.vocalMakeupGain) {
+        if (mode === 'aggressive') {
+          // Maximum vocal cancellation: tight bass retention under 115Hz, lower air bleed
+          this.vocalBassFilter.frequency.setValueAtTime(115, t);
+          this.vocalBassGain.gain.setValueAtTime(0.5, t);
+          this.vocalAirFilter.frequency.setValueAtTime(10500, t);
+          this.vocalAirGain.gain.setValueAtTime(0.12, t);
+          this.vocalMakeupGain.gain.setValueAtTime(1.4, t);
+        } else if (mode === 'soft') {
+          // Soft vocal dampening with gentle backing preservation
+          this.vocalBassFilter.frequency.setValueAtTime(220, t);
+          this.vocalBassGain.gain.setValueAtTime(0.9, t);
+          this.vocalAirFilter.frequency.setValueAtTime(7500, t);
+          this.vocalAirGain.gain.setValueAtTime(0.45, t);
+          this.vocalMakeupGain.gain.setValueAtTime(1.15, t);
+        } else {
+          // Balanced studio default
+          this.vocalBassFilter.frequency.setValueAtTime(160, t);
+          this.vocalBassGain.gain.setValueAtTime(0.72, t);
+          this.vocalAirFilter.frequency.setValueAtTime(8800, t);
+          this.vocalAirGain.gain.setValueAtTime(0.24, t);
+          this.vocalMakeupGain.gain.setValueAtTime(1.28, t);
+        }
+      }
+
       if (active) {
         this.vocalDryGain.gain.setTargetAtTime(0.0, t, 0.04);
         this.vocalWetGain.gain.setTargetAtTime(1.0, t, 0.04);
@@ -910,6 +965,41 @@
      ========================================================================== */
   document.addEventListener('DOMContentLoaded', async () => {
     console.log('[ouMusic] Initializing standalone client...');
+
+  // Global Click Delegator for Artist Links & Profile Navigation Everywhere
+  document.addEventListener('click', (e) => {
+    // 1. Artist link clicked anywhere (track rows, player, etc.)
+    const artistLink = e.target.closest('a[href^="#artist="], #fs-artist');
+    if (artistLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      let name = '';
+      if (artistLink.id === 'fs-artist') {
+        name = currentTrack?.artist || artistLink.textContent || '';
+      } else {
+        const href = artistLink.getAttribute('href') || '';
+        name = decodeURIComponent(href.slice(8));
+      }
+      if (name) {
+        document.getElementById('fullscreen-player')?.classList.remove('active');
+        document.getElementById('lyrics-overlay')?.classList.remove('active');
+        renderArtistScreen(name);
+        navigateTo('artist');
+      }
+      return;
+    }
+
+    // 2. Profile buttons clicked anywhere (top app bar, fullscreen player utils, etc.)
+    const profileBtn = e.target.closest('#top-profile-btn, #fs-profile-btn');
+    if (profileBtn) {
+      e.preventDefault();
+      document.getElementById('fullscreen-player')?.classList.remove('active');
+      document.getElementById('lyrics-overlay')?.classList.remove('active');
+      navigateTo('profile');
+      return;
+    }
+  });
+
 
     await initStorage();
     await loadArtistsVerification();
@@ -1668,23 +1758,26 @@
     initCircularSpectrum();
 
     // Fullscreen Cover Lightbox Modal
-    const coverBox = document.getElementById('player-cover-box');
     const lightboxModal = document.getElementById('cover-lightbox-modal');
     const lightboxImg = document.getElementById('cover-lightbox-img');
     const lightboxClose = document.getElementById('cover-lightbox-close-btn');
 
-    coverBox?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!currentTrack) return;
-      if (lightboxImg) lightboxImg.src = currentTrack.coverUrl || currentTrack.thumbBase64 || 'assets/oumusic.png';
-      lightboxModal?.classList.add('active');
+    document.querySelectorAll('#player-cover-clickable, .player-cover-box, #fs-cover-img, .lyrics-cover-card').forEach((el) => {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const src = (currentTrack && (currentTrack.coverUrl || currentTrack.thumbBase64)) || document.getElementById('fs-cover-img')?.getAttribute('src') || 'assets/oumusic.png';
+        if (lightboxImg) lightboxImg.src = src;
+        lightboxModal?.classList.add('active');
+      });
     });
 
-    lightboxClose?.addEventListener('click', () => {
+    lightboxClose?.addEventListener('click', (e) => {
+      e.stopPropagation();
       lightboxModal?.classList.remove('active');
     });
     lightboxModal?.addEventListener('click', (e) => {
-      if (e.target === lightboxModal || e.target === lightboxImg) {
+      if (e.target === lightboxModal) {
         lightboxModal?.classList.remove('active');
       }
     });
@@ -3054,7 +3147,7 @@
       root.style.setProperty('--glow-color-1', `rgba(${r}, ${g}, ${b}, 0.45)`);
 
       try {
-        if (!isAdaptive) localStorage.setItem('oumusic_accent_color', colorHex);
+        localStorage.setItem('oumusic_accent_color', colorHex);
       } catch (e) {}
 
       let matchedPreset = false;
@@ -3160,11 +3253,26 @@
 
       // 5. Adaptive vs Custom Accent
       const isAdaptive = localStorage.getItem('oumusic_accent_adaptive') === 'true';
+      const savedColor = localStorage.getItem('oumusic_accent_color');
+      if (savedColor) {
+        applyAccentColor(savedColor, isAdaptive);
+      }
       if (isAdaptive) {
         adaptiveBtn?.classList.add('active');
-      } else {
-        const savedColor = localStorage.getItem('oumusic_accent_color');
-        if (savedColor) applyAccentColor(savedColor);
+      }
+
+      // Vocal depth setting wireup
+      const vocalDepthSelect = document.getElementById('setting-vocal-depth');
+      if (vocalDepthSelect) {
+        const savedDepth = localStorage.getItem('oumusic_vocal_depth') || 'balanced';
+        vocalDepthSelect.value = savedDepth;
+        vocalDepthSelect.addEventListener('change', () => {
+          const val = vocalDepthSelect.value;
+          try { localStorage.setItem('oumusic_vocal_depth', val); } catch (e) {}
+          if (engine.vocalRemoverActive) {
+            engine.setVocalRemover(true, val);
+          }
+        });
       }
     } catch (e) {}
 
@@ -3307,8 +3415,37 @@
     const verBadge = document.getElementById('artist-verified-badge');
     if (verBadge) verBadge.style.display = isVer ? 'inline-flex' : 'none';
 
-    // Artist of the month wins display
+    // Initials & clean graphics without dummy logos
+    const initials = clean.slice(0, 2).toUpperCase() || 'AR';
+    const initialsEl = document.getElementById('artist-avatar-initials');
+    if (initialsEl) initialsEl.textContent = initials;
+
+    const bannerImg = document.getElementById('artist-banner-img');
+    const avatarImg = document.getElementById('artist-avatar-img');
+
     const artistRecord = verifiedArtists.get(clean.toLowerCase());
+
+    if (bannerImg) {
+      if (artistRecord && artistRecord.bannerUrl) {
+        bannerImg.src = artistRecord.bannerUrl;
+        bannerImg.style.display = 'block';
+      } else {
+        bannerImg.style.display = 'none'; // Sleek dark gradient banner shines
+      }
+    }
+
+    if (avatarImg) {
+      if (artistRecord && artistRecord.avatarUrl) {
+        avatarImg.src = artistRecord.avatarUrl;
+        avatarImg.style.display = 'block';
+        if (initialsEl) initialsEl.style.display = 'none';
+      } else {
+        avatarImg.style.display = 'none';
+        if (initialsEl) initialsEl.style.display = 'block';
+      }
+    }
+
+    // Artist of the month wins display
     const winsCont = document.getElementById('artist-month-wins-container');
     if (winsCont) {
       if (artistRecord && artistRecord.monthlyWins > 0) {
@@ -3328,6 +3465,9 @@
       return (t.artist || '').toLowerCase().includes(clean.toLowerCase());
     });
 
+    const counter = document.getElementById('artist-tracks-counter');
+    if (counter) counter.textContent = `${artistTracks.length} треков на платформе`;
+
     artistTracks.forEach((t) => {
       list.appendChild(createTrackRow(t, () => playTrack(t)));
     });
@@ -3339,6 +3479,7 @@
       }
     });
   }
+  window.renderArtistScreen = renderArtistScreen;
 
   /* Additional UI Handlers: Importer, Queue, Sleep, Quote, Recap, Upload */
   function initAdditionalUI() {
@@ -3407,6 +3548,68 @@
     window.selectedQuoteIndices = new Set();
     window.isQuoteSelectionMode = false;
 
+    function populateQuoteLinesSelector() {
+      const container = document.getElementById('quote-lines-selector');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!currentParsedLyrics || currentParsedLyrics.length === 0) {
+        container.innerHTML = '<div style="font-size: 0.85rem; color: var(--md-sys-color-outline); padding: 8px;">У этого трека нет текста</div>';
+        return;
+      }
+
+      currentParsedLyrics.forEach((line, idx) => {
+        if (!line.text || !line.text.trim()) return;
+        const label = document.createElement('label');
+        label.className = 'quote-line-item';
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '10px';
+        label.style.padding = '8px 12px';
+        label.style.borderRadius = '10px';
+        label.style.cursor = 'pointer';
+        label.style.background = window.selectedQuoteIndices.has(idx) ? 'rgba(139, 92, 246, 0.25)' : 'rgba(255, 255, 255, 0.05)';
+        label.style.border = window.selectedQuoteIndices.has(idx) ? '1px solid var(--md-sys-color-primary)' : '1px solid rgba(255, 255, 255, 0.08)';
+        label.style.transition = 'all 0.2s';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = window.selectedQuoteIndices.has(idx);
+        checkbox.style.accentColor = 'var(--md-sys-color-primary)';
+        checkbox.style.cursor = 'pointer';
+
+        const span = document.createElement('span');
+        span.textContent = line.text;
+        span.style.fontSize = '0.9rem';
+        span.style.color = '#FFFFFF';
+        span.style.flex = '1';
+
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            if (window.selectedQuoteIndices.size >= 5) {
+              alert('Можно выбрать максимум 5 строк для карточки цитаты.');
+              checkbox.checked = false;
+              return;
+            }
+            window.selectedQuoteIndices.add(idx);
+            label.style.background = 'rgba(139, 92, 246, 0.25)';
+            label.style.border = '1px solid var(--md-sys-color-primary)';
+          } else {
+            window.selectedQuoteIndices.delete(idx);
+            label.style.background = 'rgba(255, 255, 255, 0.05)';
+            label.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+          }
+          const lyricEl = document.querySelector(`.lyric-line[data-index="${idx}"]`);
+          if (lyricEl) lyricEl.classList.toggle('quote-selected', checkbox.checked);
+          renderQuoteCanvasPreview();
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        container.appendChild(label);
+      });
+    }
+
     window.toggleQuoteLineSelect = (idx, el) => {
       if (window.selectedQuoteIndices.has(idx)) {
         window.selectedQuoteIndices.delete(idx);
@@ -3419,21 +3622,28 @@
         window.selectedQuoteIndices.add(idx);
         el.classList.add('quote-selected');
       }
+      populateQuoteLinesSelector();
+      renderQuoteCanvasPreview();
     };
 
-    document.getElementById('lyrics-share-quote-btn')?.addEventListener('click', () => {
-      // If user hasn't selected any line, pick active line or first lines
+    const openQuoteModal = () => {
+      window.isQuoteSelectionMode = true;
       if (window.selectedQuoteIndices.size === 0 && currentParsedLyrics.length > 0) {
         const start = Math.max(0, activeLyricIndex >= 0 ? activeLyricIndex : 0);
         window.selectedQuoteIndices.add(start);
         if (currentParsedLyrics[start + 1]) window.selectedQuoteIndices.add(start + 1);
       }
+      populateQuoteLinesSelector();
       quoteDialog?.classList.add('active');
       renderQuoteCanvasPreview();
-    });
+    };
+
+    document.getElementById('lyrics-share-quote-btn')?.addEventListener('click', openQuoteModal);
+    document.getElementById('fs-share-track-btn')?.addEventListener('click', openQuoteModal);
 
     document.getElementById('quote-dialog-close-btn')?.addEventListener('click', () => {
       quoteDialog?.classList.remove('active');
+      window.isQuoteSelectionMode = false;
       window.selectedQuoteIndices.clear();
       document.querySelectorAll('.lyric-line.quote-selected').forEach((el) => el.classList.remove('quote-selected'));
     });
@@ -3483,6 +3693,8 @@
     let studioSecretTapCount = 0;
     let studioSecretTimer = null;
     const triggerStudioSecret = () => {
+      const curMod = document.getElementById('moderation-modal');
+      if (curMod && curMod.classList.contains('active')) return; // Freeze clicks when modal is already active
       studioSecretTapCount++;
       clearTimeout(studioSecretTimer);
       studioSecretTimer = setTimeout(() => { studioSecretTapCount = 0; }, 1000);
@@ -3517,12 +3729,7 @@
       modAudioElement.pause();
       modModal?.classList.remove('active');
     });
-    modModal?.addEventListener('click', (e) => {
-      if (e.target === modModal) {
-        modAudioElement.pause();
-        modModal.classList.remove('active');
-      }
-    });
+    // Never close moderation modal on backdrop/empty space click - user must click mod-close-btn explicitly!
 
     modFileInput?.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {

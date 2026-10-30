@@ -126,7 +126,11 @@ html, body {
   border-right: 2px solid var(--md-sys-color-primary);
   box-shadow: 20px 0 50px rgba(0, 0, 0, 0.75), 4px 0 25px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
   z-index: 45;
-  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s, width 0.35s, border-color 0.3s;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+              width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.4s ease,
+              background 0.5s ease;
   user-select: none;
 }
 
@@ -836,23 +840,57 @@ html, body {
 [data-liquid-glass="true"] .dialog-card,
 [data-liquid-glass="true"] .bottom-sheet,
 [data-liquid-glass="true"] #screen-profile > div:first-child,
-[data-liquid-glass="true"] .stat-card {
+[data-liquid-glass="true"] .stat-card,
+[data-liquid-glass="true"] .home-wave-card,
+[data-liquid-glass="true"] .studio-box,
+[data-liquid-glass="true"] .studio-preset-card,
+[data-liquid-glass="true"] .option-card,
+[data-liquid-glass="true"] .settings-group,
+[data-liquid-glass="true"] .mod-panel-card,
+[data-liquid-glass="true"] .top-search-container,
+[data-liquid-glass="true"] .track-row,
+[data-liquid-glass="true"] .playlist-card,
+[data-liquid-glass="true"] .chart-card,
+[data-liquid-glass="true"] .m3-select-container,
+[data-liquid-glass="true"] .cover-lightbox-modal,
+[data-liquid-glass="true"] .lyrics-cover-card {
   -webkit-backdrop-filter: var(--lg-glass-blur) !important;
   backdrop-filter: var(--lg-glass-blur) !important;
-  box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), 0 16px 36px rgba(0, 0, 0, 0.35) !important;
+  background: rgba(18, 18, 28, 0.65) !important;
+  box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), 0 16px 36px rgba(0, 0, 0, 0.45) !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
 }
 
+[data-liquid-glass="true"][data-theme="light"] .top-app-bar,
+[data-liquid-glass="true"][data-theme="light"] .arc-sidebar,
+[data-liquid-glass="true"][data-theme="light"] .mini-player,
+[data-liquid-glass="true"][data-theme="light"] .dialog-card,
+[data-liquid-glass="true"][data-theme="light"] .bottom-sheet,
+[data-liquid-glass="true"][data-theme="light"] .stat-card,
+[data-liquid-glass="true"][data-theme="light"] .home-wave-card,
+[data-liquid-glass="true"][data-theme="light"] .track-row,
+[data-liquid-glass="true"][data-theme="light"] .top-search-container {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-liquid-glass="true"] .track-row:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
 [data-liquid-glass="true"] .btn-primary,
-[data-liquid-glass="true"] .btn-tonal {
+[data-liquid-glass="true"] .btn-tonal,
+[data-liquid-glass="true"] .chip {
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
 }
 
-/* Smooth color transitions */
-.arc-sidebar, .top-app-bar, .mini-player, .btn-primary, .item-icon-box {
+/* Smooth color transitions (removed .arc-sidebar so its slide/hover physics stay buttery smooth) */
+.top-app-bar, .mini-player, .btn-primary, .item-icon-box {
   transition: background 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
               border-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
               color 0.7s ease,
