@@ -2,6 +2,20 @@
 <html lang="ru" data-theme="dark" data-font-size="medium">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('oumusic_theme');
+        if (theme) document.documentElement.setAttribute('data-theme', theme);
+        const amoled = localStorage.getItem('oumusic_amoled');
+        if (amoled === 'true') document.documentElement.setAttribute('data-amoled', 'true');
+        const liquid = localStorage.getItem('oumusic_liquid_glass');
+        if (liquid === 'true') document.documentElement.setAttribute('data-liquid-glass', 'true');
+        const accent = localStorage.getItem('oumusic_accent_color');
+        if (accent) document.documentElement.style.setProperty('--md-sys-color-primary', accent);
+      } catch(e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#121218">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -477,6 +491,7 @@
                   </button>
                 </div>
                 <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 2px;">Профиль ouMusic</div>
+                <div id="profile-artist-wins-container"></div>
               </div>
             </div>
 
@@ -553,6 +568,16 @@
                 <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Радикально черный фон для экономии батареи</div>
               </div>
               <input type="checkbox" id="amoled-toggle" class="switch-input">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </label>
+
+            <!-- Liquid Glass Mode (visionOS / iOS Glassmorphism) -->
+            <label class="m3-switch" style="margin-top: 12px;">
+              <div>
+                <div class="switch-label">Жидкое стекло (Liquid Glass)</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Объёмные оптические блики, глубокое преломление и эффект visionOS</div>
+              </div>
+              <input type="checkbox" id="liquid-glass-toggle" class="switch-input">
               <div class="switch-track"><div class="switch-thumb"></div></div>
             </label>
 
@@ -698,11 +723,17 @@
 
         <!-- SCREEN 6: MY STUDIO (CREATOR MODULE) -->
         <section class="screen" id="screen-studio">
-          <div style="margin-bottom: 20px;">
-            <h2 style="font-size: 1.5rem; font-weight: 700;">Моя Студия</h2>
-            <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">
-              Двухэтапный конструктор: 1. Визуальная обрезка звука -> 2. Умная Тап-разметка текста -> Сборка .oump3
-            </p>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 style="font-size: 1.5rem; font-weight: 700;" id="studio-header-title">Моя Студия</h2>
+              <p style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">
+                Двухэтапный конструктор: 1. Визуальная обрезка звука -> 2. Умная Тап-разметка текста -> Сборка .oump3
+              </p>
+            </div>
+            <button class="btn btn-tonal" id="open-release-apply-btn" style="border: 1px solid var(--md-sys-color-primary); color: #FFF;">
+              <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-upload"></use></svg>
+              <span>Подать заявку на публикацию</span>
+            </button>
           </div>
 
           <!-- Metadata card -->
@@ -886,7 +917,8 @@
                   <div class="tooltip-box">Данный музыкант официально подтвердил свою страницу на ouMusic</div>
                 </div>
               </div>
-              <div id="artist-tracks-counter" style="font-size: 0.85rem; color: var(--md-sys-color-outline);">0 треков на платформе</div>
+              <div id="artist-month-wins-container"></div>
+              <div id="artist-tracks-counter" style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 4px;">0 треков на платформе</div>
             </div>
           </div>
 
@@ -1362,6 +1394,144 @@
       <div class="dialog-actions">
         <button class="btn btn-outlined" id="cancel-delete-track-btn">Отмена</button>
         <button class="btn btn-primary" id="execute-delete-track-btn" style="background: var(--md-sys-color-error); color: #FFFFFF; font-weight: 600;">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- FULLSCREEN COVER LIGHTBOX MODAL -->
+  <div class="cover-lightbox-modal" id="cover-lightbox-modal">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+      <img id="cover-lightbox-img" class="cover-lightbox-img" src="assets/oumusic.png" alt="Cover Fullscreen">
+      <button class="icon-btn" id="cover-lightbox-close-btn" style="position: absolute; top: -14px; right: -14px; background: rgba(0,0,0,0.7); border: 1.5px solid rgba(255,255,255,0.3); width: 36px; height: 36px; border-radius: 50%; color: #FFF; z-index: 10;" title="Закрыть">
+        <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- SECRET MODERATION ROOM MODAL (20 Rapid Taps on Studio) -->
+  <div class="dialog-backdrop" id="moderation-modal">
+    <div class="dialog-card" style="max-width: 780px; width: 95vw; background: #0F0F17; border: 1px solid rgba(139, 92, 246, 0.4);">
+      <div class="dialog-title" style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg class="svg-icon" style="width: 22px; height: 22px; fill: var(--md-sys-color-primary);"><use href="#icon-verified"></use></svg>
+          <span>Панель модерации ouMusic (M-Core Review)</span>
+        </div>
+        <span class="badge-beta" style="background: #10B981;">SECRET MODE</span>
+      </div>
+      <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: -6px; margin-bottom: 16px;">
+        Загрузите контейнер .oump3 для верификации метаданных, прослушивания и проверки синхронизации текста.
+      </div>
+
+      <!-- File Drop / Select Area -->
+      <div id="mod-dropzone" style="border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color 0.2s;">
+        <input type="file" id="mod-file-input" accept=".oump3,.zip" style="display: none;">
+        <svg class="svg-icon" style="width: 32px; height: 32px; fill: var(--md-sys-color-primary); margin-bottom: 8px;"><use href="#icon-upload"></use></svg>
+        <div style="font-weight: 600;">Нажмите или перетащите сюда трек .oump3</div>
+        <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">Пакет содержит header.json, audio, cover и lrc</div>
+      </div>
+
+      <!-- Inspection Details Area (Hidden until file selected) -->
+      <div id="mod-review-area" style="display: none; margin-top: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <!-- Left: Meta & Player -->
+          <div>
+            <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 12px;">
+              <img id="mod-cover-img" src="assets/oumusic.png" alt="" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; background: #111;">
+              <div style="flex: 1; min-width: 0;">
+                <div id="mod-title" style="font-size: 1.15rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Название</div>
+                <div id="mod-artist" style="font-size: 0.9rem; color: var(--md-sys-color-outline); margin-top: 2px;">Артист</div>
+                <div id="mod-genres" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;"></div>
+              </div>
+            </div>
+
+            <!-- Audio Player Controls -->
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 12px; margin-top: 10px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <button class="btn btn-primary" id="mod-play-btn" style="padding: 6px 14px; font-size: 0.82rem;">
+                  <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg>
+                  <span>Слушать</span>
+                </button>
+                <span id="mod-time" style="font-size: 0.8rem; font-family: monospace;">00:00 / 00:00</span>
+              </div>
+              <input type="range" id="mod-seeker" min="0" max="100" value="0" style="width: 100%; accent-color: var(--md-sys-color-primary);">
+            </div>
+          </div>
+
+          <!-- Right: Lyrics Synchronized Stream -->
+          <div style="background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column;">
+            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--md-sys-color-outline); margin-bottom: 8px;">
+              Проверка таймингов текста:
+            </div>
+            <div id="mod-lyrics-stream" style="flex: 1; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, monospace; font-size: 0.85rem;">
+              <span style="color: var(--md-sys-color-outline);">Текст не загружен</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions" style="margin-top: 20px;">
+        <button class="btn btn-outlined" id="mod-close-btn">Закрыть</button>
+        <button class="btn btn-outlined" id="mod-reject-btn" style="color: var(--md-sys-color-error); border-color: var(--md-sys-color-error); display: none;">❌ Отклонить</button>
+        <button class="btn btn-primary" id="mod-approve-btn" style="background: #10B981; color: #FFF; display: none;">✅ Одобрить и добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SUBMIT TRACK TO RELEASE VIA TELEGRAM BOT -->
+  <div class="dialog-backdrop" id="release-apply-modal">
+    <div class="dialog-card" style="max-width: 520px;">
+      <div class="dialog-title" style="display: flex; align-items: center; gap: 10px;">
+        <svg class="svg-icon" style="width: 24px; height: 24px; fill: var(--md-sys-color-primary);"><use href="#icon-upload"></use></svg>
+        <span>Публикация трека в ouMusic</span>
+      </div>
+
+      <div class="dialog-content" style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
+        <!-- Step 1 -->
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--md-sys-color-primary); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">1</div>
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem;">Создайте трек .oump3 в Студии</div>
+            <div style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">
+              Проверьте, что трек выглядит как полноценный релиз: качественная обложка, точное название и исполнитель, жанры и синхронизированный текст песен с точными таймингами.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #06B6D4; color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">2</div>
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem;">Перейдите в Telegram-бота @ouMusicRobot</div>
+            <div style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">
+              Откройте бота <a href="https://t.me/ouMusicRobot" target="_blank" style="color: var(--md-sys-color-primary); font-weight: 600; text-decoration: underline;">@ouMusicRobot (t.me/ouMusicRobot)</a> и следуйте пошаговым инструкциям в диалоге для отправки собранного файла.
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #10B981; color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">3</div>
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem;">Дождитесь проверки модерации</div>
+            <div style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">
+              Модераторы проверят качество трека и корректность таймингов. Одобренные треки моментально попадают на сайт в общий каталог сервиса!
+            </div>
+          </div>
+        </div>
+
+        <!-- Fine print note -->
+        <div style="background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 12px; font-size: 0.78rem; line-height: 1.5; color: var(--md-sys-color-outline); border: 1px solid rgba(255, 255, 255, 0.08); margin-top: 4px;">
+          💬 <em>А также: если вы хотите получить галочку подтвержденного артиста или просто задать вопрос / отправить найденный баг по поводу сервиса — пишите в бота <a href="https://t.me/ouMusicRobot" target="_blank" style="color: var(--md-sys-color-primary);">@ouMusicRobot</a>, и администрация подробно проконсультирует вас по этому вопросу.</em>
+        </div>
+      </div>
+
+      <div class="dialog-actions" style="margin-top: 16px;">
+        <button class="btn btn-outlined" id="release-apply-close-btn">Закрыть</button>
+        <button class="btn btn-primary" id="release-apply-tg-btn" style="background: #0088cc; color: #FFF;">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-share"></use></svg>
+          <span>Открыть @ouMusicRobot</span>
+        </button>
       </div>
     </div>
   </div>

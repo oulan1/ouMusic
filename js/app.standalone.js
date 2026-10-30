@@ -456,40 +456,56 @@
       const splitter = ctx.createChannelSplitter(2);
       this.sourceNode.connect(splitter);
 
-      // L - R channel subtraction: cancels center vocals completely, keeps stereo instruments
-      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 0.75;
-      const gainR_to_L = ctx.createGain(); gainR_to_L.gain.value = -0.75; // -R
-      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 0.75;
-      const gainL_to_R = ctx.createGain(); gainL_to_R.gain.value = -0.75; // -L
+      // Precise Center Vocal Cancellation Matrix with Dynamic Makeup Gain & Bass/Air Preservation
+      // Difference matrix: L - R cancels centered mono lead vocals, retaining full stereo spread
+      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 1.15;
+      const gainR_to_L = ctx.createGain(); gainR_to_L.gain.value = -1.15; // -R
+      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 1.15;
+      const gainL_to_R = ctx.createGain(); gainL_to_R.gain.value = -1.15; // -L
 
       splitter.connect(gainL_to_L, 0);
       splitter.connect(gainR_to_L, 1);
       splitter.connect(gainR_to_R, 1);
       splitter.connect(gainL_to_R, 0);
 
-      // Low-pass filter to retain kick drum and bass (<220 Hz)
-      const bassL = ctx.createBiquadFilter();
-      bassL.type = 'lowpass';
-      bassL.frequency.value = 220;
-      const bassR = ctx.createBiquadFilter();
-      bassR.type = 'lowpass';
-      bassR.frequency.value = 220;
+      // Low-pass filter to retain punchy kick drum & bass (<200 Hz)
+      const bassFilter = ctx.createBiquadFilter();
+      bassFilter.type = 'lowpass';
+      bassFilter.frequency.value = 190;
+      const bassGain = ctx.createGain();
+      bassGain.gain.value = 0.85;
 
-      splitter.connect(bassL, 0);
-      splitter.connect(bassR, 1);
+      // High-shelf filter to retain crisp cymbals & acoustic air (>8000 Hz)
+      const airFilter = ctx.createBiquadFilter();
+      airFilter.type = 'highpass';
+      airFilter.frequency.value = 8000;
+      const airGain = ctx.createGain();
+      airGain.gain.value = 0.35;
+
+      this.sourceNode.connect(bassFilter);
+      bassFilter.connect(bassGain);
+
+      this.sourceNode.connect(airFilter);
+      airFilter.connect(airGain);
 
       const merger = ctx.createChannelMerger(2);
-      // Left channel out: (L - R) + Bass(L)
+      // Left channel out: 1.15*(L - R) + Bass + Air
       gainL_to_L.connect(merger, 0, 0);
       gainR_to_L.connect(merger, 0, 0);
-      bassL.connect(merger, 0, 0);
+      bassGain.connect(merger, 0, 0);
+      airGain.connect(merger, 0, 0);
 
-      // Right channel out: (R - L) + Bass(R)
+      // Right channel out: 1.15*(R - L) + Bass + Air
       gainR_to_R.connect(merger, 0, 1);
       gainL_to_R.connect(merger, 0, 1);
-      bassR.connect(merger, 0, 1);
+      bassGain.connect(merger, 0, 1);
+      airGain.connect(merger, 0, 1);
 
-      merger.connect(this.vocalWetGain);
+      // Makeup amplifier so volume never drops when turning on Minusovka
+      const makeupGain = ctx.createGain();
+      makeupGain.gain.value = 1.25;
+      merger.connect(makeupGain);
+      makeupGain.connect(this.vocalWetGain);
       this.sourceNode.connect(this.vocalDryGain);
 
       const postVocal = ctx.createGain();
@@ -859,12 +875,13 @@
         text.split('\n').forEach((line) => {
           const l = line.trim();
           if (!l || l.startsWith('#')) return;
-          const [name, av, ban, ver] = l.split(' - ').map((s) => s.trim());
+          const [name, av, ban, ver, wins] = l.split(' - ').map((s) => s.trim());
           if (name) {
             verifiedArtists.set(name.toLowerCase(), {
               avatar: av || 'assets/oumusic.png',
               banner: ban || 'assets/oumusic.png',
-              verified: ver === '1'
+              verified: ver === '1',
+              monthlyWins: parseInt(wins, 10) || 0
             });
           }
         });
@@ -1247,7 +1264,8 @@
 
   function createTrackRow(track, onClick) {
     const row = document.createElement('div');
-    row.className = 'track-row';
+    const isNow = (currentTrack && currentTrack.id === track.id);
+    row.className = `track-row ${isNow ? 'now-playing' : ''}`;
     row.setAttribute('data-track-id', track.id);
 
     const isVer = isArtistVerified(track.artist);
@@ -1417,6 +1435,9 @@
     }
 
     updatePlayerMeta(track);
+    document.querySelectorAll('.track-row').forEach((r) => {
+      r.classList.toggle('now-playing', r.getAttribute('data-track-id') === track.id);
+    });
     const lyricsToLoad = track.lyricsText || track.lrcText || (offlineRecord && (offlineRecord.lyricsText || offlineRecord.lrcText)) || '';
     loadLyrics(lyricsToLoad, track);
 
@@ -1645,6 +1666,28 @@
 
     initTrackOptionsSheet();
     initCircularSpectrum();
+
+    // Fullscreen Cover Lightbox Modal
+    const coverBox = document.getElementById('player-cover-box');
+    const lightboxModal = document.getElementById('cover-lightbox-modal');
+    const lightboxImg = document.getElementById('cover-lightbox-img');
+    const lightboxClose = document.getElementById('cover-lightbox-close-btn');
+
+    coverBox?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!currentTrack) return;
+      if (lightboxImg) lightboxImg.src = currentTrack.coverUrl || currentTrack.thumbBase64 || 'assets/oumusic.png';
+      lightboxModal?.classList.add('active');
+    });
+
+    lightboxClose?.addEventListener('click', () => {
+      lightboxModal?.classList.remove('active');
+    });
+    lightboxModal?.addEventListener('click', (e) => {
+      if (e.target === lightboxModal || e.target === lightboxImg) {
+        lightboxModal?.classList.remove('active');
+      }
+    });
   }
 
   /* High-precision LRC Parser & Formatter with Milliseconds [00:00.00] */
@@ -2063,27 +2106,35 @@
         ctx.stroke();
         ctx.restore();
 
-        // 3. Main Multi-Harmonic Organic Wave Sphere Contour
-        ctx.save();
-        ctx.beginPath();
-        const points = 72;
-        for (let i = 0; i <= points; i++) {
-          const theta = (i / points) * Math.PI * 2;
-          const harmonic1 = Math.sin(theta * 6 + angle * 1.6) * (6 + bassEnergy * 20);
-          const harmonic2 = Math.cos(theta * 3 - angle * 1.2) * (4 + midEnergy * 12);
-          const r = baseRadius + harmonic1 + harmonic2;
-          const x = cx + Math.cos(theta) * r;
-          const y = cy + Math.sin(theta) * r;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+        // 3. Calm Concentric Multi-Harmonic Liquid Fluid Waves (matching cover visualizer aesthetic)
+        const rings = 4;
+        for (let k = 0; k < rings; k++) {
+          const ringBase = baseRadius * 0.72 + k * 20 + bassEnergy * (16 + k * 10);
+          const ringAlpha = (0.32 + bassEnergy * 0.45) * (1 - k * 0.22);
+          ctx.save();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0.08, ringAlpha)})`;
+          ctx.lineWidth = 2.2 - k * 0.35;
+          ctx.shadowColor = primaryColor;
+          ctx.shadowBlur = 12 + k * 4;
+          ctx.beginPath();
+
+          const points = 90;
+          const step = (Math.PI * 2) / points;
+          for (let p = 0; p <= points; p++) {
+            const theta = p * step;
+            const wave = Math.sin(theta * 4 + angle * 1.1 + k) * (3.5 + bassEnergy * 9) +
+                         Math.cos(theta * 7 - angle * 0.7) * (2.0 + midEnergy * 6);
+            const rad = ringBase + wave;
+            const x = cx + Math.cos(theta) * rad;
+            const y = cy + Math.sin(theta) * rad;
+
+            if (p === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
         }
-        ctx.closePath();
-        ctx.lineWidth = 3.5 + bassEnergy * 2;
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.shadowColor = primaryColor;
-        ctx.shadowBlur = 18 + bassEnergy * 25;
-        ctx.stroke();
-        ctx.restore();
 
         animFrameId = requestAnimationFrame(renderWave);
       }
@@ -2711,13 +2762,14 @@
       line.setAttribute('data-index', index);
       line.textContent = item.text;
 
-      if (item.time !== null) {
-        line.style.cursor = 'pointer';
-        line.addEventListener('click', () => {
+      line.addEventListener('click', () => {
+        if (window.isQuoteSelectionMode) {
+          window.toggleQuoteLineSelect(index, line);
+        } else if (item.time !== null) {
           engine.seek(item.time);
           engine.softPlay();
-        });
-      }
+        }
+      });
 
       container.appendChild(line);
     });
@@ -2940,25 +2992,36 @@
   }
 
   function initSettingsUI() {
-    // Theme toggle
+    // Theme toggle with instant persistence
     const darkBtn = document.getElementById('theme-dark-btn');
     const lightBtn = document.getElementById('theme-light-btn');
     const amoledToggle = document.getElementById('amoled-toggle');
+    const liquidGlassToggle = document.getElementById('liquid-glass-toggle');
 
     darkBtn?.addEventListener('click', () => {
       document.documentElement.setAttribute('data-theme', 'dark');
       darkBtn.classList.add('active');
-      lightBtn.classList.remove('active');
+      lightBtn?.classList.remove('active');
+      try { localStorage.setItem('oumusic_theme', 'dark'); } catch (e) {}
     });
 
     lightBtn?.addEventListener('click', () => {
       document.documentElement.setAttribute('data-theme', 'light');
       lightBtn.classList.add('active');
-      darkBtn.classList.remove('active');
+      darkBtn?.classList.remove('active');
+      try { localStorage.setItem('oumusic_theme', 'light'); } catch (e) {}
     });
 
     amoledToggle?.addEventListener('change', () => {
-      document.documentElement.setAttribute('data-amoled', amoledToggle.checked ? 'true' : 'false');
+      const isAm = amoledToggle.checked;
+      document.documentElement.setAttribute('data-amoled', isAm ? 'true' : 'false');
+      try { localStorage.setItem('oumusic_amoled', isAm ? 'true' : 'false'); } catch (e) {}
+    });
+
+    liquidGlassToggle?.addEventListener('change', () => {
+      const isGlass = liquidGlassToggle.checked;
+      document.documentElement.setAttribute('data-liquid-glass', isGlass ? 'true' : 'false');
+      try { localStorage.setItem('oumusic_liquid_glass', isGlass ? 'true' : 'false'); } catch (e) {}
     });
 
     // Font size selector
@@ -2968,11 +3031,12 @@
         btn.classList.add('active');
         const size = btn.getAttribute('data-fontsize') || 'medium';
         document.documentElement.setAttribute('data-font-size', size);
+        try { localStorage.setItem('oumusic_font_size', size); } catch (e) {}
       });
     });
 
     // Accent Color System & Custom Palette Picker
-    function applyAccentColor(colorHex) {
+    function applyAccentColor(colorHex, isAdaptive = false) {
       window.applyAccentColor = applyAccentColor;
       if (!colorHex) return;
       const root = document.documentElement;
@@ -2990,13 +3054,13 @@
       root.style.setProperty('--glow-color-1', `rgba(${r}, ${g}, ${b}, 0.45)`);
 
       try {
-        localStorage.setItem('oumusic_accent_color', colorHex);
+        if (!isAdaptive) localStorage.setItem('oumusic_accent_color', colorHex);
       } catch (e) {}
 
       let matchedPreset = false;
       document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((btn) => {
         const btnColor = btn.getAttribute('data-color');
-        if (btnColor && btnColor.toLowerCase() === colorHex.toLowerCase()) {
+        if (btnColor && btnColor.toLowerCase() === colorHex.toLowerCase() && !isAdaptive) {
           btn.classList.add('active');
           btn.style.borderColor = '#FFFFFF';
           matchedPreset = true;
@@ -3008,7 +3072,7 @@
 
       const customBtn = document.getElementById('custom-accent-btn');
       if (customBtn) {
-        if (!matchedPreset) {
+        if (!matchedPreset && !isAdaptive) {
           customBtn.classList.add('active');
           customBtn.style.borderColor = '#FFFFFF';
           customBtn.style.boxShadow = `0 0 14px ${colorHex}`;
@@ -3023,7 +3087,7 @@
     // Adaptive Accent Color Button
     const adaptiveBtn = document.getElementById('adaptive-accent-btn');
     adaptiveBtn?.addEventListener('click', async () => {
-      localStorage.setItem('oumusic_accent_adaptive', 'true');
+      try { localStorage.setItem('oumusic_accent_adaptive', 'true'); } catch (e) {}
       adaptiveBtn.classList.add('active');
 
       document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((b) => {
@@ -3035,13 +3099,13 @@
         const dom = await extractCoverDominantColor(currentTrack.coverUrl || currentTrack.thumbBase64);
         applyAccentColor(dom, true);
       }
-      alert('Включен адаптивный цвет! Интерфейс автоматически подстраивается под цвета обложки каждого трека.');
+      alert('Включен адаптивный цвет! Интерфейс и нижняя панель плеера автоматически подстраиваются под цвета обложки.');
     });
 
     // Connect preset circles
     document.querySelectorAll('#accent-colors-row .accent-color-circle[data-color]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        localStorage.setItem('oumusic_accent_adaptive', 'false');
+        try { localStorage.setItem('oumusic_accent_adaptive', 'false'); } catch (e) {}
         adaptiveBtn?.classList.remove('active');
         const c = btn.getAttribute('data-color');
         if (c) applyAccentColor(c);
@@ -3052,29 +3116,71 @@
     const customAccentBtn = document.getElementById('custom-accent-btn');
     const customColorPicker = document.getElementById('custom-accent-color-picker');
 
-    customAccentBtn?.addEventListener('click', () => {
-      customColorPicker?.click();
-    });
-
+    customAccentBtn?.addEventListener('click', () => customColorPicker?.click());
     customColorPicker?.addEventListener('input', (e) => {
+      try { localStorage.setItem('oumusic_accent_adaptive', 'false'); } catch (err) {}
+      adaptiveBtn?.classList.remove('active');
       applyAccentColor(e.target.value);
     });
-
     customColorPicker?.addEventListener('change', (e) => {
+      try { localStorage.setItem('oumusic_accent_adaptive', 'false'); } catch (err) {}
+      adaptiveBtn?.classList.remove('active');
       applyAccentColor(e.target.value);
     });
 
-    // Restore saved accent color
+    // --- RESTORE ALL SAVED SETTINGS ---
     try {
-      const savedColor = localStorage.getItem('oumusic_accent_color');
-      if (savedColor) applyAccentColor(savedColor);
+      // 1. Theme
+      const savedTheme = localStorage.getItem('oumusic_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      if (savedTheme === 'light') {
+        lightBtn?.classList.add('active');
+        darkBtn?.classList.remove('active');
+      } else {
+        darkBtn?.classList.add('active');
+        lightBtn?.classList.remove('active');
+      }
+
+      // 2. AMOLED
+      const savedAmoled = localStorage.getItem('oumusic_amoled') === 'true';
+      if (amoledToggle) amoledToggle.checked = savedAmoled;
+      document.documentElement.setAttribute('data-amoled', savedAmoled ? 'true' : 'false');
+
+      // 3. Liquid Glass
+      const savedGlass = localStorage.getItem('oumusic_liquid_glass') === 'true';
+      if (liquidGlassToggle) liquidGlassToggle.checked = savedGlass;
+      document.documentElement.setAttribute('data-liquid-glass', savedGlass ? 'true' : 'false');
+
+      // 4. Font size
+      const savedFontSize = localStorage.getItem('oumusic_font_size') || 'medium';
+      document.documentElement.setAttribute('data-font-size', savedFontSize);
+      document.querySelectorAll('[data-fontsize]').forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-fontsize') === savedFontSize);
+      });
+
+      // 5. Adaptive vs Custom Accent
+      const isAdaptive = localStorage.getItem('oumusic_accent_adaptive') === 'true';
+      if (isAdaptive) {
+        adaptiveBtn?.classList.add('active');
+      } else {
+        const savedColor = localStorage.getItem('oumusic_accent_color');
+        if (savedColor) applyAccentColor(savedColor);
+      }
     } catch (e) {}
 
     // Normalizer switch
     const normToggle = document.getElementById('normalizer-toggle');
     normToggle?.addEventListener('change', () => {
       engine.setNormalizer(normToggle.checked);
+      try { localStorage.setItem('oumusic_normalizer', normToggle.checked ? 'true' : 'false'); } catch (e) {}
     });
+    try {
+      const savedNorm = localStorage.getItem('oumusic_normalizer');
+      if (savedNorm !== null && normToggle) {
+        normToggle.checked = (savedNorm === 'true');
+        engine.setNormalizer(normToggle.checked);
+      }
+    } catch (e) {}
 
     // Crossfade slider
     const crossfadeSlider = document.getElementById('crossfade-slider');
@@ -3082,7 +3188,15 @@
     crossfadeSlider?.addEventListener('input', () => {
       const v = crossfadeSlider.value;
       if (crossfadeLabel) crossfadeLabel.textContent = `${v} сек`;
+      try { localStorage.setItem('oumusic_crossfade', v); } catch (e) {}
     });
+    try {
+      const savedCross = localStorage.getItem('oumusic_crossfade');
+      if (savedCross !== null && crossfadeSlider) {
+        crossfadeSlider.value = savedCross;
+        if (crossfadeLabel) crossfadeLabel.textContent = `${savedCross} сек`;
+      }
+    } catch (e) {}
 
     // 5-Band Equalizer Presets & Default Reset
     const eqSelect = document.getElementById('eq-presets-select');
@@ -3103,6 +3217,7 @@
       engine.ensureContext();
       const gains = engine.applyEQPreset(preset);
       updateEQSliders(gains);
+      try { localStorage.setItem('oumusic_eq_preset', preset); } catch (e) {}
     });
 
     eqResetBtn?.addEventListener('click', () => {
@@ -3110,6 +3225,7 @@
       const gains = engine.applyEQPreset('flat');
       if (eqSelect) eqSelect.value = 'flat';
       updateEQSliders(gains);
+      try { localStorage.setItem('oumusic_eq_preset', 'flat'); } catch (e) {}
     });
 
     eqSliders.forEach((slider) => {
@@ -3119,8 +3235,20 @@
         engine.ensureContext();
         engine.setEQBand(band, val);
         if (eqSelect) eqSelect.value = 'custom';
+        try { localStorage.setItem('oumusic_eq_preset', 'custom'); } catch (e) {}
       });
     });
+
+    try {
+      const savedEq = localStorage.getItem('oumusic_eq_preset');
+      if (savedEq && eqSelect) {
+        eqSelect.value = savedEq;
+        if (savedEq !== 'custom') {
+          const gains = engine.applyEQPreset(savedEq);
+          updateEQSliders(gains);
+        }
+      }
+    } catch (e) {}
 
     // Docs dialog
     const docsDialog = document.getElementById('mcore-docs-dialog');
@@ -3178,6 +3306,19 @@
     const isVer = isArtistVerified(clean);
     const verBadge = document.getElementById('artist-verified-badge');
     if (verBadge) verBadge.style.display = isVer ? 'inline-flex' : 'none';
+
+    // Artist of the month wins display
+    const artistRecord = verifiedArtists.get(clean.toLowerCase());
+    const winsCont = document.getElementById('artist-month-wins-container');
+    if (winsCont) {
+      if (artistRecord && artistRecord.monthlyWins > 0) {
+        const w = artistRecord.monthlyWins;
+        const word = w === 1 ? 'раз' : (w >= 2 && w <= 4 ? 'раза' : 'раз');
+        winsCont.innerHTML = `<div class="artist-wins-badge">🏆 Победитель «Артист месяца»: <strong>${w} ${word}</strong></div>`;
+      } else {
+        winsCont.innerHTML = '';
+      }
+    }
 
     const list = document.getElementById('artist-tracks-list');
     if (!list) return;
@@ -3261,22 +3402,270 @@
       });
     });
 
-    // 4. Quote Card dialog
+    // 4. Interactive Lyric Quote Sharing
     const quoteDialog = document.getElementById('quote-card-dialog');
+    window.selectedQuoteIndices = new Set();
+    window.isQuoteSelectionMode = false;
+
+    window.toggleQuoteLineSelect = (idx, el) => {
+      if (window.selectedQuoteIndices.has(idx)) {
+        window.selectedQuoteIndices.delete(idx);
+        el.classList.remove('quote-selected');
+      } else {
+        if (window.selectedQuoteIndices.size >= 5) {
+          alert('Можно выбрать максимум 5 строк для цитаты.');
+          return;
+        }
+        window.selectedQuoteIndices.add(idx);
+        el.classList.add('quote-selected');
+      }
+    };
+
     document.getElementById('lyrics-share-quote-btn')?.addEventListener('click', () => {
+      // If user hasn't selected any line, pick active line or first lines
+      if (window.selectedQuoteIndices.size === 0 && currentParsedLyrics.length > 0) {
+        const start = Math.max(0, activeLyricIndex >= 0 ? activeLyricIndex : 0);
+        window.selectedQuoteIndices.add(start);
+        if (currentParsedLyrics[start + 1]) window.selectedQuoteIndices.add(start + 1);
+      }
       quoteDialog?.classList.add('active');
       renderQuoteCanvasPreview();
     });
+
     document.getElementById('quote-dialog-close-btn')?.addEventListener('click', () => {
       quoteDialog?.classList.remove('active');
+      window.selectedQuoteIndices.clear();
+      document.querySelectorAll('.lyric-line.quote-selected').forEach((el) => el.classList.remove('quote-selected'));
     });
+
     document.getElementById('quote-download-btn')?.addEventListener('click', () => {
       const c = document.getElementById('quote-render-canvas');
       if (!c) return;
       const a = document.createElement('a');
-      a.download = `quote_${currentTrack?.title || 'ouMusic'}.png`;
+      a.download = `quote_${currentTrack?.artist || 'artist'}_${currentTrack?.title || 'track'}.png`;
       a.href = c.toDataURL('image/png');
       a.click();
+    });
+
+    document.getElementById('quote-share-btn')?.addEventListener('click', async () => {
+      const lines = Array.from(window.selectedQuoteIndices)
+        .sort((a, b) => a - b)
+        .map((i) => currentParsedLyrics[i]?.text)
+        .filter(Boolean);
+
+      const text = `“${lines.join('\n')}”\n\n— ${currentTrack?.artist || 'Артист'} «${currentTrack?.title || 'Трек'}» на ouMusic`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: currentTrack?.title || 'ouMusic', text, url: window.location.href });
+        } catch (e) {}
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        alert('Цитата скопирована в буфер обмена!');
+      }
+    });
+
+    // 4.1 Release Application Modal (@ouMusicRobot)
+    const releaseModal = document.getElementById('release-apply-modal');
+    document.getElementById('open-release-apply-btn')?.addEventListener('click', () => {
+      releaseModal?.classList.add('active');
+    });
+    document.getElementById('release-apply-close-btn')?.addEventListener('click', () => {
+      releaseModal?.classList.remove('active');
+    });
+    document.getElementById('release-apply-tg-btn')?.addEventListener('click', () => {
+      window.open('https://t.me/ouMusicRobot', '_blank');
+    });
+    releaseModal?.addEventListener('click', (e) => {
+      if (e.target === releaseModal) releaseModal.classList.remove('active');
+    });
+
+    // 4.2 Secret Moderation Room (20 Rapid Taps on Studio)
+    let studioSecretTapCount = 0;
+    let studioSecretTimer = null;
+    const triggerStudioSecret = () => {
+      studioSecretTapCount++;
+      clearTimeout(studioSecretTimer);
+      studioSecretTimer = setTimeout(() => { studioSecretTapCount = 0; }, 1000);
+      if (studioSecretTapCount >= 20) {
+        studioSecretTapCount = 0;
+        openModerationPanel();
+      }
+    };
+
+    document.querySelectorAll('[data-nav="studio"], #tab-studio, #studio-header-title').forEach((el) => {
+      el.addEventListener('click', triggerStudioSecret);
+    });
+
+    function openModerationPanel() {
+      const modModal = document.getElementById('moderation-modal');
+      modModal?.classList.add('active');
+    }
+
+    const modModal = document.getElementById('moderation-modal');
+    const modFileInput = document.getElementById('mod-file-input');
+    const modDropzone = document.getElementById('mod-dropzone');
+    const modCloseBtn = document.getElementById('mod-close-btn');
+    const modApproveBtn = document.getElementById('mod-approve-btn');
+    const modRejectBtn = document.getElementById('mod-reject-btn');
+    const modReviewArea = document.getElementById('mod-review-area');
+
+    let modUnpackedData = null;
+    let modAudioElement = new Audio();
+
+    modDropzone?.addEventListener('click', () => modFileInput?.click());
+    modCloseBtn?.addEventListener('click', () => {
+      modAudioElement.pause();
+      modModal?.classList.remove('active');
+    });
+    modModal?.addEventListener('click', (e) => {
+      if (e.target === modModal) {
+        modAudioElement.pause();
+        modModal.classList.remove('active');
+      }
+    });
+
+    modFileInput?.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        try {
+          const buf = await file.arrayBuffer();
+          modUnpackedData = await unpackOump3Full(buf);
+          modReviewArea.style.display = 'block';
+          modApproveBtn.style.display = 'inline-flex';
+          modRejectBtn.style.display = 'inline-flex';
+
+          document.getElementById('mod-title').textContent = modUnpackedData.meta.title || file.name;
+          document.getElementById('mod-artist').textContent = modUnpackedData.meta.artist || 'Неизвестный исполнитель';
+          const coverImg = document.getElementById('mod-cover-img');
+          if (coverImg) {
+            coverImg.src = modUnpackedData.coverBlob ? URL.createObjectURL(modUnpackedData.coverBlob) : (modUnpackedData.meta.thumbBase64 || 'assets/oumusic.png');
+          }
+
+          const genresContainer = document.getElementById('mod-genres');
+          if (genresContainer) {
+            genresContainer.innerHTML = '';
+            (modUnpackedData.meta.genres || []).forEach((g) => {
+              const span = document.createElement('span');
+              span.className = 'chip';
+              span.style.padding = '2px 8px';
+              span.style.fontSize = '0.7rem';
+              span.textContent = g;
+              genresContainer.appendChild(span);
+            });
+          }
+
+          // Audio
+          if (modUnpackedData.audioBlob) {
+            modAudioElement.src = URL.createObjectURL(modUnpackedData.audioBlob);
+            modAudioElement.load();
+          }
+
+          // Lyrics synchronized stream
+          const parsedLrc = parseLRC(modUnpackedData.lyricsText || '');
+          const stream = document.getElementById('mod-lyrics-stream');
+          if (stream) {
+            stream.innerHTML = '';
+            if (parsedLrc.length === 0) {
+              stream.innerHTML = '<span style="color: var(--md-sys-color-outline); padding: 12px;">Текст песни отсутствует в контейнере</span>';
+            } else {
+              parsedLrc.forEach((l, idx) => {
+                const row = document.createElement('div');
+                row.className = 'mod-lyric-row';
+                row.setAttribute('data-time', l.time);
+                row.style.padding = '4px 8px';
+                row.style.borderRadius = '6px';
+                row.style.transition = 'background 0.2s, color 0.2s';
+                row.innerHTML = `<span style="color: var(--md-sys-color-primary); margin-right: 8px;">[${formatLrcTime(l.time)}]</span><span>${l.text}</span>`;
+                row.addEventListener('click', () => {
+                  if (l.time !== null) {
+                    modAudioElement.currentTime = l.time;
+                    modAudioElement.play();
+                  }
+                });
+                stream.appendChild(row);
+              });
+            }
+          }
+        } catch (err) {
+          alert('Ошибка чтения .oump3 контейнера: ' + err.message);
+        }
+      }
+    });
+
+    const modPlayBtn = document.getElementById('mod-play-btn');
+    const modTime = document.getElementById('mod-time');
+    const modSeeker = document.getElementById('mod-seeker');
+
+    modPlayBtn?.addEventListener('click', () => {
+      if (modAudioElement.paused) {
+        modAudioElement.play();
+        modPlayBtn.innerHTML = '<svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-pause"></use></svg><span>Пауза</span>';
+      } else {
+        modAudioElement.pause();
+        modPlayBtn.innerHTML = '<svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg><span>Слушать</span>';
+      }
+    });
+
+    modAudioElement.addEventListener('timeupdate', () => {
+      const cur = modAudioElement.currentTime;
+      const dur = modAudioElement.duration || 1;
+      if (modTime) modTime.textContent = `${formatSec(cur)} / ${formatSec(dur)}`;
+      if (modSeeker) modSeeker.value = (cur / dur) * 100;
+
+      // Sync active lyric line in moderation review
+      const rows = document.querySelectorAll('#mod-lyrics-stream .mod-lyric-row');
+      let activeRow = null;
+      rows.forEach((r) => {
+        const t = parseFloat(r.getAttribute('data-time'));
+        if (!isNaN(t) && t <= cur) activeRow = r;
+        r.style.background = 'transparent';
+        r.style.color = 'inherit';
+        r.style.fontWeight = 'normal';
+      });
+      if (activeRow) {
+        activeRow.style.background = 'rgba(139, 92, 246, 0.25)';
+        activeRow.style.color = '#FFFFFF';
+        activeRow.style.fontWeight = 'bold';
+        activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+
+    modSeeker?.addEventListener('input', () => {
+      if (modAudioElement.duration) {
+        modAudioElement.currentTime = (modSeeker.value / 100) * modAudioElement.duration;
+      }
+    });
+
+    modApproveBtn?.addEventListener('click', async () => {
+      if (!modUnpackedData) return;
+      modAudioElement.pause();
+      const id = 'mod_' + Date.now();
+      const meta = {
+        id,
+        filename: `${modUnpackedData.meta.artist} - ${modUnpackedData.meta.title}.oump3`,
+        title: modUnpackedData.meta.title || 'Трек',
+        artist: modUnpackedData.meta.artist || 'Артист',
+        duration: modUnpackedData.meta.duration || modAudioElement.duration || 180,
+        isLocal: true,
+        isExplicit: modUnpackedData.meta.isExplicit || false,
+        thumbBase64: modUnpackedData.meta.thumbBase64 || null
+      };
+
+      await saveTrackMetadata(meta);
+      await saveOfflineTrack(id, modUnpackedData.audioBlob, modUnpackedData.coverBlob, modUnpackedData.lyricsText);
+      catalogTracks.unshift(meta);
+      renderCatalogFeed(catalogTracks);
+      await renderManualTracksFeed();
+
+      alert(`✅ Трек "${meta.artist} — ${meta.title}" успешно проверен модерацией и добавлен в каталог!`);
+      modModal?.classList.remove('active');
+    });
+
+    modRejectBtn?.addEventListener('click', () => {
+      modAudioElement.pause();
+      const reason = prompt('Укажите причину отклонения (например: рассинхрон текста, плохое качество звука):');
+      alert(`❌ Трек отклонен модерацией. Причина: ${reason || 'Не соответствует стандартам качества'}`);
+      modModal?.classList.remove('active');
     });
 
     // 5. Year Recap stories dialog
@@ -3416,29 +3805,159 @@
     }
   }
 
-  function renderQuoteCanvasPreview() {
+  async function renderQuoteCanvasPreview() {
     const c = document.getElementById('quote-render-canvas');
     if (!c) return;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#0E0E14';
+    c.width = 720;
+    c.height = 960;
+
+    // Sample track's dominant accent color
+    const hex = await extractCoverDominantColor(currentTrack?.coverUrl || currentTrack?.thumbBase64);
+    let r = 18, g = 60, b = 85;
+    if (hex && hex.startsWith('#')) {
+      let h = hex.replace('#', '');
+      if (h.length === 3) h = h.split('').map((x) => x + x).join('');
+      r = parseInt(h.substring(0, 2), 16) || r;
+      g = parseInt(h.substring(2, 4), 16) || g;
+      b = parseInt(h.substring(4, 6), 16) || b;
+    }
+
+    // 1. Rich Atmospheric Background Gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, c.width, c.height);
+    bgGrad.addColorStop(0, `rgb(${Math.round(r * 0.45)}, ${Math.round(g * 0.45)}, ${Math.round(b * 0.55)})`);
+    bgGrad.addColorStop(0.45, `rgb(${Math.round(r * 0.2)}, ${Math.round(g * 0.2)}, ${Math.round(b * 0.26)})`);
+    bgGrad.addColorStop(1, '#06080F');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, c.width, c.height);
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 36px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(currentTrack?.title || 'ouMusic Track', c.width / 2, 200);
+    // 2. Soft Ambient Lighting Bloom
+    const bloom = ctx.createRadialGradient(160, 160, 40, 160, 160, 400);
+    bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.35)`);
+    bloom.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bloom;
+    ctx.fillRect(0, 0, c.width, c.height);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '24px sans-serif';
-    ctx.fillText(currentTrack?.artist || 'M-Core Engine', c.width / 2, 250);
+    // 3. Top Header: Album Cover Thumbnail + Title + Artist
+    const coverSize = 130;
+    const coverX = 54;
+    const coverY = 54;
 
-    ctx.fillStyle = '#8B5CF6';
-    ctx.font = 'italic bold 40px sans-serif';
-    ctx.fillText('« Музыка объединяет звуки и сердца »', c.width / 2, 480);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(coverX, coverY, coverSize, coverSize, 18);
+      ctx.clip();
+      ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
+      ctx.restore();
 
-    ctx.fillStyle = '#EC4899';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('ouMusic • M-CORE', c.width / 2, c.height - 80);
+      // Cover border & shadow
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(coverX, coverY, coverSize, coverSize, 18);
+      ctx.stroke();
+
+      drawQuoteDetails();
+    };
+    img.onerror = () => {
+      drawQuoteDetails();
+    };
+    img.src = currentTrack?.coverUrl || currentTrack?.thumbBase64 || 'assets/oumusic.png';
+
+    function drawQuoteDetails() {
+      // Title
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
+      ctx.textAlign = 'left';
+      const title = currentTrack?.title || 'ouMusic Track';
+      ctx.fillText(title.length > 22 ? title.slice(0, 20) + '...' : title, 204, 105);
+
+      // Artist
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
+      const artist = currentTrack?.artist || 'Исполнитель';
+      ctx.fillText(artist.length > 26 ? artist.slice(0, 24) + '...' : artist, 204, 142);
+
+      // Brand Pill
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.65)`;
+      ctx.beginPath();
+      ctx.roundRect(204, 156, 138, 26, 13);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('ouMusic • M-CORE', 218, 173);
+
+      // Divider line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(54, 220);
+      ctx.lineTo(c.width - 54, 220);
+      ctx.stroke();
+
+      // Selected lyric lines
+      let lines = Array.from(window.selectedQuoteIndices || [])
+        .sort((a, b) => a - b)
+        .map((i) => currentParsedLyrics[i]?.text)
+        .filter(Boolean);
+
+      if (lines.length === 0) {
+        lines = ['« Музыка объединяет звуки и сердца »'];
+      }
+
+      // Large Quotes Icon
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+      ctx.font = 'bold 84px serif';
+      ctx.fillText('“', 54, 310);
+
+      // Render lines with generous leading
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 12;
+
+      let lineY = 360;
+      lines.slice(0, 5).forEach((line) => {
+        // Auto-wrap line if longer than width
+        const maxW = c.width - 120;
+        if (ctx.measureText(line).width > maxW) {
+          const words = line.split(' ');
+          let cur = '';
+          for (let w of words) {
+            const test = cur + (cur ? ' ' : '') + w;
+            if (ctx.measureText(test).width > maxW) {
+              ctx.fillText(cur, 60, lineY);
+              lineY += 50;
+              cur = w;
+            } else {
+              cur = test;
+            }
+          }
+          if (cur) {
+            ctx.fillText(cur, 60, lineY);
+            lineY += 54;
+          }
+        } else {
+          ctx.fillText(line, 60, lineY);
+          lineY += 54;
+        }
+      });
+
+      // Closing Quote
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+      ctx.font = 'bold 84px serif';
+      ctx.fillText('”', 60, lineY + 40);
+
+      // Footer Watermark
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.font = '600 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Слушайте трек в веб-приложении ouMusic', c.width / 2, c.height - 48);
+    }
   }
 
   function renderPlaylistsGrid() {

@@ -7,7 +7,10 @@
   width: calc(100% - 32px);
   max-width: 500px;
   height: var(--mini-player-height);
-  background: rgba(26, 26, 34, 0.9);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--md-sys-color-primary) 24%, rgba(18, 18, 26, 0.96)) 0%, color-mix(in srgb, var(--md-sys-color-primary) 14%, rgba(24, 24, 34, 0.96)) 100%);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, rgba(255, 255, 255, 0.1));
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--md-sys-color-primary) 22%, rgba(0,0,0,0.5)), 0 2px 8px rgba(0,0,0,0.4);
+  transition: background 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.7s ease, box-shadow 0.7s ease, transform var(--motion-duration-short);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -168,6 +171,13 @@
 @media (min-width: 900px) {
   .player-cover-container {
     max-width: 390px;
+  }
+  .lyrics-left-col {
+    width: 440px !important;
+  }
+  .lyrics-cover-card {
+    width: 420px !important;
+    height: 420px !important;
   }
 }
 
@@ -577,52 +587,69 @@
 }
 
 .lyric-line {
-  font-family: -apple-system, BlinkMacSystemFont, "YS Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Montserrat", "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, sans-serif;
   font-size: 1.45rem;
   font-weight: 700;
-  color: rgba(185, 210, 235, 0.28);
+  color: rgba(235, 245, 255, 0.35);
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 10px;
-  transition: color 0.25s ease, font-size 0.25s ease, opacity 0.25s ease;
-  line-height: 1.28;
-  letter-spacing: -0.4px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  transition: color 0.25s ease, font-size 0.25s ease, opacity 0.25s ease, background 0.2s;
+  line-height: 1.32;
+  letter-spacing: -0.2px;
   user-select: text;
   -webkit-user-select: text;
   text-align: left;
   transform-origin: left center;
   width: 100%;
+  border: 1px solid transparent;
 }
 
 .lyric-line:hover {
-  color: rgba(255, 255, 255, 0.75);
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.85);
+  opacity: 0.95;
+}
+
+/* Quote Selection Mode */
+.lyric-line.quote-selectable {
+  cursor: pointer;
+}
+.lyric-line.quote-selectable:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.lyric-line.quote-selected {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 35%, rgba(255, 255, 255, 0.12)) !important;
+  border: 1px solid var(--md-sys-color-primary) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 16px var(--md-sys-color-primary);
 }
 
 /* Tier 1: Immediately Adjacent Lines (Above & Below active) */
 .lyric-line.near-1 {
-  font-size: 1.8rem;
+  font-size: 1.85rem;
   font-weight: 750;
-  color: rgba(255, 255, 255, 0.75);
-  opacity: 0.88;
+  color: rgba(255, 255, 255, 0.78);
+  opacity: 0.9;
 }
 
 /* Tier 2: 2 Steps Away */
 .lyric-line.near-2 {
   font-size: 1.55rem;
   font-weight: 700;
-  color: rgba(185, 210, 235, 0.45);
-  opacity: 0.65;
+  color: rgba(215, 235, 255, 0.52);
+  opacity: 0.72;
 }
 
-/* Active Line: Prominent, Pure White, Huge Bold */
+/* Active Line: Prominent, Pure White, Huge Bold without any stroke outline */
 .lyric-line.active {
   color: #FFFFFF !important;
-  font-size: 2.35rem;
-  font-weight: 900;
+  font-size: 2.5rem;
+  font-weight: 850;
   line-height: 1.22;
   opacity: 1.0;
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
 }
 
 /* Mobile & Tablet Responsiveness */
@@ -813,4 +840,68 @@
     height: 72px;
     padding: 0 24px;
   }
+}
+
+/* ==========================================================================
+   LIGHT THEME OVERRIDES FOR MINI PLAYER & FULLSCREEN PLAYER
+   ========================================================================== */
+[data-theme="light"] .mini-player {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--md-sys-color-primary) 20%, rgba(255, 255, 255, 0.96)) 0%, color-mix(in srgb, var(--md-sys-color-primary) 12%, rgba(248, 246, 252, 0.96)) 100%) !important;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, rgba(0, 0, 0, 0.08)) !important;
+  color: #1D1B20 !important;
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--md-sys-color-primary) 18%, rgba(0,0,0,0.06)), 0 2px 8px rgba(0,0,0,0.04) !important;
+}
+
+[data-theme="light"] .mini-title {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .mini-artist {
+  color: #49454F !important;
+}
+
+[data-theme="light"] .mini-controls .icon-btn {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .fullscreen-player {
+  background: linear-gradient(180deg, #F9F8FD 0%, #F1EFF8 100%) !important;
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .player-top-caption {
+  color: #79747E !important;
+}
+
+[data-theme="light"] .player-top-album {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .player-title {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .player-artist {
+  color: #49454F !important;
+}
+
+[data-theme="light"] .player-time {
+  color: #79747E !important;
+}
+
+[data-theme="light"] .player-controls .icon-btn {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] .player-bottom-utils .icon-btn {
+  color: #49454F !important;
+}
+
+[data-theme="light"] .player-slider {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .player-cover-box {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.15) !important;
 }

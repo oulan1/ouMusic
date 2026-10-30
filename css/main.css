@@ -746,3 +746,115 @@ html, body {
   background: #FFFFFF;
   border-radius: 1px;
 }
+
+/* ==========================================================================
+   NOW PLAYING ACTIVE TRACK ROW HIGHLIGHT
+   ========================================================================== */
+.track-row.now-playing {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-left: 3px solid var(--md-sys-color-primary) !important;
+  border-radius: 8px;
+}
+
+[data-theme="light"] .track-row.now-playing {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border-left: 3px solid var(--md-sys-color-primary) !important;
+}
+
+.track-row.now-playing .track-title {
+  color: var(--md-sys-color-primary) !important;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   ARTIST OF THE MONTH WINS TROPHY BADGE
+   ========================================================================== */
+.artist-wins-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.35) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: #FBBF24;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-top: 6px;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+}
+
+/* ==========================================================================
+   FULLSCREEN ALBUM COVER LIGHTBOX
+   ========================================================================== */
+.cover-lightbox-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 10, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 150;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+}
+
+.cover-lightbox-modal.active {
+  display: flex;
+  animation: fadeIn 0.25s ease forwards;
+}
+
+.cover-lightbox-img {
+  max-width: min(88vw, 680px);
+  max-height: min(88vh, 680px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 24px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.95), 0 0 40px rgba(255, 255, 255, 0.12);
+  transform: scale(0.96);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.cover-lightbox-modal.active .cover-lightbox-img {
+  transform: scale(1);
+}
+
+/* ==========================================================================
+   LIQUID GLASS DESIGN SYSTEM (Apple visionOS & iOS style)
+   ========================================================================== */
+[data-liquid-glass="true"] {
+  --lg-glass-blur: blur(28px) saturate(190%) contrast(105%);
+  --lg-specular-top: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55);
+  --lg-specular-bottom: inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+[data-liquid-glass="true"] .top-app-bar,
+[data-liquid-glass="true"] .arc-sidebar,
+[data-liquid-glass="true"] .mini-player,
+[data-liquid-glass="true"] .dialog-card,
+[data-liquid-glass="true"] .bottom-sheet,
+[data-liquid-glass="true"] #screen-profile > div:first-child,
+[data-liquid-glass="true"] .stat-card {
+  -webkit-backdrop-filter: var(--lg-glass-blur) !important;
+  backdrop-filter: var(--lg-glass-blur) !important;
+  box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), 0 16px 36px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+[data-liquid-glass="true"] .btn-primary,
+[data-liquid-glass="true"] .btn-tonal {
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Smooth color transitions */
+.arc-sidebar, .top-app-bar, .mini-player, .btn-primary, .item-icon-box {
+  transition: background 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+              color 0.7s ease,
+              box-shadow 0.7s ease;
+}
