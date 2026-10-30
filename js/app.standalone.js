@@ -416,6 +416,8 @@
       this.pannerNode = null;
       this.pannerLFOId = null;
       this.compressorNode = null;
+      this.normalizerGainNode = null;
+      this.normalizerLevel = 85;
       this.softGainNode = null;
       this.masterGainNode = null;
       this.analyserNode = null;
@@ -566,7 +568,7 @@
         postReverb.connect(this.spatialFilter);
       }
 
-      // Loudness Normalizer (DynamicsCompressor)
+      // Loudness Normalizer (DynamicsCompressor + Target Loudness Gain)
       this.compressorNode = ctx.createDynamicsCompressor();
       this.compressorNode.threshold.value = -24;
       this.compressorNode.knee.value = 30;
@@ -574,12 +576,16 @@
       this.compressorNode.attack.value = 0.003;
       this.compressorNode.release.value = 0.25;
 
+      this.normalizerGainNode = ctx.createGain();
+      this.normalizerGainNode.gain.setValueAtTime(0.85, ctx.currentTime);
+
       this.spatialFilter.connect(this.compressorNode);
+      this.compressorNode.connect(this.normalizerGainNode);
 
       // Soft Play / Pause Gain
       this.softGainNode = ctx.createGain();
       this.softGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
-      this.compressorNode.connect(this.softGainNode);
+      this.normalizerGainNode.connect(this.softGainNode);
 
       // Master Gain & Analyser
       this.masterGainNode = ctx.createGain();
@@ -797,9 +803,21 @@
       }
     }
 
-    setNormalizer(active) {
-      if (!this.compressorNode || !this.audioCtx) return;
-      this.compressorNode.threshold.setValueAtTime(active ? -24 : 0, this.audioCtx.currentTime);
+    setNormalizer(active, levelPercent = 85) {
+      if (!this.compressorNode || !this.normalizerGainNode || !this.audioCtx) return;
+      if (!active) {
+        this.compressorNode.threshold.setValueAtTime(0, this.audioCtx.currentTime);
+        this.normalizerGainNode.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
+      } else {
+        const pct = Math.max(30, Math.min(100, Number(levelPercent) || 85));
+        this.normalizerLevel = pct;
+        // Target threshold: -36 dB (quiet) to -12 dB (loud)
+        const targetThreshold = -36 + (pct - 30) * (24 / 70);
+        // Makeup gain: 0.35 to 1.05 linear
+        const targetGain = 0.35 + (pct - 30) * (0.7 / 70);
+        this.compressorNode.threshold.setValueAtTime(targetThreshold, this.audioCtx.currentTime);
+        this.normalizerGainNode.gain.setValueAtTime(targetGain, this.audioCtx.currentTime);
+      }
     }
 
     setEQBand(bandIdx, gain) {
@@ -1051,12 +1069,22 @@
       btn.className = 'arc-nav-item';
       btn.setAttribute('data-nav', item.id);
       btn.setAttribute('title', item.label);
-      btn.innerHTML = `
-        <div class="item-icon-box">
-          <svg class="svg-icon" style="width: 20px; height: 20px; fill: currentColor;"><use href="#${item.icon}"></use></svg>
-        </div>
-        <span class="item-label">${item.label}</span>
-      `;
+      const savedAv = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_user_avatar') || 'assets/oumusic.png') : 'assets/oumusic.png';
+      if (item.id === 'profile') {
+        btn.innerHTML = `
+          <div class="item-icon-box" style="overflow: hidden; padding: 1px;">
+            <img class="arc-profile-avatar-img" src="${savedAv}" alt="Профиль" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;">
+          </div>
+          <span class="item-label">${item.label}</span>
+        `;
+      } else {
+        btn.innerHTML = `
+          <div class="item-icon-box">
+            <svg class="svg-icon" style="width: 20px; height: 20px; fill: currentColor;"><use href="#${item.icon}"></use></svg>
+          </div>
+          <span class="item-label">${item.label}</span>
+        `;
+      }
 
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -3011,6 +3039,63 @@
   /* Profile & Settings UI */
   async function initProfileUI() {
     await updateProfileStats();
+
+    // User Avatar & Profile Management
+    const avatarInput = document.getElementById('profile-avatar-file-input');
+    const avatarContainer = document.getElementById('profile-avatar-container');
+    const editBtn = document.getElementById('edit-profile-btn');
+    const nameDisplay = document.getElementById('profile-name-display');
+
+    function syncUserAvatar(url) {
+      if (!url) return;
+      const topImg = document.getElementById('top-profile-avatar-img');
+      const profileImg = document.getElementById('profile-avatar-img');
+      const fsImg = document.getElementById('fs-profile-avatar-img');
+      const arcImgs = document.querySelectorAll('.arc-profile-avatar-img');
+      if (topImg) topImg.src = url;
+      if (profileImg) profileImg.src = url;
+      if (fsImg) fsImg.src = url;
+      arcImgs.forEach((img) => { img.src = url; });
+    }
+    window.syncUserAvatar = syncUserAvatar;
+
+    function syncUserName(name) {
+      if (!name) return;
+      if (nameDisplay) nameDisplay.textContent = name;
+    }
+
+    try {
+      const savedAvatar = localStorage.getItem('oumusic_user_avatar');
+      if (savedAvatar) syncUserAvatar(savedAvatar);
+      const savedName = localStorage.getItem('oumusic_user_name');
+      if (savedName) syncUserName(savedName);
+    } catch (e) {}
+
+    avatarContainer?.addEventListener('click', () => avatarInput?.click());
+    editBtn?.addEventListener('click', () => {
+      const currentName = nameDisplay?.textContent?.trim() || 'Пользователь';
+      const newName = prompt('Введите имя пользователя:', currentName);
+      if (newName !== null && newName.trim() !== '') {
+        const val = newName.trim();
+        syncUserName(val);
+        try { localStorage.setItem('oumusic_user_name', val); } catch (e) {}
+      }
+    });
+
+    avatarInput?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target.result;
+          try { localStorage.setItem('oumusic_user_avatar', dataUrl); } catch (err) {}
+          syncUserAvatar(dataUrl);
+          showToast('Аватар профиля успешно обновлен');
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
     document.getElementById('clear-history-btn')?.addEventListener('click', () => {
       alert('История прослушиваний очищена.');
     });
@@ -3278,16 +3363,47 @@
 
     // Normalizer switch
     const normToggle = document.getElementById('normalizer-toggle');
+    const normSlider = document.getElementById('normalizer-level-slider');
+    const normLabel = document.getElementById('normalizer-level-label');
+    const normGroup = document.getElementById('normalizer-level-group');
+
+    function updateNormGroupState() {
+      const active = normToggle ? normToggle.checked : true;
+      if (normGroup) {
+        normGroup.style.opacity = active ? '1' : '0.4';
+        normGroup.style.pointerEvents = active ? 'auto' : 'none';
+      }
+    }
+
     normToggle?.addEventListener('change', () => {
-      engine.setNormalizer(normToggle.checked);
-      try { localStorage.setItem('oumusic_normalizer', normToggle.checked ? 'true' : 'false'); } catch (e) {}
+      const active = normToggle.checked;
+      const level = normSlider ? parseInt(normSlider.value, 10) || 85 : 85;
+      engine.setNormalizer(active, level);
+      updateNormGroupState();
+      try { localStorage.setItem('oumusic_normalizer', active ? 'true' : 'false'); } catch (e) {}
     });
+
+    normSlider?.addEventListener('input', () => {
+      const val = parseInt(normSlider.value, 10) || 85;
+      if (normLabel) normLabel.textContent = `${val}%`;
+      engine.setNormalizer(normToggle ? normToggle.checked : true, val);
+      try { localStorage.setItem('oumusic_normalizer_level', String(val)); } catch (e) {}
+    });
+
     try {
       const savedNorm = localStorage.getItem('oumusic_normalizer');
+      const savedLevel = localStorage.getItem('oumusic_normalizer_level');
+      if (savedLevel && normSlider) {
+        normSlider.value = savedLevel;
+        if (normLabel) normLabel.textContent = `${savedLevel}%`;
+      }
       if (savedNorm !== null && normToggle) {
         normToggle.checked = (savedNorm === 'true');
-        engine.setNormalizer(normToggle.checked);
       }
+      const active = normToggle ? normToggle.checked : true;
+      const level = normSlider ? parseInt(normSlider.value, 10) || 85 : 85;
+      engine.setNormalizer(active, level);
+      updateNormGroupState();
     } catch (e) {}
 
     // Crossfade slider

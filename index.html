@@ -290,8 +290,8 @@
           <button class="icon-btn" id="top-studio-btn" title="Моя Студия">
             <svg class="svg-icon"><use href="#icon-studio"></use></svg>
           </button>
-          <button class="icon-btn" id="top-profile-btn" data-nav="profile" title="Профиль">
-            <svg class="svg-icon"><use href="#icon-profile"></use></svg>
+          <button class="icon-btn profile-avatar-btn" id="top-profile-btn" data-nav="profile" title="Профиль" style="padding: 0; overflow: hidden; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;">
+            <img id="top-profile-avatar-img" src="assets/oumusic.png" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
           </button>
           <button class="icon-btn" id="top-settings-btn" title="Настройки">
             <svg class="svg-icon"><use href="#icon-settings"></use></svg>
@@ -483,9 +483,10 @@
         <section class="screen" id="screen-profile">
           <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-extra-large); padding: 24px; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.05);">
             <div style="display: flex; align-items: center; gap: 16px;">
-              <div id="profile-avatar-container" style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: #222; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0; cursor: pointer;">
+              <div id="profile-avatar-container" style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: #222; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0; cursor: pointer;" title="Нажмите, чтобы сменить фото профиля">
                 <img id="profile-avatar-img" src="assets/oumusic.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
               </div>
+              <input type="file" id="profile-avatar-file-input" accept="image/*" style="display: none;">
               <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <h2 id="profile-name-display" style="font-size: 1.35rem; font-weight: 700;">Пользователь</h2>
@@ -628,6 +629,20 @@
               <input type="checkbox" id="normalizer-toggle" class="switch-input" checked>
               <div class="switch-track"><div class="switch-thumb"></div></div>
             </label>
+
+            <!-- Loudness Normalizer Target Level Slider -->
+            <div id="normalizer-level-group" style="margin-top: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); transition: opacity 0.25s;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 0.82rem; color: var(--md-sys-color-on-surface);">Целевой уровень нормализации:</span>
+                <span id="normalizer-level-label" style="font-size: 0.85rem; font-weight: 700; color: var(--md-sys-color-primary);">85%</span>
+              </div>
+              <input type="range" id="normalizer-level-slider" min="30" max="100" step="5" value="85" style="width: 100%; accent-color: var(--md-sys-color-primary); cursor: pointer;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 4px;">
+                <span>30% (Тихо)</span>
+                <span>85% (Оптимально)</span>
+                <span>100% (Громко)</span>
+              </div>
+            </div>
 
             <!-- Vocal Remover Intensity / Depth Mode -->
             <div class="m3-select-wrapper" style="margin-top: 14px;">
@@ -1090,8 +1105,8 @@
         <button class="icon-btn" id="fs-open-queue-btn" title="Очередь воспроизведения">
           <svg class="svg-icon"><use href="#icon-queue"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-profile-btn" title="Мой профиль">
-          <svg class="svg-icon"><use href="#icon-profile"></use></svg>
+        <button class="icon-btn" id="fs-profile-btn" title="Мой профиль" style="padding: 0; overflow: hidden; border-radius: 50%; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.2);">
+          <img id="fs-profile-avatar-img" src="assets/oumusic.png" alt="Профиль" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;">
         </button>
         <button class="icon-btn" id="fs-sleep-timer-btn" title="Таймер сна">
           <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
@@ -1425,7 +1440,7 @@
   <div class="cover-lightbox-modal" id="cover-lightbox-modal">
     <div style="position: relative; max-width: 90vw; max-height: 90vh;">
       <img id="cover-lightbox-img" class="cover-lightbox-img" src="assets/oumusic.png" alt="Cover Fullscreen">
-      <button class="icon-btn" id="cover-lightbox-close-btn" style="position: absolute; top: -14px; right: -14px; background: rgba(0,0,0,0.7); border: 1.5px solid rgba(255,255,255,0.3); width: 36px; height: 36px; border-radius: 50%; color: #FFF; z-index: 10;" title="Закрыть">
+      <button class="icon-btn" id="cover-lightbox-close-btn" style="position: absolute; top: -18px; right: -18px; background: rgba(0,0,0,0.8); border: 1.5px solid rgba(255,255,255,0.35); width: 44px; height: 44px; border-radius: 50%; color: #FFF; z-index: 10; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);" title="Закрыть">
         <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
       </button>
     </div>

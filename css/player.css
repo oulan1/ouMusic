@@ -156,7 +156,7 @@
 .player-cover-container {
   position: relative;
   width: 100%;
-  max-width: 350px;
+  max-width: min(90vw, 420px);
   aspect-ratio: 1;
   margin: 16px auto;
   display: flex;
@@ -167,7 +167,7 @@
 
 @media (min-width: 900px) {
   .player-cover-container {
-    max-width: 400px;
+    max-width: min(520px, 46vh);
   }
   .lyrics-left-col {
     width: 500px !important;
@@ -186,8 +186,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 580px;
-  height: 580px;
+  width: 700px;
+  height: 700px;
   max-width: none;
   max-height: none;
   pointer-events: none;
@@ -331,7 +331,7 @@
   flex-direction: column;
   transform: translateY(100%);
   transition: transform var(--motion-duration-medium) var(--motion-easing-emphasized);
-  padding: 38px 48px 36px 48px;
+  padding: 56px 48px 36px 48px;
   overflow: hidden;
   user-select: none;
 }
@@ -360,7 +360,7 @@
   justify-content: space-between;
   width: 100%;
   max-width: 1300px;
-  margin: 4px auto 22px auto;
+  margin: 12px auto 26px auto;
   flex-shrink: 0;
 }
 
@@ -405,6 +405,7 @@
   cursor: pointer;
   backdrop-filter: blur(16px);
   transition: background 0.2s, transform 0.2s;
+  margin-top: 8px; /* Lowered away from top window frame */
 }
 
 .lyrics-close-circle-btn:hover {
@@ -782,7 +783,7 @@
 /* Quote Card Generator Preview */
 .quote-card-preview {
   width: 100%;
-  max-width: 400px;
+  max-width: min(520px, 46vh);
   aspect-ratio: 9 / 12;
   margin: 16px auto;
   border-radius: var(--md-shape-corner-large);

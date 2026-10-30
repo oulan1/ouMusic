@@ -811,14 +811,17 @@ html, body {
 }
 
 .cover-lightbox-img {
-  max-width: min(88vw, 680px);
-  max-height: min(88vh, 680px);
-  aspect-ratio: 1;
+  width: min(84vw, 84vh, 760px);
+  height: min(84vw, 84vh, 760px);
+  max-width: none;
+  max-height: none;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
-  border-radius: 24px;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.95), 0 0 40px rgba(255, 255, 255, 0.12);
+  border-radius: 32px;
+  box-shadow: 0 35px 100px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 255, 255, 0.15);
   transform: scale(0.96);
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: block;
 }
 
 .cover-lightbox-modal.active .cover-lightbox-img {
