@@ -488,6 +488,8 @@
       this.vocalBassGain = bassGain;
       this.vocalAirFilter = airFilter;
       this.vocalAirGain = airGain;
+      this.vocalCenterGainL = gainR_to_L;
+      this.vocalCenterGainR = gainL_to_R;
 
       this.sourceNode.connect(bassFilter);
       bassFilter.connect(bassGain);
@@ -508,11 +510,20 @@
       bassGain.connect(merger, 0, 1);
       airGain.connect(merger, 0, 1);
 
+      // Vocal notch filter to eliminate remaining vocal formant resonance
+      const vocalNotch = ctx.createBiquadFilter();
+      vocalNotch.type = 'notch';
+      vocalNotch.frequency.value = 1600;
+      vocalNotch.Q.value = 1.4;
+      this.vocalNotchFilter = vocalNotch;
+
       // Makeup amplifier so volume never drops when turning on Minusovka
       const makeupGain = ctx.createGain();
       makeupGain.gain.value = 1.28;
       this.vocalMakeupGain = makeupGain;
-      merger.connect(makeupGain);
+
+      merger.connect(vocalNotch);
+      vocalNotch.connect(makeupGain);
       makeupGain.connect(this.vocalWetGain);
       this.sourceNode.connect(this.vocalDryGain);
 
@@ -759,7 +770,7 @@
       this.set8DAudio(0);
     }
 
-    setVocalRemover(active, depthMode) {
+    setVocalRemover(active, configOrMode) {
       this.vocalRemoverActive = !!active;
       if (!this.vocalDryGain || !this.vocalWetGain || !this.audioCtx) return;
       const ctx = this.audioCtx;
@@ -767,31 +778,45 @@
       this.vocalDryGain.gain.cancelScheduledValues(t);
       this.vocalWetGain.gain.cancelScheduledValues(t);
 
-      const mode = depthMode || localStorage.getItem('oumusic_vocal_depth') || 'balanced';
+      let cfg = {
+        bassFreq: 160,
+        bassGain: 0.72,
+        airFreq: 8800,
+        airGain: 0.24,
+        depth: 100,
+        notchFreq: 1600,
+        notchQ: 1.4,
+        makeupGain: 1.28
+      };
 
-      if (this.vocalBassFilter && this.vocalBassGain && this.vocalAirFilter && this.vocalAirGain && this.vocalMakeupGain) {
-        if (mode === 'aggressive') {
-          // Maximum vocal cancellation: tight bass retention under 115Hz, lower air bleed
-          this.vocalBassFilter.frequency.setValueAtTime(115, t);
-          this.vocalBassGain.gain.setValueAtTime(0.5, t);
-          this.vocalAirFilter.frequency.setValueAtTime(10500, t);
-          this.vocalAirGain.gain.setValueAtTime(0.12, t);
-          this.vocalMakeupGain.gain.setValueAtTime(1.4, t);
-        } else if (mode === 'soft') {
-          // Soft vocal dampening with gentle backing preservation
-          this.vocalBassFilter.frequency.setValueAtTime(220, t);
-          this.vocalBassGain.gain.setValueAtTime(0.9, t);
-          this.vocalAirFilter.frequency.setValueAtTime(7500, t);
-          this.vocalAirGain.gain.setValueAtTime(0.45, t);
-          this.vocalMakeupGain.gain.setValueAtTime(1.15, t);
-        } else {
-          // Balanced studio default
-          this.vocalBassFilter.frequency.setValueAtTime(160, t);
-          this.vocalBassGain.gain.setValueAtTime(0.72, t);
-          this.vocalAirFilter.frequency.setValueAtTime(8800, t);
-          this.vocalAirGain.gain.setValueAtTime(0.24, t);
-          this.vocalMakeupGain.gain.setValueAtTime(1.28, t);
+      if (configOrMode && typeof configOrMode === 'object') {
+        if (configOrMode.bassFreq !== undefined) cfg.bassFreq = Number(configOrMode.bassFreq);
+        if (configOrMode.airFreq !== undefined) cfg.airFreq = Number(configOrMode.airFreq);
+        if (configOrMode.depth !== undefined) cfg.depth = Number(configOrMode.depth);
+        if (configOrMode.notchFreq !== undefined) cfg.notchFreq = Number(configOrMode.notchFreq);
+        if (configOrMode.notchQ !== undefined) cfg.notchQ = Number(configOrMode.notchQ);
+        if (configOrMode.makeupGain !== undefined) cfg.makeupGain = Number(configOrMode.makeupGain);
+      } else if (typeof configOrMode === 'string') {
+        if (configOrMode === 'aggressive') {
+          cfg = { bassFreq: 115, bassGain: 0.5, airFreq: 10500, airGain: 0.12, depth: 100, notchFreq: 1800, notchQ: 1.8, makeupGain: 1.4 };
+        } else if (configOrMode === 'soft') {
+          cfg = { bassFreq: 220, bassGain: 0.9, airFreq: 7500, airGain: 0.45, depth: 75, notchFreq: 1400, notchQ: 1.0, makeupGain: 1.15 };
         }
+      }
+
+      if (this.vocalBassFilter) this.vocalBassFilter.frequency.setValueAtTime(cfg.bassFreq, t);
+      if (this.vocalBassGain) this.vocalBassGain.gain.setValueAtTime(cfg.bassGain, t);
+      if (this.vocalAirFilter) this.vocalAirFilter.frequency.setValueAtTime(cfg.airFreq, t);
+      if (this.vocalAirGain) this.vocalAirGain.gain.setValueAtTime(cfg.airGain, t);
+      if (this.vocalMakeupGain) this.vocalMakeupGain.gain.setValueAtTime(cfg.makeupGain, t);
+      if (this.vocalNotchFilter) {
+        this.vocalNotchFilter.frequency.setValueAtTime(cfg.notchFreq, t);
+        this.vocalNotchFilter.Q.setValueAtTime(cfg.notchQ, t);
+      }
+      if (this.vocalCenterGainL && this.vocalCenterGainR) {
+        const depthVal = cfg.depth / 100;
+        this.vocalCenterGainL.gain.setValueAtTime(-1.15 * depthVal, t);
+        this.vocalCenterGainR.gain.setValueAtTime(-1.15 * depthVal, t);
       }
 
       if (active) {
@@ -900,18 +925,29 @@
     return { meta, audioBlob, coverBlob, lyricsText };
   }
 
-  async function buildOump3Container({ title, artist, genres = [], duration = 0, hasLyrics = false, thumbBase64 = null, audioBlob, coverBlob = null, lyricsText = '' }) {
-    if (typeof window.JSZip === 'undefined') throw new Error('JSZip не загружен');
+    async function buildOump3Container(params) {
+    if (typeof window.JSZip === 'undefined') throw new Error('JSZip не подключен');
     const zip = new window.JSZip();
+
+    const title = params.title || 'Безымянный трек';
+    const artist = params.artist || 'Неизвестный исполнитель';
+    const genres = Array.isArray(params.genres) ? params.genres : (params.genres ? [params.genres] : []);
+    const duration = params.duration || 0;
+    const lyricsText = params.lyricsText || '';
+    const audioBlob = params.audioBlob;
+    const coverBlob = params.coverBlob || null;
+    const thumbBase64 = params.thumbBase64 || null;
 
     const meta = {
       title: title.trim(),
       artist: artist.trim(),
-      genres: Array.isArray(genres) ? genres : [genres],
+      genres: genres,
       duration: Math.round(duration),
-      version: '1.0',
-      hasLyrics: !!lyricsText || hasLyrics,
-      isExplicit: !!(arguments[0] && (arguments[0].isExplicit || arguments[0].explicit)),
+      version: '2.0',
+      hasLyrics: !!lyricsText || !!params.hasLyrics,
+      isExplicit: !!(params.isExplicit || params.explicit),
+      hasInstrumental: !!params.hasInstrumental,
+      instrumentalConfig: params.instrumentalConfig || null,
       thumbBase64
     };
 
@@ -1304,7 +1340,7 @@
   async function loadInitialTracks() {
     let tracks = [];
     try {
-      const res = await fetch('./tracks/catalog.json', { cache: 'no-cache' });
+      const res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) tracks = await res.json();
     } catch (e) {
       // Local file:// protocol fallback
@@ -1572,6 +1608,11 @@
           audioSrc = unpacked.audioBlob;
           if (unpacked.coverBlob) track.coverUrl = URL.createObjectURL(unpacked.coverBlob);
           if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
+          if (unpacked.meta) {
+            if (unpacked.meta.hasInstrumental !== undefined) track.hasInstrumental = unpacked.meta.hasInstrumental;
+            if (unpacked.meta.instrumentalConfig) track.instrumentalConfig = unpacked.meta.instrumentalConfig;
+            if (unpacked.meta.isExplicit !== undefined) track.isExplicit = unpacked.meta.isExplicit;
+          }
         }
       } catch (e) {}
     }
@@ -2835,62 +2876,256 @@
     document.getElementById('studio-tap-record-btn')?.addEventListener('click', tapAction);
 
     // Step 3: Instrumental configuration
+    // Step 3: Interactive Multi-Parameter Vocal Remover DSP & Live Tuner
     const instToggle = document.getElementById('studio-instrumental-toggle');
     const instControls = document.getElementById('studio-instrumental-controls');
-    const instMode = document.getElementById('studio-instrumental-mode');
     const instTestBtn = document.getElementById('studio-test-instrumental-btn');
     const instTestLabel = document.getElementById('studio-test-instrumental-label');
-    const instTestStatus = document.getElementById('studio-test-status');
+    const instToggleModeBtn = document.getElementById('studio-test-toggle-mode-btn');
+    const instModeLabel = document.getElementById('studio-test-mode-label');
+    const instResetBtn = document.getElementById('studio-reset-dsp-btn');
+    const previewProgressBox = document.getElementById('studio-preview-progress-box');
+    const previewScrubber = document.getElementById('studio-preview-scrubber');
+    const previewTimeEl = document.getElementById('studio-test-time');
 
-    let isTestingInstrumental = false;
-    let testAudioSource = null;
+    // DSP Sliders
+    const sBass = document.getElementById('slider-inst-bass-freq');
+    const sAir = document.getElementById('slider-inst-air-freq');
+    const sDepth = document.getElementById('slider-inst-depth');
+    const sNotchFreq = document.getElementById('slider-inst-notch-freq');
+    const sNotchQ = document.getElementById('slider-inst-notch-q');
+    const sMakeup = document.getElementById('slider-inst-makeup');
+
+    // Value Labels
+    const vBass = document.getElementById('val-inst-bass-freq');
+    const vAir = document.getElementById('val-inst-air-freq');
+    const vDepth = document.getElementById('val-inst-depth');
+    const vNotchFreq = document.getElementById('val-inst-notch-freq');
+    const vNotchQ = document.getElementById('val-inst-notch-q');
+    const vMakeup = document.getElementById('val-inst-makeup');
+
+    function getStudioDSPConfig() {
+      return {
+        bassFreq: sBass ? Number(sBass.value) : 160,
+        bassGain: 0.72,
+        airFreq: sAir ? Number(sAir.value) : 8500,
+        airGain: 0.24,
+        depth: sDepth ? Number(sDepth.value) : 100,
+        notchFreq: sNotchFreq ? Number(sNotchFreq.value) : 1600,
+        notchQ: sNotchQ ? Number(sNotchQ.value) : 1.4,
+        makeupGain: sMakeup ? Number(sMakeup.value) : 1.30
+      };
+    }
+
+    function updateDSPUI() {
+      if (vBass && sBass) vBass.textContent = `${sBass.value} Гц`;
+      if (vAir && sAir) vAir.textContent = `${sAir.value} Гц`;
+      if (vDepth && sDepth) vDepth.textContent = `${sDepth.value}%`;
+      if (vNotchFreq && sNotchFreq) vNotchFreq.textContent = `${sNotchFreq.value} Гц`;
+      if (vNotchQ && sNotchQ) vNotchQ.textContent = Number(sNotchQ.value).toFixed(1);
+      if (vMakeup && sMakeup) vMakeup.textContent = `${Number(sMakeup.value).toFixed(2)}x`;
+      applyLiveDSPNodes();
+    }
+    [sBass, sAir, sDepth, sNotchFreq, sNotchQ, sMakeup].forEach(s => s?.addEventListener('input', updateDSPUI));
+
+    instResetBtn?.addEventListener('click', () => {
+      if (sBass) sBass.value = 160;
+      if (sAir) sAir.value = 8500;
+      if (sDepth) sDepth.value = 100;
+      if (sNotchFreq) sNotchFreq.value = 1600;
+      if (sNotchQ) sNotchQ.value = 1.4;
+      if (sMakeup) sMakeup.value = 1.30;
+      updateDSPUI();
+    });
 
     instToggle?.addEventListener('change', () => {
       const active = instToggle.checked;
       if (instControls) instControls.style.display = active ? 'block' : 'none';
-      if (!active && isTestingInstrumental) stopInstrumentalTest();
+      if (!active && isTesting) stopStudioPreview();
     });
 
-    function stopInstrumentalTest() {
-      if (testAudioSource) {
-        try { testAudioSource.stop(); } catch (e) {}
-        testAudioSource = null;
-      }
-      isTestingInstrumental = false;
-      if (instTestLabel) instTestLabel.textContent = 'Прослушать минусовку';
-      if (instTestStatus) instTestStatus.textContent = '';
-      engine.setVocalRemover(false);
+    let isTesting = false;
+    let isMinusovActive = true;
+    let previewAudioCtx = null;
+    let previewSource = null;
+    let previewStartTime = 0;
+    let previewAnimId = null;
+
+    let dspBassFilter = null;
+    let dspAirFilter = null;
+    let dspNotchFilter = null;
+    let dspCenterGainL = null;
+    let dspCenterGainR = null;
+    let dspMakeupGain = null;
+    let dspDryGain = null;
+    let dspWetGain = null;
+
+    function applyLiveDSPNodes() {
+      if (!previewAudioCtx || !dspBassFilter) return;
+      const cfg = getStudioDSPConfig();
+      const t = previewAudioCtx.currentTime;
+      dspBassFilter.frequency.setTargetAtTime(cfg.bassFreq, t, 0.02);
+      dspAirFilter.frequency.setTargetAtTime(cfg.airFreq, t, 0.02);
+      dspNotchFilter.frequency.setTargetAtTime(cfg.notchFreq, t, 0.02);
+      dspNotchFilter.Q.setTargetAtTime(cfg.notchQ, t, 0.02);
+      dspMakeupGain.gain.setTargetAtTime(cfg.makeupGain, t, 0.02);
+      const depthVal = cfg.depth / 100;
+      dspCenterGainL.gain.setTargetAtTime(-1.15 * depthVal, t, 0.02);
+      dspCenterGainR.gain.setTargetAtTime(-1.15 * depthVal, t, 0.02);
     }
 
-    instTestBtn?.addEventListener('click', async () => {
-      if (isTestingInstrumental) {
-        stopInstrumentalTest();
-        return;
+    function stopStudioPreview() {
+      if (previewSource) {
+        try { previewSource.stop(); } catch (e) {}
+        previewSource = null;
       }
+      if (previewAnimId) {
+        cancelAnimationFrame(previewAnimId);
+        previewAnimId = null;
+      }
+      isTesting = false;
+      if (instTestLabel) instTestLabel.textContent = 'Прослушать минусовку';
+      if (instToggleModeBtn) instToggleModeBtn.style.display = 'none';
+      if (previewProgressBox) previewProgressBox.style.display = 'none';
+    }
 
-      const bufferToPlay = trimmedAudioBuffer || studioAudioBuf;
-      if (!bufferToPlay) {
-        alert('Пожалуйста, сначала выберите аудиофайл на шаге 1.');
+    async function startStudioPreview(offset = 0) {
+      const buffer = trimmedAudioBuffer || studioAudioBuf;
+      if (!buffer) {
+        alert('Пожалуйста, сначала загрузите или выберите фрагмент трека в Шаге 1.');
         return;
       }
 
       await engine.ensureContext();
-      const ctx = engine.audioCtx;
-      testAudioSource = ctx.createBufferSource();
-      testAudioSource.buffer = bufferToPlay;
+      previewAudioCtx = engine.audioCtx;
+      const ctx = previewAudioCtx;
+      if (ctx.state === 'suspended') await ctx.resume();
 
-      // Connect through vocal remover
-      engine.setVocalRemover(true, instMode?.value || 'balanced');
-      testAudioSource.connect(engine.spatialFilter);
-      testAudioSource.start(0);
+      if (previewSource) {
+        try { previewSource.stop(); } catch (e) {}
+        previewSource = null;
+      }
 
-      isTestingInstrumental = true;
-      if (instTestLabel) instTestLabel.textContent = 'Остановить тест';
-      if (instTestStatus) instTestStatus.textContent = `▶ Звучит минусовка (${instMode?.value || 'balanced'})`;
+      previewSource = ctx.createBufferSource();
+      previewSource.buffer = buffer;
 
-      testAudioSource.onended = () => {
-        stopInstrumentalTest();
+      const splitter = ctx.createChannelSplitter(2);
+      const merger = ctx.createChannelMerger(2);
+
+      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 1.15;
+      dspCenterGainR = ctx.createGain();
+      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 1.15;
+      dspCenterGainL = ctx.createGain();
+
+      splitter.connect(gainL_to_L, 0);
+      splitter.connect(dspCenterGainR, 1);
+      splitter.connect(gainR_to_R, 1);
+      splitter.connect(dspCenterGainL, 0);
+
+      dspBassFilter = ctx.createBiquadFilter();
+      dspBassFilter.type = 'lowpass';
+      const bassGain = ctx.createGain(); bassGain.gain.value = 0.72;
+      previewSource.connect(dspBassFilter);
+      dspBassFilter.connect(bassGain);
+
+      dspAirFilter = ctx.createBiquadFilter();
+      dspAirFilter.type = 'highpass';
+      const airGain = ctx.createGain(); airGain.gain.value = 0.24;
+      previewSource.connect(dspAirFilter);
+      dspAirFilter.connect(airGain);
+
+      gainL_to_L.connect(merger, 0, 0);
+      dspCenterGainR.connect(merger, 0, 0);
+      bassGain.connect(merger, 0, 0);
+      airGain.connect(merger, 0, 0);
+
+      gainR_to_R.connect(merger, 0, 1);
+      dspCenterGainL.connect(merger, 0, 1);
+      bassGain.connect(merger, 0, 1);
+      airGain.connect(merger, 0, 1);
+
+      dspNotchFilter = ctx.createBiquadFilter();
+      dspNotchFilter.type = 'notch';
+
+      dspMakeupGain = ctx.createGain();
+
+      merger.connect(dspNotchFilter);
+      dspNotchFilter.connect(dspMakeupGain);
+
+      dspDryGain = ctx.createGain();
+      dspWetGain = ctx.createGain();
+      dspDryGain.gain.value = isMinusovActive ? 0.0 : 1.0;
+      dspWetGain.gain.value = isMinusovActive ? 1.0 : 0.0;
+
+      previewSource.connect(dspDryGain);
+      dspMakeupGain.connect(dspWetGain);
+
+      const previewOut = ctx.createGain();
+      dspDryGain.connect(previewOut);
+      dspWetGain.connect(previewOut);
+
+      previewOut.connect(ctx.destination);
+      previewSource.connect(splitter);
+
+      applyLiveDSPNodes();
+
+      const startSec = Math.max(0, Math.min(offset, buffer.duration - 0.2));
+      previewSource.start(0, startSec);
+      previewStartTime = ctx.currentTime - startSec;
+      isTesting = true;
+
+      if (instTestLabel) instTestLabel.textContent = 'Остановить';
+      if (instToggleModeBtn) instToggleModeBtn.style.display = 'inline-flex';
+      if (previewProgressBox) previewProgressBox.style.display = 'block';
+
+      previewSource.onended = () => {
+        if (isTesting && ctx.currentTime - previewStartTime >= buffer.duration - 0.5) {
+          stopStudioPreview();
+        }
       };
+
+      function trackLoop() {
+        if (!isTesting) return;
+        const cur = ctx.currentTime - previewStartTime;
+        const dur = buffer.duration;
+        if (previewScrubber) {
+          const pct = Math.min(100, (cur / dur) * 100);
+          previewScrubber.value = pct;
+          previewScrubber.style.setProperty('--range-progress', pct + '%');
+        }
+        if (previewTimeEl) {
+          previewTimeEl.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+        }
+        previewAnimId = requestAnimationFrame(trackLoop);
+      }
+      previewAnimId = requestAnimationFrame(trackLoop);
+    }
+
+    instTestBtn?.addEventListener('click', () => {
+      if (isTesting) {
+        stopStudioPreview();
+      } else {
+        startStudioPreview(0);
+      }
+    });
+
+    instToggleModeBtn?.addEventListener('click', () => {
+      isMinusovActive = !isMinusovActive;
+      if (dspDryGain && dspWetGain && previewAudioCtx) {
+        const t = previewAudioCtx.currentTime;
+        dspDryGain.gain.setTargetAtTime(isMinusovActive ? 0.0 : 1.0, t, 0.03);
+        dspWetGain.gain.setTargetAtTime(isMinusovActive ? 1.0 : 0.0, t, 0.03);
+      }
+      if (instModeLabel) {
+        instModeLabel.innerHTML = isMinusovActive ? 'Режим: <strong>Минусовка</strong>' : 'Режим: <strong>Оригинал</strong>';
+      }
+    });
+
+    previewScrubber?.addEventListener('input', () => {
+      const buffer = trimmedAudioBuffer || studioAudioBuf;
+      if (!buffer) return;
+      const targetSec = (Number(previewScrubber.value) / 100) * buffer.duration;
+      startStudioPreview(targetSec);
     });
 
     // Build .oump3 button with strict fragment & lyrics validation gate
@@ -2924,7 +3159,7 @@
 
       const isExplicitChecked = !!document.getElementById('studio-explicit-toggle')?.checked;
       const isInstChecked = !!document.getElementById('studio-instrumental-toggle')?.checked;
-      const instModeVal = document.getElementById('studio-instrumental-mode')?.value || 'balanced';
+      const dspConfig = isInstChecked ? getStudioDSPConfig() : null;
 
       try {
         const oump3Blob = await buildOump3Container({
@@ -2935,7 +3170,7 @@
           isExplicit: isExplicitChecked,
           explicit: isExplicitChecked,
           hasInstrumental: isInstChecked,
-          instrumentalConfig: isInstChecked ? { mode: instModeVal } : null,
+          instrumentalConfig: dspConfig,
           thumbBase64,
           audioBlob: trimmedBlob || originalBlob,
           lyricsText: lrcText
@@ -3170,15 +3405,16 @@
     const vocalBtn = document.getElementById('lyrics-vocal-remover-toggle');
     vocalBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      const hasInst = currentTrack?.hasInstrumental || currentTrack?.id === 'seroga_pirat_prosti' || currentTrack?.id === 'sqwore_barry_dylan';
+      const hasInst = !!(currentTrack?.hasInstrumental || currentTrack?.instrumentalConfig || currentTrack?.id === 'seroga_pirat_prosti' || currentTrack?.id === 'sqwore_barry_dylan');
       if (!hasInst) {
-        showToast('Для этого трека автор не включил минусовку');
+        showToast('Для этого трека автор не настроил минусовку');
         return;
       }
       const isAct = !engine.vocalRemoverActive;
-      const mode = currentTrack?.instrumentalConfig?.mode || 'balanced';
-      engine.setVocalRemover(isAct, mode);
+      const config = currentTrack?.instrumentalConfig || 'balanced';
+      engine.setVocalRemover(isAct, config);
       vocalBtn.classList.toggle('active', isAct);
+      showToast(isAct ? 'Минусовка включена (M-Core DSP)' : 'Оригинал с голосом');
     });
 
     // Karaoke Cover Controls: Play/Pause, Prev, Next
@@ -3982,6 +4218,7 @@
       quoteDialog?.classList.add('active');
       renderQuoteCanvasPreview();
     };
+    window.openQuoteModal = openQuoteModal;
 
     document.getElementById('lyrics-share-quote-btn')?.addEventListener('click', openQuoteModal);
     document.getElementById('fs-share-track-btn')?.addEventListener('click', openQuoteModal);
@@ -4230,6 +4467,10 @@
       if (e.target === recapDialog) recapDialog.classList.remove('active');
     });
     let recapSlide = 0;
+    document.getElementById('recap-close-x-btn')?.addEventListener('click', () => {
+      recapDialog?.classList.remove('active');
+    });
+
     document.getElementById('recap-prev-slide-btn')?.addEventListener('click', () => {
       if (recapSlide > 0) {
         recapSlide--;
@@ -4237,11 +4478,24 @@
       }
     });
     document.getElementById('recap-next-slide-btn')?.addEventListener('click', () => {
-      if (recapSlide < 2) {
+      if (recapSlide < 4) {
         recapSlide++;
         renderRecapSlide(recapSlide);
       } else {
-        recapDialog.classList.remove('active');
+        recapDialog?.classList.remove('active');
+      }
+    });
+
+    document.getElementById('recap-share-slide-btn')?.addEventListener('click', async () => {
+      const data = await getFullRecapData();
+      const shareText = `Мои итоги года в ouMusic 2026: 🎧 Время в музыке: ${data.timeFormatted} | Топ-трек: ${data.topTrack.title} | ouMusic Engine`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'Итоги года ouMusic', text: shareText, url: window.location.href });
+        } catch(e) {}
+      } else {
+        navigator.clipboard.writeText(shareText);
+        showToast('Текст итогов скопирован в буфер обмена!');
       }
     });
 
@@ -4255,7 +4509,7 @@
           const f = ev.target.files[0];
           try {
             const buf = await f.arrayBuffer();
-            const unp = await unpackOump3Full(buf);
+                        const unp = await unpackOump3Full(buf);
             const id = 'local_' + Date.now();
             const meta = {
               id,
@@ -4264,6 +4518,9 @@
               artist: unp.meta.artist || 'Неизвестный исполнитель',
               duration: unp.meta.duration || 180,
               isLocal: true,
+              hasInstrumental: !!unp.meta.hasInstrumental,
+              instrumentalConfig: unp.meta.instrumentalConfig || null,
+              isExplicit: !!(unp.meta.isExplicit || unp.meta.explicit),
               thumbBase64: unp.meta.thumbBase64 || null
             };
             await saveTrackMetadata(meta);
@@ -4327,46 +4584,226 @@
     });
   }
 
-  function renderRecapSlide(idx) {
+  let recapSlide = 0;
+  let cachedRecapData = null;
+
+  async function getFullRecapData() {
+    if (cachedRecapData) return cachedRecapData;
+    const history = (typeof getHistory === 'function') ? await getHistory(5000) : [];
+    const tracks = catalogTracks || [];
+
+    let totalSecs = 0;
+    const trackCounts = new Map();
+    const artistCounts = new Map();
+    const genreCounts = new Map();
+
+    history.forEach((h) => {
+      const dur = h.durationPlayed || 180;
+      totalSecs += dur;
+      trackCounts.set(h.trackId, (trackCounts.get(h.trackId) || 0) + 1);
+    });
+
+    let topTrack = null;
+    let topTrackCount = 0;
+    for (let [tid, count] of trackCounts.entries()) {
+      if (count > topTrackCount) {
+        topTrackCount = count;
+        topTrack = tracks.find((t) => t.id === tid) || { id: tid, title: 'Любимый трек', artist: 'ouMusic' };
+      }
+    }
+    if (!topTrack && tracks.length > 0) {
+      topTrack = tracks[0];
+      topTrackCount = Math.max(1, history.length);
+    }
+
+    tracks.forEach((t) => {
+      const plays = trackCounts.get(t.id) || 1;
+      const art = t.artist || 'Неизвестный артист';
+      artistCounts.set(art, (artistCounts.get(art) || 0) + plays);
+
+      const gens = Array.isArray(t.genres) ? t.genres : [t.genre || 'Electronic'];
+      gens.forEach((g) => {
+        genreCounts.set(g, (genreCounts.get(g) || 0) + plays);
+      });
+    });
+
+    const sortedArtists = Array.from(artistCounts.entries()).sort((a, b) => b[1] - a[1]);
+    const topArtists = sortedArtists.slice(0, 3).map(([name, count]) => ({ name, count }));
+
+    const sortedGenres = Array.from(genreCounts.entries()).sort((a, b) => b[1] - a[1]);
+    const totalGenrePlays = sortedGenres.reduce((acc, cur) => acc + cur[1], 0) || 1;
+    const topGenres = sortedGenres.slice(0, 3).map(([g, c]) => ({
+      genre: g,
+      percent: Math.max(15, Math.round((c / totalGenrePlays) * 100))
+    }));
+
+    const hours = (totalSecs / 3600);
+    const mins = Math.max(1, Math.round(totalSecs / 60));
+    const timeFormatted = hours >= 1.0 ? `${hours.toFixed(1)} ч` : `${mins} мин`;
+
+    cachedRecapData = {
+      totalHours: hours,
+      totalMinutes: mins,
+      timeFormatted,
+      totalTracks: Math.max(history.length, tracks.length),
+      topTrack: topTrack || { title: 'ouMusic Stream', artist: 'M-Core Engine' },
+      topTrackCount: Math.max(1, topTrackCount),
+      topArtists: topArtists.length > 0 ? topArtists : [{ name: 'Sqwore', count: 12 }, { name: 'Серега Пират', count: 8 }, { name: 'Imagine Dragons', count: 5 }],
+      topGenres: topGenres.length > 0 ? topGenres : [{ genre: 'Phonk', percent: 50 }, { genre: 'Indie', percent: 30 }, { genre: 'Hyperpop', percent: 20 }]
+    };
+    return cachedRecapData;
+  }
+
+  async function renderRecapSlide(idx) {
     const content = document.getElementById('recap-story-content');
     const fills = document.querySelectorAll('#recap-progress-bars .achievement-progress-fill');
     if (!content) return;
 
-    fills.forEach((f, i) => f.style.width = i <= idx ? '100%' : '0%');
+    fills.forEach((f, i) => {
+      f.style.width = i <= idx ? '100%' : '0%';
+    });
+
+    const data = await getFullRecapData();
 
     if (idx === 0) {
+      // SLIDE 1: TOTAL TIME IN MUSIC
       content.innerHTML = `
-        <div style="font-size: 0.85rem; letter-spacing: 1.5px; color: #EC4899; font-weight: 700;">ВРЕМЯ ЗВУКА</div>
-        <div style="font-size: 3rem; font-weight: 800; color: #FFF; margin: 12px 0;">12.4 ч</div>
-        <p style="font-size: 0.95rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
-          Вы провели с музыкой <strong>12.4 часов</strong>. За это время МКС облетела Землю 8 раз!
-        </p>
+        <div class="recap-story-slide" style="text-align: center;">
+          <div style="font-size: 0.85rem; letter-spacing: 2px; color: #EC4899; font-weight: 800; text-transform: uppercase;">ТВОЕ ВРЕМЯ В МУЗЫКЕ</div>
+          <div style="font-size: 3.6rem; font-weight: 900; color: #FFF; margin: 16px 0; text-shadow: 0 0 35px rgba(236, 72, 153, 0.6); line-height: 1;">
+            ${data.timeFormatted}
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(236,72,153,0.18); border: 1px solid rgba(236,72,153,0.4); padding: 6px 16px; border-radius: 20px; color: #F472B6; font-size: 0.85rem; font-weight: 700; margin-bottom: 16px;">
+            <svg class="svg-icon" style="width: 16px; height: 16px; fill: currentColor;"><use href="#icon-sparkles"></use></svg>
+            <span>Топ-3% слушателей 2026</span>
+          </div>
+          <p style="font-size: 0.95rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.6; max-width: 340px; margin: 0 auto;">
+            Вы провели в чистом звучании <strong>${data.totalMinutes} минут</strong>. За этот год наш плеер воспроизвел для вас <strong>${data.totalTracks} треков</strong>!
+          </p>
+        </div>
       `;
     } else if (idx === 1) {
+      // SLIDE 2: TOP TRACK
+      const cov = data.topTrack.coverUrl || data.topTrack.thumbBase64 || 'assets/oumusic.png';
       content.innerHTML = `
-        <div style="font-size: 0.85rem; letter-spacing: 1.5px; color: #8B5CF6; font-weight: 700;">ТОП МУЗЫКАНТОВ</div>
-        <div style="font-size: 1.3rem; font-weight: 700; color: #FFF; margin-top: 16px;">oulan1, M-Core</div>
-        <div style="font-size: 1.1rem; color: #EC4899; margin-top: 16px;">Любимые жанры: Phonk, Electronic, Lo-Fi</div>
+        <div class="recap-story-slide" style="text-align: center;">
+          <div style="font-size: 0.85rem; letter-spacing: 2px; color: #8B5CF6; font-weight: 800; text-transform: uppercase;">ТВОЙ ГЛАВНЫЙ ТРЕК</div>
+          <div style="margin: 18px auto 14px auto; width: 140px; height: 140px; border-radius: 22px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.8), 0 0 25px rgba(139,92,246,0.45); border: 2px solid rgba(255,255,255,0.2);">
+            <img src="${cov}" alt="Top Track" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #FFF; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;">
+            ${data.topTrack.title}
+          </div>
+          <div style="font-size: 0.95rem; color: rgba(255,255,255,0.7); margin-top: 4px;">
+            ${data.topTrack.artist}
+          </div>
+          <div style="margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.35); padding: 6px 14px; border-radius: 20px; color: #C4B5FD; font-size: 0.85rem; font-weight: 700;">
+            <svg class="svg-icon" style="width: 15px; height: 15px; fill: currentColor;"><use href="#icon-repeat"></use></svg>
+            <span>Включали на повторе ${data.topTrackCount} раз</span>
+          </div>
+        </div>
+      `;
+    } else if (idx === 2) {
+      // SLIDE 3: TOP ARTISTS PODIUM
+      const arts = data.topArtists;
+      content.innerHTML = `
+        <div class="recap-story-slide" style="text-align: center; width: 100%;">
+          <div style="font-size: 0.85rem; letter-spacing: 2px; color: #F59E0B; font-weight: 800; text-transform: uppercase;">ТОП ИСПОЛНИТЕЛИ ГОДА</div>
+          <div style="display: flex; justify-content: center; align-items: flex-end; gap: 14px; margin: 24px 0 16px 0;">
+            <!-- #2 Silver -->
+            <div style="flex: 1; max-width: 95px; display: flex; flex-direction: column; align-items: center;">
+              <div style="font-size: 0.75rem; font-weight: 800; color: #94A3B8; margin-bottom: 4px;">#2</div>
+              <div style="width: 52px; height: 52px; border-radius: 50%; background: #334155; border: 2px solid #94A3B8; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #FFF; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
+                🥈
+              </div>
+              <div style="font-size: 0.8rem; font-weight: 700; color: #FFF; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
+                ${arts[1]?.name || 'M-Core'}
+              </div>
+            </div>
+            <!-- #1 Gold Podium -->
+            <div style="flex: 1.2; max-width: 120px; display: flex; flex-direction: column; align-items: center;">
+              <div style="font-size: 0.85rem; font-weight: 900; color: #FBBF24; margin-bottom: 4px;">#1 КУМИР</div>
+              <div style="width: 72px; height: 72px; border-radius: 50%; background: #78350F; border: 3px solid #F59E0B; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #FFF; font-size: 1.6rem; box-shadow: 0 12px 30px rgba(245,158,11,0.45);">
+                👑
+              </div>
+              <div style="font-size: 0.95rem; font-weight: 800; color: #FFF; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">
+                ${arts[0]?.name || 'oulan1'}
+              </div>
+            </div>
+            <!-- #3 Bronze -->
+            <div style="flex: 1; max-width: 95px; display: flex; flex-direction: column; align-items: center;">
+              <div style="font-size: 0.75rem; font-weight: 800; color: #D97706; margin-bottom: 4px;">#3</div>
+              <div style="width: 52px; height: 52px; border-radius: 50%; background: #451A03; border: 2px solid #D97706; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #FFF; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
+                🥉
+              </div>
+              <div style="font-size: 0.8rem; font-weight: 700; color: #FFF; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
+                ${arts[2]?.name || 'Artist'}
+              </div>
+            </div>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 10px;">
+            Эти авторы звучали в ваших наушниках чаще всего!
+          </div>
+        </div>
+      `;
+    } else if (idx === 3) {
+      // SLIDE 4: SOUND AURA & GENRES
+      content.innerHTML = `
+        <div class="recap-story-slide" style="text-align: center; width: 100%;">
+          <div style="font-size: 0.85rem; letter-spacing: 2px; color: #10B981; font-weight: 800; text-transform: uppercase;">МУЗЫКАЛЬНАЯ АУРА</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #FFF; margin: 16px 0 12px 0;">
+            Неоновый Драйв & Лирика
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 16px auto 0 auto;">
+            ${data.topGenres.map(g => `
+              <div style="background: rgba(255,255,255,0.06); padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; margin-bottom: 6px;">
+                  <span style="color: #FFF;">${g.genre}</span>
+                  <span style="color: #34D399;">${g.percent}%</span>
+                </div>
+                <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${g.percent}%; height: 100%; background: linear-gradient(90deg, #10B981, #06B6D4); border-radius: 3px;"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
       `;
     } else {
+      // SLIDE 5: WRAPPED SUMMARY POSTER
       content.innerHTML = `
-        <div style="font-size: 0.85rem; letter-spacing: 1.5px; color: #10B981; font-weight: 700;">САМЫЙ ЗАСЛУШАННЫЙ ТРЕК</div>
-        <div style="font-size: 1.35rem; font-weight: 700; color: #FFF; margin-top: 20px;">${currentTrack?.title || 'ouMusic Stream'}</div>
-        <p style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 8px;">Спасибо, что слушаете ouMusic!</p>
+        <div class="recap-story-slide" style="text-align: center; width: 100%;">
+          <div style="font-size: 0.82rem; letter-spacing: 2px; color: var(--md-sys-color-primary); font-weight: 800;">ИТОГИ ГОДА 2026</div>
+          <div style="margin: 14px auto; background: rgba(0,0,0,0.5); padding: 16px; border-radius: 20px; border: 1.5px solid rgba(139,92,246,0.4); box-shadow: 0 16px 36px rgba(0,0,0,0.7); max-width: 320px;">
+            <div style="font-size: 2.2rem; font-weight: 900; color: #FFF; line-height: 1;">${data.timeFormatted}</div>
+            <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px; text-transform: uppercase;">Всего в музыке</div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;"></div>
+            <div style="text-align: left; font-size: 0.85rem; line-height: 1.6;">
+              <div>🎵 Топ-трек: <strong style="color: #FFF;">${data.topTrack.title}</strong></div>
+              <div>👑 Артист года: <strong style="color: #FFF;">${data.topArtists[0]?.name || 'Artist'}</strong></div>
+              <div>⚡ Вайб: <strong style="color: #34D399;">${data.topGenres[0]?.genre || 'Electronic'}</strong></div>
+            </div>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">
+            Спасибо, что выбираете ouMusic! Впереди еще больше музыки.
+          </div>
+        </div>
       `;
     }
   }
+
+  window.renderQuoteCanvasPreview = renderQuoteCanvasPreview;
+  window.renderRecapSlide = renderRecapSlide;
 
   async function renderQuoteCanvasPreview() {
     const c = document.getElementById('quote-render-canvas');
     if (!c) return;
     const ctx = c.getContext('2d');
-    c.width = 720;
-    c.height = 960;
+    c.width = 1080;
+    c.height = 1080;
 
-    // Sample track's dominant accent color
     const hex = await extractCoverDominantColor(currentTrack?.coverUrl || currentTrack?.thumbBase64);
-    let r = 18, g = 60, b = 85;
+    let r = 240, g = 36, b = 48; // Vibrant saturated red Spotify style default
     if (hex && hex.startsWith('#')) {
       let h = hex.replace('#', '');
       if (h.length === 3) h = h.split('').map((x) => x + x).join('');
@@ -4375,80 +4812,130 @@
       b = parseInt(h.substring(4, 6), 16) || b;
     }
 
-    // 1. Rich Atmospheric Background Gradient
-    const bgGrad = ctx.createLinearGradient(0, 0, c.width, c.height);
-    bgGrad.addColorStop(0, `rgb(${Math.round(r * 0.45)}, ${Math.round(g * 0.45)}, ${Math.round(b * 0.55)})`);
-    bgGrad.addColorStop(0.45, `rgb(${Math.round(r * 0.2)}, ${Math.round(g * 0.2)}, ${Math.round(b * 0.26)})`);
-    bgGrad.addColorStop(1, '#06080F');
-    ctx.fillStyle = bgGrad;
+    // Boost saturation and brightness so it matches reference Spotify vibrancy
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (lum < 0.22) {
+      r = Math.min(255, Math.max(195, r + 160));
+      g = Math.min(255, Math.max(35, g + 25));
+      b = Math.min(255, Math.max(75, b + 60));
+    }
+
+    // Outer background: solid vibrant saturated color
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.fillRect(0, 0, c.width, c.height);
 
-    // 2. Soft Ambient Lighting Bloom
-    const bloom = ctx.createRadialGradient(160, 160, 40, 160, 160, 400);
-    bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.35)`);
-    bloom.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = bloom;
-    ctx.fillRect(0, 0, c.width, c.height);
+    // Inner Card: 900x900 rounded card with deep soft drop shadow
+    const cardX = 90;
+    const cardY = 90;
+    const cardW = 900;
+    const cardH = 900;
+    const cardR = 52;
 
-    // 3. Top Header: Album Cover Thumbnail + Title + Artist
-    const coverSize = 130;
-    const coverX = 54;
-    const coverY = 54;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
+    ctx.shadowBlur = 60;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 24;
 
+    const cardLuminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const isBright = cardLuminance > 0.42;
+    const textColor = isBright ? '#0B0B0E' : '#FFFFFF';
+    const subtextColor = isBright ? 'rgba(11, 11, 14, 0.65)' : 'rgba(255, 255, 255, 0.72)';
+    
+    // Card color: slightly tinted or subtly brighter/darker than outer canvas
+    const cardBg = isBright
+      ? `rgb(${Math.max(0, Math.round(r * 0.95))}, ${Math.max(0, Math.round(g * 0.95))}, ${Math.max(0, Math.round(b * 0.95))})`
+      : `rgb(${Math.min(255, Math.round(r * 1.05))}, ${Math.min(255, Math.round(g * 1.05))}, ${Math.min(255, Math.round(b * 1.05))})`;
+
+    ctx.fillStyle = cardBg;
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, cardR);
+    ctx.fill();
+    ctx.restore();
+
+    // Subtle ambient top-to-bottom inner gradient
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(cardX, cardY, cardW, cardH, cardR);
+    ctx.clip();
+    const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+
+    const covSize = 120;
+    const covX = cardX + 54;
+    const covY = cardY + 54;
+
+    const imgSrc = currentTrack?.coverUrl || currentTrack?.thumbBase64 || 'assets/oumusic.png';
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (imgSrc.startsWith('http')) {
+      img.crossOrigin = 'anonymous';
+    }
+
+    let imgLoaded = false;
     img.onload = () => {
+      imgLoaded = true;
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(coverX, coverY, coverSize, coverSize, 18);
+      ctx.roundRect(covX, covY, covSize, covSize, 20);
       ctx.clip();
-      ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
+      ctx.drawImage(img, covX, covY, covSize, covSize);
       ctx.restore();
 
-      // Cover border & shadow
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isBright ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(coverX, coverY, coverSize, coverSize, 18);
+      ctx.roundRect(covX, covY, covSize, covSize, 20);
       ctx.stroke();
 
-      drawQuoteDetails();
+      drawCardDetails();
     };
-    img.onerror = () => {
-      drawQuoteDetails();
-    };
-    img.src = currentTrack?.coverUrl || currentTrack?.thumbBase64 || 'assets/oumusic.png';
 
-    function drawQuoteDetails() {
-      // Title
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
-      ctx.textAlign = 'left';
+    img.onerror = () => {
+      if (!imgLoaded) {
+        // Fallback elegant cover icon
+        ctx.fillStyle = isBright ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.roundRect(covX, covY, covSize, covSize, 20);
+        ctx.fill();
+        ctx.fillStyle = textColor;
+        ctx.font = '800 48px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎵', covX + covSize / 2, covY + covSize / 2);
+        drawCardDetails();
+      }
+    };
+    img.src = imgSrc;
+
+    function drawCardDetails() {
+      const metaX = covX + covSize + 26;
       const title = currentTrack?.title || 'ouMusic Track';
-      ctx.fillText(title.length > 22 ? title.slice(0, 20) + '...' : title, 204, 105);
+      const artist = currentTrack?.artist || 'Исполнитель';
+
+      // Title (Bold, modern Spotify typography)
+      ctx.fillStyle = textColor;
+      ctx.font = '800 38px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const maxMetaW = cardW - (metaX - cardX) - 54;
+
+      function trunc(text, maxW) {
+        if (ctx.measureText(text).width <= maxW) return text;
+        let s = text;
+        while (s.length > 3 && ctx.measureText(s + '...').width > maxW) s = s.slice(0, -1);
+        return s + '...';
+      }
+
+      ctx.fillText(trunc(title, maxMetaW), metaX, covY + 40);
 
       // Artist
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
-      const artist = currentTrack?.artist || 'Исполнитель';
-      ctx.fillText(artist.length > 26 ? artist.slice(0, 24) + '...' : artist, 204, 142);
-
-      // Brand Pill
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.65)`;
-      ctx.beginPath();
-      ctx.roundRect(204, 156, 138, 26, 13);
-      ctx.fill();
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText('ouMusic • M-CORE', 218, 173);
-
-      // Divider line
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(54, 220);
-      ctx.lineTo(c.width - 54, 220);
-      ctx.stroke();
+      ctx.fillStyle = subtextColor;
+      ctx.font = '600 26px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
+      ctx.fillText(trunc(artist, maxMetaW), metaX, covY + 82);
 
       // Selected lyric lines
       let lines = Array.from(window.selectedQuoteIndices || [])
@@ -4457,58 +4944,74 @@
         .filter(Boolean);
 
       if (lines.length === 0) {
-        lines = ['« Музыка объединяет звуки и сердца »'];
+        lines = [
+          'The way that things have been, oh-ooh',
+          "Second thing second, don't you tell me what you think that I can be",
+          "I'm the one at the sail, I'm the master of my sea, oh-ooh"
+        ];
       }
 
-      // Large Quotes Icon
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
-      ctx.font = 'bold 84px serif';
-      ctx.fillText('“', 54, 310);
+      // Large bold lyrics typography matching Spotify reference image
+      ctx.fillStyle = textColor;
+      ctx.font = '800 44px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
+      ctx.textBaseline = 'alphabetic';
 
-      // Render lines with generous leading
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-      ctx.shadowBlur = 12;
-
-      let lineY = 360;
+      const lineMaxW = cardW - 108;
+      const wrappedLines = [];
       lines.slice(0, 5).forEach((line) => {
-        // Auto-wrap line if longer than width
-        const maxW = c.width - 120;
-        if (ctx.measureText(line).width > maxW) {
-          const words = line.split(' ');
-          let cur = '';
-          for (let w of words) {
-            const test = cur + (cur ? ' ' : '') + w;
-            if (ctx.measureText(test).width > maxW) {
-              ctx.fillText(cur, 60, lineY);
-              lineY += 50;
-              cur = w;
-            } else {
-              cur = test;
-            }
+        const words = line.split(' ');
+        let cur = '';
+        for (let w of words) {
+          const test = cur ? cur + ' ' + w : w;
+          if (ctx.measureText(test).width > lineMaxW) {
+            if (cur) wrappedLines.push(cur);
+            cur = w;
+          } else {
+            cur = test;
           }
-          if (cur) {
-            ctx.fillText(cur, 60, lineY);
-            lineY += 54;
-          }
-        } else {
-          ctx.fillText(line, 60, lineY);
-          lineY += 54;
         }
+        if (cur) wrappedLines.push(cur);
       });
 
-      // Closing Quote
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
-      ctx.font = 'bold 84px serif';
-      ctx.fillText('”', 60, lineY + 40);
+      const maxDisplayLines = Math.min(6, wrappedLines.length);
+      const lineHeight = 66;
+      const totalTextH = maxDisplayLines * lineHeight;
+      const availableAreaH = (cardY + cardH - 120) - (covY + covSize + 40);
+      let startY = (covY + covSize + 56) + Math.max(0, (availableAreaH - totalTextH) / 2);
 
-      // Footer Watermark
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.font = '600 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Слушайте трек в веб-приложении ouMusic', c.width / 2, c.height - 48);
+      wrappedLines.slice(0, maxDisplayLines).forEach((wl) => {
+        ctx.fillText(wl, covX, startY);
+        startY += lineHeight;
+      });
+
+      // Bottom-left official ouMusic Branding Logo + Wordmark
+      const footerY = cardY + cardH - 64;
+      const logoRadius = 22;
+      const logoX = covX + logoRadius;
+
+      // Circle
+      ctx.fillStyle = textColor;
+      ctx.beginPath();
+      ctx.arc(logoX, footerY, logoRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner ring
+      ctx.fillStyle = cardBg;
+      ctx.beginPath();
+      ctx.arc(logoX, footerY, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center dot
+      ctx.fillStyle = textColor;
+      ctx.beginPath();
+      ctx.arc(logoX, footerY, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Wordmark "ouMusic"
+      ctx.fillStyle = textColor;
+      ctx.font = '800 36px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('ouMusic', logoX + logoRadius + 14, footerY);
     }
   }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v1.0.0';
+const CACHE_NAME = 'oumusic-shell-v1.1.0';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -62,9 +62,16 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Для запросов каталога используем Network First с откатом на кэш
-  if (url.pathname.endsWith('catalog.json') || url.pathname.endsWith('artists.txt')) {
+    // Всегда свежие данные (Network First) для каталога, артистов и корневого HTML
+  if (
+    url.pathname.endsWith('catalog.json') ||
+    url.pathname.endsWith('artists.txt') ||
+    url.pathname.endsWith('index.html') ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('/ouMusic/')
+  ) {
     event.respondWith(
-      fetch(request).then((networkResponse) => {
+      fetch(request, { cache: 'no-cache' }).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));

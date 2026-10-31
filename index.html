@@ -749,8 +749,22 @@
               <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-trash"></use></svg>
               <span id="clear-cache-btn-text">Очистить весь кэш (Нажмите 10 раз)</span>
             </button>
-            <div id="clear-cache-hint" style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 8px; text-align: center;">
-              Быстро нажмите кнопку 10 раз для вызова подтверждения
+                        <div id="clear-cache-hint" style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 8px; text-align: center;">
+              Быстро нажмите кнопку 10 раз для защиты данных
+            </div>
+          </div>
+
+          <!-- Official ouForge™ Branding Footer -->
+          <div class="settings-brand-footer" style="text-align: center; margin-top: 36px; padding: 22px 16px 12px 16px; color: var(--md-sys-color-outline); font-size: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; color: var(--md-sys-color-on-surface); margin-bottom: 6px;">
+              <img src="assets/oumusic.png" alt="ouMusic" style="width: 22px; height: 22px; border-radius: 6px;">
+              <span>ouMusic Engine M-Core</span>
+            </div>
+            <div style="font-size: 0.92rem; font-weight: 600; color: var(--md-sys-color-on-surface);">
+              Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
+            </div>
+            <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
+              Версия 2.4.0 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -925,47 +939,117 @@
             </button>
           </div>
 
-          <!-- STEP 3: INSTRUMENTAL & VOCAL REMOVER CONFIGURATION -->
-          <div id="studio-step-3-box" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+          <!-- STEP 3: MANUAL VOCAL REMOVER & INSTRUMENTAL DSP TUNER -->
+          <div id="studio-step-3-box" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 18px; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.08);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <div style="font-weight: 600;">ШАГ 3: Настройка минусовки (Опционально)</div>
-              <span class="badge-beta" style="background: var(--md-sys-color-primary); color: #FFF;">Караоке M-Core</span>
+              <div style="font-weight: 700; font-size: 1.05rem;">Шаг 3: Ручная калибровка минусовки (M-Core DSP)</div>
+              <span class="badge-beta" style="background: var(--md-sys-color-primary); color: #FFF; font-weight: 700;">PRO EQUALIZER</span>
             </div>
-            <p style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">
-              Вы можете настроить и протестировать режим минусовки для этого трека. Если включено, слушатели смогут включать минусовку в караоке.
+            <p style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-bottom: 14px; line-height: 1.45;">
+              Настройте точные частоты среза и глубину подавления голоса. Ваши персональные параметры сохранятся в файл <code style="color: var(--md-sys-color-primary);">.oump3</code>, и у всех слушателей минусовка будет звучать именно так, как вы настроили!
             </p>
 
-            <label class="m3-switch" style="margin-bottom: 12px;">
+            <label class="m3-switch" style="margin-bottom: 14px;">
               <div>
                 <div class="switch-label">Включить минусовку для трека</div>
-                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Разрешить вырезание вокала в режиме караоке</div>
+                <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Создать кастомный профиль караоке-минусовки</div>
               </div>
               <input type="checkbox" id="studio-instrumental-toggle" class="switch-input">
               <div class="switch-track"><div class="switch-thumb"></div></div>
             </label>
 
-            <div id="studio-instrumental-controls" style="display: none; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
-              <div class="m3-select-wrapper" style="margin-bottom: 12px;">
-                <label class="m3-select-label" for="studio-instrumental-mode">
-                  <span>Режим удаления вокала:</span>
-                </label>
-                <div class="m3-select-container">
-                  <select id="studio-instrumental-mode" class="m3-select">
-                    <option value="balanced" selected>Сбалансированная (Студийный баланс)</option>
-                    <option value="aggressive">Агрессивная (Максимальное удаление)</option>
-                    <option value="soft">Мягкая (Вырез частот 200–4000 Гц)</option>
-                  </select>
-                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
+            <div id="studio-instrumental-controls" style="display: none; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
+              
+              <!-- Real-time Test Preview Controls Bar -->
+              <div style="background: rgba(0,0,0,0.35); border-radius: var(--md-shape-corner-medium); padding: 12px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.06);">
+                <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                  <button class="btn btn-primary" id="studio-test-instrumental-btn" style="padding: 8px 16px;">
+                    <svg class="svg-icon" id="studio-test-inst-icon" style="width: 18px; height: 18px;"><use href="#icon-play"></use></svg>
+                    <span id="studio-test-instrumental-label">Прослушать минусовку</span>
+                  </button>
+
+                  <button class="btn btn-tonal" id="studio-test-toggle-mode-btn" style="padding: 8px 14px; font-size: 0.8rem; display: none;" title="Сравнить оригинал и минусовку">
+                    <span id="studio-test-mode-label">Режим: <strong>Минусовка</strong></span>
+                  </button>
+
+                  <button class="btn btn-outlined" id="studio-reset-dsp-btn" style="padding: 6px 12px; font-size: 0.75rem;" title="Сбросить DSP к эталону">
+                    Сброс настроек
+                  </button>
+                </div>
+
+                <!-- Preview Scrubber -->
+                <div id="studio-preview-progress-box" style="margin-top: 10px; display: none;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--md-sys-color-outline); margin-bottom: 4px;">
+                    <span id="studio-test-time">00:00 / 00:00</span>
+                    <span id="studio-test-status" style="color: var(--md-sys-color-primary); font-weight: 600;">Живой звук: меняйте слайдеры в реальном времени</span>
+                  </div>
+                  <input type="range" id="studio-preview-scrubber" class="m3-range-input" min="0" max="100" step="0.1" value="0">
                 </div>
               </div>
 
-              <!-- Real-time Test Preview Button -->
-              <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
-                <button class="btn btn-tonal" id="studio-test-instrumental-btn" style="border: 1px solid var(--md-sys-color-primary);">
-                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-mic"></use></svg>
-                  <span id="studio-test-instrumental-label">Прослушать минусовку</span>
-                </button>
-                <span id="studio-test-status" style="font-size: 0.8rem; color: var(--md-sys-color-outline);"></span>
+              <!-- SLIDERS GRID -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;">
+                
+                <!-- 1. Bass Retention (Low Cutoff) -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Сохранение баса (НЧ)</span>
+                    <span id="val-inst-bass-freq" style="color: var(--md-sys-color-primary); font-weight: 700;">160 Гц</span>
+                  </div>
+                  <input type="range" id="slider-inst-bass-freq" class="m3-range-input" min="60" max="380" step="5" value="160">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Сохраняет бочку и бас-линию без искажений</div>
+                </div>
+
+                <!-- 2. High Air Retention -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Сохранение верхов (ВЧ)</span>
+                    <span id="val-inst-air-freq" style="color: var(--md-sys-color-primary); font-weight: 700;">8500 Гц</span>
+                  </div>
+                  <input type="range" id="slider-inst-air-freq" class="m3-range-input" min="4000" max="16000" step="200" value="8500">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Оставляет тарелки, хай-хэты и воздух инструментов</div>
+                </div>
+
+                <!-- 3. Center Vocal Cancellation Depth -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Глубина вырезания голоса</span>
+                    <span id="val-inst-depth" style="color: var(--md-sys-color-primary); font-weight: 700;">100%</span>
+                  </div>
+                  <input type="range" id="slider-inst-depth" class="m3-range-input" min="20" max="100" step="1" value="100">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Сила фазового подавления центрального моно-вокала</div>
+                </div>
+
+                <!-- 4. Vocal Resonance Notch Filter -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Вокальный режектор (Notch)</span>
+                    <span id="val-inst-notch-freq" style="color: var(--md-sys-color-primary); font-weight: 700;">1600 Гц</span>
+                  </div>
+                  <input type="range" id="slider-inst-notch-freq" class="m3-range-input" min="600" max="4200" step="50" value="1600">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Целевая частота связок для устранения остаточного вокала</div>
+                </div>
+
+                <!-- 5. Vocal Filter Q-Factor -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Ширина фильтра (Q)</span>
+                    <span id="val-inst-notch-q" style="color: var(--md-sys-color-primary); font-weight: 700;">1.4</span>
+                  </div>
+                  <input type="range" id="slider-inst-notch-q" class="m3-range-input" min="0.5" max="4.0" step="0.1" value="1.4">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Ширина подавляемого частотного диапазона</div>
+                </div>
+
+                <!-- 6. Makeup Gain -->
+                <div class="dsp-slider-card" style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                    <span style="font-weight: 600;">Компенсация громкости</span>
+                    <span id="val-inst-makeup" style="color: var(--md-sys-color-primary); font-weight: 700;">1.30x</span>
+                  </div>
+                  <input type="range" id="slider-inst-makeup" class="m3-range-input" min="0.8" max="2.2" step="0.05" value="1.3">
+                  <div style="font-size: 0.68rem; color: var(--md-sys-color-outline); margin-top: 4px;">Выравнивает громкость фонограммы после удаления вокала</div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -1379,37 +1463,86 @@
     </div>
   </div>
 
-  <!-- MODAL: CANVAS QUOTE CARD GENERATOR -->
+  <!-- MODAL: CANVAS QUOTE CARD GENERATOR (Spotify 1:1 Aesthetic) -->
   <div class="dialog-backdrop" id="quote-card-dialog">
-    <div class="dialog-card" style="max-width: 440px;">
-      <div class="dialog-title">Карточка с цитатой</div>
-      <div class="dialog-content">
-        Выберите 1–4 строчки текста для создания открытки:
+    <div class="dialog-card quote-modal-card" style="max-width: 500px; padding: 22px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div class="dialog-title" style="margin: 0; font-size: 1.1rem; font-weight: 700;">Цитата с трека</div>
+        <span class="badge-beta" style="background: var(--md-sys-color-primary); color: #FFF; font-weight: 700;">ouMusic Style</span>
+      </div>
+      <div class="dialog-content" style="margin-bottom: 10px; font-size: 0.82rem; color: var(--md-sys-color-outline);">
+        Выберите от 1 до 5 строк текста для стильной карточки цитаты:
       </div>
 
-      <div id="quote-lines-selector" style="max-height: 160px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;"></div>
+      <div id="quote-lines-selector" style="max-height: 130px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(0,0,0,0.25);"></div>
 
-      <div class="quote-card-preview" id="quote-card-preview-container">
-        <canvas id="quote-render-canvas" class="quote-canvas" width="720" height="960"></canvas>
+      <div class="quote-card-preview" id="quote-card-preview-container" style="display: flex; justify-content: center; align-items: center; padding: 4px 0; background: transparent; border: none; box-shadow: none;">
+        <canvas id="quote-render-canvas" class="quote-canvas" width="1080" height="1080" style="width: 100%; max-width: 380px; height: auto; aspect-ratio: 1; border-radius: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.55);"></canvas>
       </div>
 
-      <div class="dialog-actions" style="margin-top: 16px;">
-        <button class="btn btn-outlined" id="quote-dialog-close-btn">Отмена</button>
-        <button class="btn btn-tonal" id="quote-download-btn">Скачать PNG</button>
-        <button class="btn btn-primary" id="quote-share-btn">Поделиться</button>
+      <div class="dialog-actions" style="margin-top: 16px; display: flex; gap: 8px;">
+        <button class="btn btn-outlined" id="quote-dialog-close-btn" style="flex: 1; justify-content: center;">Закрыть</button>
+        <button class="btn btn-tonal" id="quote-download-btn" style="flex: 1.2; justify-content: center;">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-download"></use></svg>
+          <span>Скачать PNG</span>
+        </button>
+        <button class="btn btn-primary" id="quote-share-btn" style="flex: 1.2; justify-content: center;">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
+          <span>Поделиться</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: YEAR RECAP STORIES -->
+  <!-- MODAL: YEAR RECAP STORIES (Spotify Wrapped & Apple Replay Style) -->
   <div class="dialog-backdrop" id="recap-stories-dialog">
-    <div class="dialog-card" style="background: linear-gradient(145deg, #181824, #0D0D14); border-color: rgba(139, 92, 246, 0.4); max-width: 420px; text-align: center;">
-      <!-- Stories progress bar -->
-      <div style="display: flex; gap: 4px; margin-bottom: 16px;" id="recap-progress-bars">
-        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 100%;"></div></div>
-        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 0%;"></div></div>
-        <div class="achievement-progress-bar" style="flex: 1;"><div class="achievement-progress-fill" style="width: 0%;"></div></div>
+    <div class="dialog-card recap-card" id="recap-card-container" style="background: linear-gradient(150deg, #18122B 0%, #0F0A1C 50%, #08060E 100%); border: 1px solid rgba(139, 92, 246, 0.45); max-width: 440px; width: 100%; padding: 22px 20px 18px 20px; text-align: center; border-radius: 28px; box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(139,92,246,0.3); position: relative; overflow: hidden;">
+      
+      <!-- Ambient light effect -->
+      <div id="recap-ambient-glow" style="position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%); pointer-events: none; filter: blur(35px);"></div>
+
+      <!-- Stories progress bars (5 slides) -->
+      <div style="display: flex; gap: 5px; margin-bottom: 16px; position: relative; z-index: 2;" id="recap-progress-bars">
+        <div class="achievement-progress-bar" style="flex: 1; height: 3.5px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;"><div class="achievement-progress-fill" style="width: 100%; height: 100%; background: #FFF; transition: width 0.3s ease;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1; height: 3.5px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;"><div class="achievement-progress-fill" style="width: 0%; height: 100%; background: #FFF; transition: width 0.3s ease;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1; height: 3.5px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;"><div class="achievement-progress-fill" style="width: 0%; height: 100%; background: #FFF; transition: width 0.3s ease;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1; height: 3.5px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;"><div class="achievement-progress-fill" style="width: 0%; height: 100%; background: #FFF; transition: width 0.3s ease;"></div></div>
+        <div class="achievement-progress-bar" style="flex: 1; height: 3.5px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;"><div class="achievement-progress-fill" style="width: 0%; height: 100%; background: #FFF; transition: width 0.3s ease;"></div></div>
       </div>
+
+      <!-- Top Story Header with Close Button -->
+      <div style="display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2; margin-bottom: 12px; padding: 0 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="assets/oumusic.png" alt="Logo" style="width: 26px; height: 26px; border-radius: 6px;">
+          <span style="font-weight: 800; font-size: 0.92rem; letter-spacing: 0.5px; color: #FFF;">ИТОГИ ГОДА 2026</span>
+        </div>
+        <button class="icon-btn" id="recap-close-x-btn" style="width: 32px; height: 32px; background: rgba(255,255,255,0.12); border-radius: 50%;" title="Закрыть">
+          <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+
+      <!-- Interactive Story Canvas / Slide Content -->
+      <div id="recap-story-content" style="min-height: 330px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 4px; position: relative; z-index: 2;">
+        <!-- Injected dynamic story card content -->
+      </div>
+
+      <!-- Navigation Actions & Share button -->
+      <div class="dialog-actions" style="justify-content: space-between; margin-top: 18px; position: relative; z-index: 2;">
+        <button class="btn btn-outlined" id="recap-prev-slide-btn" style="padding: 8px 16px;">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-left"></use></svg>
+          <span>Назад</span>
+        </button>
+        <button class="btn btn-tonal" id="recap-share-slide-btn" style="padding: 8px 14px; font-size: 0.82rem;">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
+          <span>Поделиться</span>
+        </button>
+        <button class="btn btn-primary" id="recap-next-slide-btn" style="padding: 8px 16px;">
+          <span>Далее</span>
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-chevron-right"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
 
       <div id="recap-story-content" style="min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px 0;">
         <!-- Injected story card content -->
