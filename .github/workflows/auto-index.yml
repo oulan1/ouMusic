@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -30,25 +30,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate tracks catalog
         run: |
           python3 index_tracks.py
-
-      - name: Commit catalog if updated
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tracks/catalog.json tracks/catalog.js
-          if ! git diff --staged --quiet; then
-            git commit -m "chore(catalog): auto-update tracks/catalog.json and catalog.js [skip ci]"
-            git push
-          else
-            echo "No changes in tracks/catalog.json or catalog.js"
-          fi
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5

@@ -17,13 +17,13 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [2/4] Staging files for Git...
-git add -A tracks/ artists.txt index.html css/ js/ sw.js manifest.json index_tracks.py index_tracks.bat start_server.bat sync_to_github.bat publish.bat
+echo [2/4] Staging files for Git (adding new tracks, removing deleted ones)...
+git add -A tracks/ artists.txt index.html css/ js/ sw.js manifest.json index_tracks.py index_tracks.bat start_server.bat sync_to_github.bat publish.bat .github/
 
 git diff --staged --quiet
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo [INFO] No changes detected. Catalog is already up to date!
+    echo [INFO] No new changes detected. Catalog is already up to date!
     echo.
     pause
     exit /b 0
