@@ -553,21 +553,21 @@
         lastNode = f;
       });
 
-      // Reverb Convolver
+      // Reverb Convolver (Lazy connection: saves massive mobile CPU by skipping 96k stereo FFT convolution when reverb is 0)
       this.reverbNode = ctx.createConvolver();
       this.reverbNode.buffer = this.makeImpulse(2.0, 2.0);
       this.reverbDryGain = ctx.createGain();
       this.reverbWetGain = ctx.createGain();
       this.reverbDryGain.gain.value = 1.0;
       this.reverbWetGain.gain.value = 0.0;
+      this.reverbPreNode = lastNode;
+      this.reverbIsConnected = false;
 
       lastNode.connect(this.reverbDryGain);
-      lastNode.connect(this.reverbNode);
-      this.reverbNode.connect(this.reverbWetGain);
 
       const postReverb = ctx.createGain();
       this.reverbDryGain.connect(postReverb);
-      this.reverbWetGain.connect(postReverb);
+      this.postReverbNode = postReverb;
 
       // 8D Spatial Audio: Panner + Head-Shadow Lowpass Filter for authentic 360 binaural rotation
       this.spatialFilter = ctx.createBiquadFilter();
@@ -744,8 +744,28 @@
       if (!this.reverbWetGain || !this.reverbDryGain || !this.audioCtx) return;
       const amt = this.activeReverbPercent / 100;
       const t = this.audioCtx.currentTime;
-      this.reverbWetGain.gain.setValueAtTime(amt * 0.8, t);
-      this.reverbDryGain.gain.setValueAtTime(1.0 - amt * 0.3, t);
+
+      if (amt > 0.01) {
+        if (!this.reverbIsConnected && this.reverbPreNode && this.reverbNode && this.postReverbNode) {
+          try {
+            this.reverbPreNode.connect(this.reverbNode);
+            this.reverbNode.connect(this.reverbWetGain);
+            this.reverbWetGain.connect(this.postReverbNode);
+            this.reverbIsConnected = true;
+          } catch (e) {}
+        }
+        this.reverbWetGain.gain.setValueAtTime(amt * 0.8, t);
+        this.reverbDryGain.gain.setValueAtTime(1.0 - amt * 0.3, t);
+      } else {
+        this.reverbWetGain.gain.setValueAtTime(0.0, t);
+        this.reverbDryGain.gain.setValueAtTime(1.0, t);
+        if (this.reverbIsConnected && this.reverbPreNode && this.reverbNode) {
+          try {
+            this.reverbPreNode.disconnect(this.reverbNode);
+            this.reverbIsConnected = false;
+          } catch (e) {}
+        }
+      }
     }
 
     set8DAudio(percent) {
@@ -1732,12 +1752,32 @@
     }
   }
 
+  let lastMediaSessionPositionSync = 0;
+  function syncMediaSessionPosition(force = false) {
+    if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+    const now = performance.now();
+    if (!force && now - lastMediaSessionPositionSync < 4000) return; // Throttle to 4s to prevent Android audio buffer starvation
+    lastMediaSessionPositionSync = now;
+    try {
+      const dur = engine.audioElement.duration;
+      const cur = engine.audioElement.currentTime;
+      if (dur && Number.isFinite(dur) && dur > 0) {
+        navigator.mediaSession.setPositionState({
+          duration: dur,
+          playbackRate: engine.audioElement.playbackRate || 1.0,
+          position: Math.min(Math.max(0, cur), dur)
+        });
+      }
+    } catch (e) {}
+  }
+
   function updateMediaSessionPlaybackState(isPlaying) {
     if ('mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
       } catch (e) {}
     }
+    syncMediaSessionPosition(true);
   }
 
   async function playTrack(track, autoPlay = true) {
@@ -2006,15 +2046,8 @@
         if (curTimeEl) curTimeEl.textContent = formatSec(cur);
         if (durTimeEl) durTimeEl.textContent = formatSec(dur);
 
-        if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
-          try {
-            navigator.mediaSession.setPositionState({
-              duration: dur,
-              playbackRate: engine.audioElement.playbackRate || 1.0,
-              position: Math.min(cur, dur)
-            });
-          } catch (e) {}
-        }
+        // Throttled position update: eliminates Android OS IPC audio thread starvation
+        syncMediaSessionPosition(false);
       }
     };
 
@@ -2375,8 +2408,15 @@
     function render() {
       requestAnimationFrame(render);
 
-      // Only draw when fullscreen player is active to save mobile CPU/GPU
+      // Only draw when fullscreen player is active and lyrics are not covering it to save mobile CPU/GPU
       if (!fsPlayer || !fsPlayer.classList.contains('active')) {
+        return;
+      }
+      const lyricsOverlay = document.getElementById('lyrics-overlay');
+      if (lyricsOverlay && lyricsOverlay.classList.contains('active')) {
+        return;
+      }
+      if (document.hidden) {
         return;
       }
 
@@ -3648,23 +3688,34 @@
     }
 
     if (newIdx !== activeLyricIndex && newIdx >= 0) {
+      const prevIdx = activeLyricIndex;
       activeLyricIndex = newIdx;
       const container = document.getElementById('lyrics-scroll-container');
       if (!container) return;
-      const lines = container.querySelectorAll('.lyric-line');
-      lines.forEach((l, idx) => {
-        const dist = Math.abs(idx - newIdx);
-        l.classList.remove('active', 'near-1', 'near-2', 'distant');
-        if (dist === 0) {
-          l.classList.add('active');
-        } else if (dist === 1) {
-          l.classList.add('near-1');
-        } else if (dist === 2) {
-          l.classList.add('near-2');
-        } else {
-          l.classList.add('distant');
+      const lines = container.children;
+      if (!lines || lines.length === 0) return;
+
+      // Unset previous active and neighborhood (O(1) instead of O(N) full DOM traversal)
+      if (prevIdx >= 0) {
+        for (let off = -2; off <= 2; off++) {
+          const idx = prevIdx + off;
+          if (idx >= 0 && idx < lines.length && lines[idx]) {
+            lines[idx].classList.remove('active', 'near-1', 'near-2', 'distant');
+          }
         }
-      });
+      }
+
+      // Apply new active and neighborhood classes
+      for (let off = -2; off <= 2; off++) {
+        const idx = newIdx + off;
+        if (idx >= 0 && idx < lines.length && lines[idx]) {
+          const dist = Math.abs(off);
+          if (dist === 0) lines[idx].classList.add('active');
+          else if (dist === 1) lines[idx].classList.add('near-1');
+          else if (dist === 2) lines[idx].classList.add('near-2');
+        }
+      }
+
       if (lines[newIdx]) {
         const lineEl = lines[newIdx];
         const targetY = lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2);

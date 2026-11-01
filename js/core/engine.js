@@ -131,7 +131,7 @@ class MCoreEngine {
       lastEqNode = filter;
     });
 
-    // 4. Reverb Convolver Stage (Dry/Wet)
+    // 4. Reverb Convolver Stage (Lazy dry/wet connection to save mobile CPU)
     this.reverbNode = ctx.createConvolver();
     this.reverbNode.buffer = this.generateImpulseResponse(2.2, 2.0);
 
@@ -139,14 +139,14 @@ class MCoreEngine {
     this.reverbWetGain = ctx.createGain();
     this.reverbDryGain.gain.value = 1.0;
     this.reverbWetGain.gain.value = 0.0;
+    this.reverbPreNode = lastEqNode;
+    this.reverbIsConnected = false;
 
     lastEqNode.connect(this.reverbDryGain);
-    lastEqNode.connect(this.reverbNode);
-    this.reverbNode.connect(this.reverbWetGain);
 
     const postReverbNode = ctx.createGain();
     this.reverbDryGain.connect(postReverbNode);
-    this.reverbWetGain.connect(postReverbNode);
+    this.postReverbNode = postReverbNode;
 
     // 5. 8D Spatial Audio Panner (StereoPannerNode)
     if (ctx.createStereoPanner) {
@@ -344,10 +344,31 @@ class MCoreEngine {
 
   setReverb(percent) {
     // 0 to 100
-    if (!this.reverbWetGain || !this.reverbDryGain) return;
+    if (!this.reverbWetGain || !this.reverbDryGain || !this.audioCtx) return;
     const amount = Math.max(0, Math.min(percent / 100, 1.0));
-    this.reverbWetGain.gain.setValueAtTime(amount * 0.8, this.audioCtx.currentTime);
-    this.reverbDryGain.gain.setValueAtTime(1.0 - amount * 0.3, this.audioCtx.currentTime);
+    const t = this.audioCtx.currentTime;
+
+    if (amount > 0.01) {
+      if (!this.reverbIsConnected && this.reverbPreNode && this.reverbNode && this.postReverbNode) {
+        try {
+          this.reverbPreNode.connect(this.reverbNode);
+          this.reverbNode.connect(this.reverbWetGain);
+          this.reverbWetGain.connect(this.postReverbNode);
+          this.reverbIsConnected = true;
+        } catch (e) {}
+      }
+      this.reverbWetGain.gain.setValueAtTime(amount * 0.8, t);
+      this.reverbDryGain.gain.setValueAtTime(1.0 - amount * 0.3, t);
+    } else {
+      this.reverbWetGain.gain.setValueAtTime(0.0, t);
+      this.reverbDryGain.gain.setValueAtTime(1.0, t);
+      if (this.reverbIsConnected && this.reverbPreNode && this.reverbNode) {
+        try {
+          this.reverbPreNode.disconnect(this.reverbNode);
+          this.reverbIsConnected = false;
+        } catch (e) {}
+      }
+    }
   }
 
   set8DAudio(percent) {
