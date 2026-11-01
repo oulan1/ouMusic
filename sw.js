@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v1.1.0';
+const CACHE_NAME = 'oumusic-shell-v2.5.0';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -6,6 +6,7 @@ const APP_SHELL_ASSETS = [
   './manifest.json',
   './artists.txt',
   './tracks/catalog.json',
+  './tracks/catalog.js',
   './assets/icons.svg',
   './assets/oumusic.png',
   './css/tokens.css',
@@ -57,7 +58,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // Range requests (аудиостриминг первых байт или потоковое аудио) пропускаем напрямую в сеть
-  if (request.headers.get('range')) {
+  if (request.headers.get('range') || request.url.includes('.oump3')) {
     return;
   }
 

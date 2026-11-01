@@ -969,6 +969,22 @@
     return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   }
 
+  /* Universal App URL Resolver for GitHub Pages, Subfolders and file:// */
+  function resolveAppUrl(relPath) {
+    const cleanRel = relPath.replace(/^\.?\//, '');
+    if (window.location.protocol === 'file:') {
+      return './' + cleanRel;
+    }
+    let basePath = window.location.pathname;
+    if (basePath.endsWith('.html')) {
+      basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
+    } else if (!basePath.endsWith('/')) {
+      basePath = basePath + '/';
+    }
+    return basePath + cleanRel;
+  }
+  window.resolveAppUrl = resolveAppUrl;
+
   /* ==========================================================================
      6. ARTISTS & VERIFICATION
      ========================================================================== */
@@ -978,7 +994,7 @@
 
   async function loadArtistsVerification() {
     try {
-      const res = await fetch('./artists.txt', { cache: 'no-cache' });
+      const res = await fetch(resolveAppUrl('artists.txt'), { cache: 'no-cache' });
       if (res.ok) {
         const text = await res.text();
         text.split('\n').forEach((line) => {
@@ -1340,7 +1356,13 @@
   async function loadInitialTracks() {
     let tracks = [];
     try {
-      const res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' });
+      let res = null;
+    try {
+      res = await fetch(resolveAppUrl(`tracks/catalog.json?_v=${Date.now()}`), { cache: 'no-store' });
+    } catch (e) {}
+    if (!res || !res.ok) {
+      try { res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' }); } catch(e) {}
+    }
       if (res.ok) tracks = await res.json();
     } catch (e) {
       // Local file:// protocol fallback
@@ -1605,7 +1627,25 @@
       }
     } else if (!track.isLocal && track.filename) {
       try {
-        const res = await fetch(`./tracks/${encodeURIComponent(track.filename)}`);
+        const primaryUrl = resolveAppUrl(`tracks/${encodeURIComponent(track.filename)}`);
+        let res = null;
+        try {
+          res = await fetch(primaryUrl);
+        } catch (e) {}
+        if (!res || !res.ok) {
+          const fallbacks = [
+            `./tracks/${encodeURIComponent(track.filename)}`,
+            `/ouMusic/tracks/${encodeURIComponent(track.filename)}`,
+            `tracks/${encodeURIComponent(track.filename)}`
+          ];
+          for (const fb of fallbacks) {
+            if (fb === primaryUrl) continue;
+            try {
+              const r = await fetch(fb);
+              if (r.ok) { res = r; break; }
+            } catch (e) {}
+          }
+        }
         if (res.ok) {
           const buf = await res.arrayBuffer();
           const unpacked = await unpackOump3Full(buf);

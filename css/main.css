@@ -442,31 +442,32 @@ html, body {
 .top-search-container {
   display: flex;
   align-items: center;
-  background: var(--md-sys-color-surface-container-high);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: var(--md-shape-corner-full);
   padding: 6px 14px;
   width: 280px;
   max-width: 100%;
   gap: 8px;
-  border: 1px solid transparent;
-  transition: border-color var(--motion-duration-short);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color var(--motion-duration-short), background var(--motion-duration-short);
 }
 
 .top-search-container:focus-within {
   border-color: var(--md-sys-color-primary);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 .top-search-input {
   background: transparent;
   border: none;
-  color: var(--md-sys-color-on-surface);
+  color: #FFFFFF;
   font-size: 0.9rem;
   width: 100%;
   outline: none;
 }
 
 .top-search-input::placeholder {
-  color: var(--md-sys-color-outline);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* Screen Viewport (Scrollable Container) */
@@ -655,42 +656,22 @@ html, body {
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.04) !important;
 }
 
-[data-theme="light"] 
-/* Search Dynamic Caret Accent Blur Glow */
-.top-search-container {
-  position: relative;
-  overflow: hidden;
+[data-theme="light"] .top-search-container {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
 }
 
-.search-caret-glow {
-  position: absolute;
-  top: 50%;
-  left: 36px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--md-sys-color-primary);
-  filter: blur(10px);
-  -webkit-filter: blur(10px);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-50%);
-  transition: transform 0.08s ease-out, opacity 0.25s ease;
-  z-index: 1;
-}
-
-.search-caret-glow.typing {
-  opacity: 0.9;
-  box-shadow: 0 0 20px 4px var(--md-sys-color-primary);
-}
-
-.top-search-container {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+[data-theme="light"] .top-search-container:focus-within {
+  border-color: var(--md-sys-color-primary) !important;
+  background: rgba(0, 0, 0, 0.08) !important;
 }
 
 [data-theme="light"] .top-search-input {
   color: #1D1B20 !important;
+}
+
+[data-theme="light"] .top-search-input::placeholder {
+  color: rgba(0, 0, 0, 0.45) !important;
 }
 
 [data-theme="light"] .brand-title {
@@ -933,36 +914,7 @@ html, body {
 [data-liquid-glass="true"][data-theme="light"] .stat-card,
 [data-liquid-glass="true"][data-theme="light"] .home-wave-card,
 [data-liquid-glass="true"][data-theme="light"] .track-row,
-[data-liquid-glass="true"][data-theme="light"] 
-/* Search Dynamic Caret Accent Blur Glow */
-.top-search-container {
-  position: relative;
-  overflow: hidden;
-}
-
-.search-caret-glow {
-  position: absolute;
-  top: 50%;
-  left: 36px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--md-sys-color-primary);
-  filter: blur(10px);
-  -webkit-filter: blur(10px);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-50%);
-  transition: transform 0.08s ease-out, opacity 0.25s ease;
-  z-index: 1;
-}
-
-.search-caret-glow.typing {
-  opacity: 0.9;
-  box-shadow: 0 0 20px 4px var(--md-sys-color-primary);
-}
-
-.top-search-container {
+[data-liquid-glass="true"][data-theme="light"] .top-search-container {
   background: rgba(255, 255, 255, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.65) !important;
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
@@ -980,27 +932,69 @@ html, body {
 [data-liquid-glass="true"] .chip,
 [data-liquid-glass="true"] .icon-btn,
 [data-liquid-glass="true"] .vocal-remover-btn,
+[data-liquid-glass="true"] #lyrics-share-quote-btn,
 [data-liquid-glass="true"] .lyrics-close-circle-btn,
-[data-liquid-glass="true"] .arc-toggle-btn {
+[data-liquid-glass="true"] .arc-toggle-btn,
+[data-liquid-glass="true"] .play-pause-fab,
+[data-liquid-glass="true"] .wave-main-fab,
+[data-liquid-glass="true"] .lyrics-cover-btn,
+[data-liquid-glass="true"] .nav-tab,
+[data-liquid-glass="true"] .studio-step-tab,
+[data-liquid-glass="true"] .sheet-action-item {
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
   overflow: hidden !important;
   outline: none !important;
+  box-sizing: border-box !important;
+  background-clip: padding-box !important;
 }
 
+/* Eliminate any rectangular outline on active/focused controls */
+[data-liquid-glass="true"] button,
+[data-liquid-glass="true"] button:focus,
+[data-liquid-glass="true"] button:focus-visible,
+[data-liquid-glass="true"] .btn,
+[data-liquid-glass="true"] .btn:focus,
+[data-liquid-glass="true"] .btn:focus-visible,
 [data-liquid-glass="true"] .icon-btn,
+[data-liquid-glass="true"] .icon-btn:focus,
+[data-liquid-glass="true"] .icon-btn:focus-visible {
+  outline: none !important;
+}
+
+/* Strictly Circular Controls (50% Radius) */
+[data-liquid-glass="true"] .icon-btn,
+[data-liquid-glass="true"] .play-pause-fab,
+[data-liquid-glass="true"] .wave-main-fab,
 [data-liquid-glass="true"] .lyrics-close-circle-btn,
 [data-liquid-glass="true"] .arc-toggle-btn,
-[data-liquid-glass="true"] .accent-color-circle {
+[data-liquid-glass="true"] .accent-color-circle,
+[data-liquid-glass="true"] .lyrics-cover-btn,
+[data-liquid-glass="true"] .profile-avatar-btn {
   border-radius: 50% !important;
 }
 
+/* Strictly Pill Buttons (Full Rounding) */
 [data-liquid-glass="true"] .btn,
+[data-liquid-glass="true"] .btn-primary,
+[data-liquid-glass="true"] .btn-tonal,
+[data-liquid-glass="true"] .btn-outlined,
 [data-liquid-glass="true"] .chip,
-[data-liquid-glass="true"] .vocal-remover-btn {
-  border-radius: var(--md-shape-corner-full) !important;
+[data-liquid-glass="true"] .vocal-remover-btn,
+[data-liquid-glass="true"] #lyrics-share-quote-btn,
+[data-liquid-glass="true"] .nav-tab {
+  border-radius: 9999px !important;
+}
+
+/* Strictly Rounded Studio Tabs & Action Items */
+[data-liquid-glass="true"] .studio-step-tab {
+  border-radius: 12px !important;
+}
+
+[data-liquid-glass="true"] .sheet-action-item {
+  border-radius: 10px !important;
 }
 
 /* Smooth color transitions (removed .arc-sidebar so its slide/hover physics stay buttery smooth) */

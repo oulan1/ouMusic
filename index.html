@@ -15,6 +15,10 @@
         if (accent) document.documentElement.style.setProperty('--md-sys-color-primary', accent);
       } catch(e) {}
     })();
+    // Canonical path normalization: Ensure directory URL on GitHub Pages ends with /
+    if (window.location.protocol.startsWith('http') && !window.location.pathname.endsWith('/') && !window.location.pathname.endsWith('.html')) {
+      window.history.replaceState(null, '', window.location.pathname + '/' + window.location.search + window.location.hash);
+    }
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#121218">
@@ -27,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/player.css">
+  <link rel="stylesheet" href="css/tokens.css?v=2.5.0">
+  <link rel="stylesheet" href="css/main.css?v=2.5.0">
+  <link rel="stylesheet" href="css/components.css?v=2.5.0">
+  <link rel="stylesheet" href="css/player.css?v=2.5.0">
 
   <!-- JSZip CDN for .oump3 and .oulist containers -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1358,7 +1362,7 @@
           <span class="badge-beta">BETA</span>
         </button>
 
-        <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 7px 14px; font-size: 0.82rem; background: rgba(255,255,255,0.08); color: #FFF; border: 1px solid rgba(255,255,255,0.15);">
+        <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 7px 14px; font-size: 0.82rem; border-radius: 9999px;">
           <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-share"></use></svg>
           <span>Цитата</span>
         </button>
@@ -1686,8 +1690,8 @@
   </div>
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js"></script>
-  <script src="js/app.standalone.js"></script>
+  <script src="tracks/catalog.js?v=2.5.0"></script>
+  <script src="js/app.standalone.js?v=2.5.0"></script>
   <!-- MODAL: CONFIRM CLEAR CACHE (10 CLICKS CONFIRMATION) -->
   <div class="dialog-backdrop" id="clear-cache-confirm-dialog">
     <div class="dialog-card" style="max-width: 440px;">
