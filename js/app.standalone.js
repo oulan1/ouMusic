@@ -955,6 +955,47 @@
     }
   }
 
+    /* Universal Floating Toast Notification (Auto-Dismissing, High Z-Index) */
+  function showToast(message, duration = 3000) {
+    if (!message) return;
+    let toast = document.getElementById('ou-toast-notification');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'ou-toast-notification';
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(20, 22, 30, 0.96);
+        color: #FFFFFF;
+        padding: 10px 22px;
+        border-radius: 9999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15);
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        white-space: nowrap;
+        max-width: 90vw;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+    }, duration);
+  }
+  window.showToast = showToast;
+
   const engine = new MCoreEngine();
 
   /* ==========================================================================
@@ -1413,7 +1454,7 @@
     if (target) target.classList.add('active');
 
     const backBtn = document.getElementById('top-back-btn');
-    if (backBtn) backBtn.style.display = (screenId === 'artist') ? 'inline-flex' : 'none';
+    if (backBtn) backBtn.style.display = 'none'; // Permanently hidden on artist page across PC and mobile
 
     if (window.syncArcNav) {
       window.syncArcNav(screenId);
@@ -3758,12 +3799,14 @@
           g = parseInt(h.substring(2, 4), 16) || g;
           b = parseInt(h.substring(4, 6), 16) || b;
         }
+        // Full-screen vertical linear + ambient radial blend: covers 100% of mobile display without cutting off in middle
+        const fullCoverBg = `linear-gradient(180deg, rgba(${Math.round(r * 0.42)}, ${Math.round(g * 0.42)}, ${Math.round(b * 0.46)}, 0.95) 0%, rgba(${Math.round(r * 0.22)}, ${Math.round(g * 0.22)}, ${Math.round(b * 0.25)}, 0.96) 45%, #0C0D12 85%, #08090C 100%)`;
         if (overlay) {
-          overlay.style.background = `radial-gradient(ellipse at 35% 35%, rgba(${Math.round(r * 0.35)}, ${Math.round(g * 0.35)}, ${Math.round(b * 0.4)}, 1) 0%, rgba(${Math.round(r * 0.16)}, ${Math.round(g * 0.16)}, ${Math.round(b * 0.2)}, 1) 55%, #05080E 100%)`;
+          overlay.style.background = fullCoverBg;
         }
         const backdrop = document.getElementById('lyrics-glow-backdrop');
         if (backdrop) {
-          backdrop.style.background = `radial-gradient(circle at 25% 45%, rgba(${r}, ${g}, ${b}, 0.42) 0%, rgba(${r}, ${g}, ${b}, 0.14) 50%, transparent 80%)`;
+          backdrop.style.background = `radial-gradient(circle at 35% 25%, rgba(${r}, ${g}, ${b}, 0.35) 0%, transparent 70%)`;
         }
         // Keep close chevron clean frosted glass without muddy color tinting
       } catch (e) {}

@@ -1312,3 +1312,14 @@ html, body {
     min-height: 34px !important;
   }
 }
+
+/* Disable backdrop blur on mobile karaoke buttons to prevent GPU tile dropouts */
+@media (max-width: 860px) {
+  [data-liquid-glass="true"] .vocal-remover-btn,
+  [data-liquid-glass="true"] #lyrics-share-quote-btn,
+  [data-liquid-glass="true"] .lyrics-close-circle-btn {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(28, 30, 42, 0.9) !important;
+  }
+}
