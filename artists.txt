@@ -19,3 +19,4 @@
 
 oulan1 - assets/oumusic.png - assets/oumusic.png - 1 - 3
 M-Core - assets/oumusic.png - assets/oumusic.png - 1 - 5
+Sqwore - assets/oumusic.png - assets/oumusic.png - 1 - 1

@@ -36,83 +36,18 @@ jobs:
 
       - name: Generate tracks catalog
         run: |
-          node -e '
-          const fs = require("fs");
-          const path = require("path");
-
-          const tracksDir = path.join(process.cwd(), "tracks");
-          const catalogPath = path.join(tracksDir, "catalog.json");
-
-          if (!fs.existsSync(tracksDir)) {
-            fs.mkdirSync(tracksDir, { recursive: true });
-          }
-
-          let existingCatalog = [];
-          if (fs.existsSync(catalogPath)) {
-            try {
-              existingCatalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
-            } catch (e) {
-              existingCatalog = [];
-            }
-          }
-          const existingMap = new Map();
-          if (Array.isArray(existingCatalog)) {
-            existingCatalog.forEach(item => {
-              if (item && item.filename) {
-                existingMap.set(item.filename, item);
-              }
-            });
-          }
-
-          const files = fs.readdirSync(tracksDir).filter(f => f.toLowerCase().endsWith(".oump3"));
-          const catalog = [];
-
-          files.forEach(file => {
-            const rawName = file.slice(0, -6);
-            let artist = "Неизвестный исполнитель";
-            let title = rawName;
-
-            if (rawName.includes(" - ")) {
-              const parts = rawName.split(" - ");
-              artist = parts[0].trim();
-              title = parts.slice(1).join(" - ").trim();
-            }
-
-            const stats = fs.statSync(path.join(tracksDir, file));
-            const prev = existingMap.get(file) || {};
-
-            catalog.push({
-              id: prev.id || Buffer.from(file).toString("base64url").slice(0, 16),
-              filename: file,
-              artist: prev.artist || artist,
-              title: prev.title || title,
-              genres: prev.genres || [],
-              duration: prev.duration || 0,
-              hasLyrics: typeof prev.hasLyrics === "boolean" ? prev.hasLyrics : true,
-              thumbBase64: prev.thumbBase64 || null,
-              size: stats.size,
-              updatedAt: stats.mtime.toISOString()
-            });
-          });
-
-          // Сортировка по имени файла для детерминированности
-          catalog.sort((a, b) => a.filename.localeCompare(b.filename));
-
-          fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2), "utf8");
-          console.log(`Generated catalog with ${catalog.length} track(s).`);
-          '
+          python3 index_tracks.py
 
       - name: Commit catalog if updated
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tracks/catalog.json
+          git add tracks/catalog.json tracks/catalog.js
           if ! git diff --staged --quiet; then
-            git commit -m "chore(catalog): auto-update tracks/catalog.json [skip ci]"
+            git commit -m "chore(catalog): auto-update tracks/catalog.json and catalog.js [skip ci]"
             git push
           else
-            console_msg="No changes in tracks/catalog.json"
-            echo $console_msg
+            echo "No changes in tracks/catalog.json or catalog.js"
           fi
 
       - name: Setup GitHub Pages

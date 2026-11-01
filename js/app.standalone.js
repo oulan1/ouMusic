@@ -1346,6 +1346,10 @@
       // Local file:// protocol fallback
     }
 
+    if ((!tracks || tracks.length === 0) && window.__TRACKS_CATALOG__ && Array.isArray(window.__TRACKS_CATALOG__)) {
+      tracks = window.__TRACKS_CATALOG__;
+    }
+
     const localSaved = await getAllTracksMetadata();
     const map = new Map();
     tracks.forEach((t) => map.set(t.id, t));
@@ -1618,7 +1622,11 @@
     }
 
     if (!audioSrc) {
-      alert(`Трек "${track.title}" недоступен для воспроизведения (файл не найден).`);
+      if (window.location.protocol === 'file:') {
+        showToast('Для воспроизведения из tracks запустите start_server.bat или используйте "Загрузить свой .oump3"', 4500);
+      } else {
+        alert(`Трек "${track.title}" недоступен для воспроизведения (файл не найден).`);
+      }
       return;
     }
 
