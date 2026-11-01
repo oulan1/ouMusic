@@ -31,13 +31,18 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.5.0">
-  <link rel="stylesheet" href="css/main.css?v=2.5.0">
-  <link rel="stylesheet" href="css/components.css?v=2.5.0">
-  <link rel="stylesheet" href="css/player.css?v=2.5.0">
+  <link rel="stylesheet" href="css/tokens.css?v=2.6.0">
+  <link rel="stylesheet" href="css/main.css?v=2.6.0">
+  <link rel="stylesheet" href="css/components.css?v=2.6.0">
+  <link rel="stylesheet" href="css/player.css?v=2.6.0">
 
-  <!-- JSZip CDN for .oump3 and .oulist containers -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
+  <script src="js/vendor/jszip.min.js"></script>
+  <script>
+    if (typeof window.JSZip === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
+    }
+  </script>
 </head>
 <body>
   <!-- Inlined SVG icons container for 100% offline and file:// reliability -->
@@ -673,8 +678,36 @@
               <input type="range" id="crossfade-slider" class="m3-range-input" min="0" max="12" step="1" value="0">
             </div>
 
-            <!-- Equalizer -->
-            <div style="margin-top: 16px;">
+            <!-- Lossless Audio / Hi-Fi Sound Enhancer Mode -->
+            <div class="setting-item" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 14px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-weight: 600; font-size: 0.95rem;">Режим Lossless качество</span>
+                  <span class="badge-beta" style="background: linear-gradient(135deg, #10B981, #06B6D4); color: #FFF; font-size: 0.68rem; padding: 2px 7px; border-radius: 6px; font-weight: 700; letter-spacing: 0.5px;">HI-FI AUDIO</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--md-sys-color-outline); margin-top: 4px; max-width: 320px; line-height: 1.4;">
+                  Автоматический Hi-Fi звук студийного качества (sub-bass, прозрачная середина и кристальные верха). Ручной эквалайзер скрывается.
+                </div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="setting-lossless-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <!-- Active Lossless Banner (Shown when Lossless mode is enabled) -->
+            <div id="lossless-active-banner" style="display: none; margin-top: 10px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.12)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px; text-align: left;">
+              <div style="display: flex; align-items: center; gap: 8px; color: #10B981; font-weight: 700; font-size: 0.9rem;">
+                <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-verified"></use></svg>
+                <span>Hi-Fi Lossless процессинг активен</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px; line-height: 1.45;">
+                Эквалайзер оптимизируется автоматически для каждого трека по студийной кривой четкости Harman/Hi-Res c максимальной динамикой.
+              </div>
+            </div>
+
+            <!-- Equalizer (Hidden when Lossless is active) -->
+            <div id="equalizer-settings-box" style="margin-top: 16px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                 <span style="font-size: 0.9rem; font-weight: 500;">5-полосный эквалайзер</span>
                 <div style="display: flex; gap: 8px; align-items: center;">
@@ -1726,11 +1759,11 @@
 
   <!-- FULLSCREEN COVER LIGHTBOX MODAL -->
   <div class="cover-lightbox-modal" id="cover-lightbox-modal">
-    <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+    <button class="cover-lightbox-close-fab" id="cover-lightbox-close-btn" title="Закрыть">
+      <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-close"></use></svg>
+    </button>
+    <div class="cover-lightbox-content">
       <img id="cover-lightbox-img" class="cover-lightbox-img" src="assets/oumusic.png" alt="Cover Fullscreen">
-      <button class="icon-btn" id="cover-lightbox-close-btn" style="position: absolute; top: -18px; right: -18px; background: rgba(0,0,0,0.8); border: 1.5px solid rgba(255,255,255,0.35); width: 44px; height: 44px; border-radius: 50%; color: #FFF; z-index: 10; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);" title="Закрыть">
-        <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
-      </button>
     </div>
   </div>
 
@@ -1862,7 +1895,7 @@
   </div>
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.5.0"></script>
-  <script src="js/app.standalone.js?v=2.5.0"></script>
+  <script src="tracks/catalog.js?v=2.6.0"></script>
+  <script src="js/app.standalone.js?v=2.6.0"></script>
 </body>
 </html>

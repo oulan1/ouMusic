@@ -408,6 +408,7 @@
       this.activePlaybackRate = 1.0;
       this.activeReverbPercent = 0;
       this.active8DPercent = 0;
+      this.isLosslessMode = false;
 
       this.sourceNode = null;
       this.vocalRemoverActive = false;
@@ -798,6 +799,31 @@
       if (this.active8DPercent > 0) {
         this.set8DAudio(this.active8DPercent);
       }
+      if (this.isLosslessMode) {
+        this.setLosslessMode(true);
+      }
+    }
+
+    setLosslessMode(active) {
+      this.isLosslessMode = !!active;
+      if (!this.audioCtx) return;
+      if (this.isLosslessMode) {
+        // Studio Hi-Fi Harman/Hi-Res mastering enhancement:
+        // 60Hz +2.0dB (deep clean sub-bass), 230Hz -0.5dB (clarity), 910Hz +0.5dB (vocal clarity), 3.6kHz +2.0dB (crisp transients), 14kHz +2.5dB (sparkle)
+        const losslessGains = [2.0, -0.5, 0.5, 2.0, 2.5];
+        losslessGains.forEach((g, i) => this.setEQBand(i, g));
+        if (this.compressorNode) {
+          const t = this.audioCtx.currentTime;
+          this.compressorNode.threshold.setValueAtTime(-14, t);
+          this.compressorNode.knee.setValueAtTime(24, t);
+          this.compressorNode.ratio.setValueAtTime(1.8, t);
+          this.compressorNode.attack.setValueAtTime(0.003, t);
+          this.compressorNode.release.setValueAtTime(0.25, t);
+        }
+      } else {
+        const savedPreset = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_eq_preset') || 'flat') : 'flat';
+        this.applyEQPreset(savedPreset);
+      }
     }
 
     resetFX() {
@@ -885,8 +911,13 @@
     }
 
     setEQBand(bandIdx, gain) {
-      if (this.eqFilters[bandIdx] && this.audioCtx) {
-        this.eqFilters[bandIdx].gain.setValueAtTime(gain, this.audioCtx.currentTime);
+      if (this.eqFilters[bandIdx]) {
+        try {
+          if (this.audioCtx) {
+            this.eqFilters[bandIdx].gain.setValueAtTime(gain, this.audioCtx.currentTime);
+          }
+          this.eqFilters[bandIdx].gain.value = gain;
+        } catch (e) {}
       }
     }
 
@@ -1724,38 +1755,45 @@
       }
     } else if (!track.isLocal && track.filename) {
       try {
-        const primaryUrl = resolveAppUrl(`tracks/${encodeURIComponent(track.filename)}`);
+        const encName = encodeURIComponent(track.filename);
+        const candidates = [
+          resolveAppUrl(`tracks/${encName}`),
+          `./tracks/${encName}`,
+          `tracks/${encName}`,
+          `./tracks/${track.filename}`,
+          `tracks/${track.filename}`,
+          `/ouMusic/tracks/${encName}`,
+          `/tracks/${encName}`,
+          `https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`
+        ];
         let res = null;
-        try {
-          res = await fetch(primaryUrl);
-        } catch (e) {}
-        if (!res || !res.ok) {
-          const fallbacks = [
-            `./tracks/${encodeURIComponent(track.filename)}`,
-            `/ouMusic/tracks/${encodeURIComponent(track.filename)}`,
-            `tracks/${encodeURIComponent(track.filename)}`
-          ];
-          for (const fb of fallbacks) {
-            if (fb === primaryUrl) continue;
-            try {
-              const r = await fetch(fb);
-              if (r.ok) { res = r; break; }
-            } catch (e) {}
-          }
+        for (const url of candidates) {
+          try {
+            const r = await fetch(url);
+            if (r && r.ok) { res = r; break; }
+          } catch (e) {}
         }
-        if (res.ok) {
+        if (res && res.ok) {
           const buf = await res.arrayBuffer();
-          const unpacked = await unpackOump3Full(buf);
-          audioSrc = unpacked.audioBlob;
-          if (unpacked.coverBlob) track.coverUrl = URL.createObjectURL(unpacked.coverBlob);
-          if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
-          if (unpacked.meta) {
-            if (unpacked.meta.hasInstrumental !== undefined) track.hasInstrumental = unpacked.meta.hasInstrumental;
-            if (unpacked.meta.instrumentalConfig) track.instrumentalConfig = unpacked.meta.instrumentalConfig;
-            if (unpacked.meta.isExplicit !== undefined) track.isExplicit = unpacked.meta.isExplicit;
+          try {
+            const unpacked = await unpackOump3Full(buf);
+            if (unpacked && unpacked.audioBlob) {
+              audioSrc = unpacked.audioBlob;
+              if (unpacked.coverBlob) track.coverUrl = URL.createObjectURL(unpacked.coverBlob);
+              if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
+              if (unpacked.meta) {
+                if (unpacked.meta.hasInstrumental !== undefined) track.hasInstrumental = unpacked.meta.hasInstrumental;
+                if (unpacked.meta.instrumentalConfig) track.instrumentalConfig = unpacked.meta.instrumentalConfig;
+                if (unpacked.meta.isExplicit !== undefined) track.isExplicit = unpacked.meta.isExplicit;
+              }
+            }
+          } catch (err) {
+            console.error('[ouMusic] Error unpacking .oump3 container:', err);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[ouMusic] Track loading error:', e);
+      }
     }
 
     if (!audioSrc) {
@@ -2053,7 +2091,7 @@
       lightboxModal?.classList.remove('active');
     });
     lightboxModal?.addEventListener('click', (e) => {
-      if (e.target === lightboxModal || e.target.closest('#cover-lightbox-close-btn')) {
+      if (e.target === lightboxModal || e.target.closest('#cover-lightbox-close-btn') || !e.target.closest('.cover-lightbox-content')) {
         lightboxModal?.classList.remove('active');
       }
     });
@@ -2302,30 +2340,67 @@
     const canvas = document.getElementById('cover-spectrum-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const fsPlayer = document.getElementById('fullscreen-player');
 
     let smoothVol = 0;
     let smoothBass = 0;
     let waveTime = 0;
+    let cachedFreqData = null;
+
+    // Cache accent color RGB outside 60fps render loop
+    let targetR = 139, targetG = 92, targetB = 246;
+    function syncSpectrumColors() {
+      try {
+        const rootStyle = getComputedStyle(document.documentElement);
+        const accentProp = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
+        if (accentProp.startsWith('#')) {
+          let h = accentProp.replace('#', '');
+          if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+          targetR = parseInt(h.substring(0, 2), 16) || targetR;
+          targetG = parseInt(h.substring(2, 4), 16) || targetG;
+          targetB = parseInt(h.substring(4, 6), 16) || targetB;
+        } else if (accentProp.startsWith('rgb')) {
+          const m = accentProp.match(/\d+/g);
+          if (m && m.length >= 3) {
+            targetR = parseInt(m[0], 10);
+            targetG = parseInt(m[1], 10);
+            targetB = parseInt(m[2], 10);
+          }
+        }
+      } catch (e) {}
+    }
+    syncSpectrumColors();
+    window.syncSpectrumColors = syncSpectrumColors;
 
     function render() {
+      requestAnimationFrame(render);
+
+      // Only draw when fullscreen player is active to save mobile CPU/GPU
+      if (!fsPlayer || !fsPlayer.classList.contains('active')) {
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      const coverRadius = 175; // Fits 350-380px cover box
+      // Proportional cover radius in 580x580 canvas (cover box occupies ~100/140 = 414px, radius = 207)
+      const coverRadius = Math.round(canvas.width / 2.8); // ~207px
 
       let curVol = 0;
       let curBass = 0;
 
       if (engine.analyserNode && engine.isPlaying) {
-        const freqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
-        engine.analyserNode.getByteFrequencyData(freqData);
+        if (!cachedFreqData || cachedFreqData.length !== engine.analyserNode.frequencyBinCount) {
+          cachedFreqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
+        }
+        engine.analyserNode.getByteFrequencyData(cachedFreqData);
 
         let bassSum = 0;
-        for (let i = 1; i < 8; i++) bassSum += freqData[i];
+        for (let i = 1; i < 8; i++) bassSum += cachedFreqData[i];
         curBass = bassSum / 7 / 255;
 
         let totalSum = 0;
-        for (let i = 0; i < 40; i++) totalSum += freqData[i];
+        for (let i = 0; i < 40; i++) totalSum += cachedFreqData[i];
         curVol = totalSum / 40 / 255;
       }
 
@@ -2334,26 +2409,6 @@
       smoothBass += (curBass - smoothBass) * 0.12;
       waveTime += 0.02;
 
-      // Color interpolation: Pure soft white (quiet) -> User Accent Color (loud)
-      const rootStyle = getComputedStyle(document.documentElement);
-      const accentProp = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
-
-      let targetR = 139, targetG = 92, targetB = 246;
-      if (accentProp.startsWith('#')) {
-        let h = accentProp.replace('#', '');
-        if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-        targetR = parseInt(h.substring(0, 2), 16) || targetR;
-        targetG = parseInt(h.substring(2, 4), 16) || targetG;
-        targetB = parseInt(h.substring(4, 6), 16) || targetB;
-      } else if (accentProp.startsWith('rgb')) {
-        const m = accentProp.match(/\d+/g);
-        if (m && m.length >= 3) {
-          targetR = parseInt(m[0], 10);
-          targetG = parseInt(m[1], 10);
-          targetB = parseInt(m[2], 10);
-        }
-      }
-
       const intensity = Math.min(1.0, Math.max(0, smoothVol * 1.8));
       const r = Math.round(255 + (targetR - 255) * intensity);
       const g = Math.round(255 + (targetG - 255) * intensity);
@@ -2361,23 +2416,23 @@
 
       ctx.save();
 
-      // 1. Soft Breathing Bloom
-      const bloomRadius = coverRadius + 14 + smoothBass * 32;
-      const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.8, cx, cy, bloomRadius);
-      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.12 + smoothVol * 0.25})`);
-      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.04 + smoothVol * 0.12})`);
+      // 1. Soft Breathing Bloom right at the outer edge
+      const bloomRadius = coverRadius + 14 + smoothBass * 28;
+      const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.9, cx, cy, bloomRadius);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.14 + smoothVol * 0.25})`);
+      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.05 + smoothVol * 0.12})`);
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Calm Concentric Undulating Fluid Waves (Gentle harmonic curves)
+      // 2. Calm Concentric Undulating Fluid Waves framing the cover
       const rings = 3;
       for (let k = 0; k < rings; k++) {
         const ringBase = coverRadius + 8 + k * 18 + smoothBass * (10 + k * 8);
-        const ringAlpha = (0.28 + intensity * 0.45) * (1 - k * 0.25);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
+        const ringAlpha = (0.35 + intensity * 0.45) * (1 - k * 0.25);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.06, ringAlpha)})`;
         ctx.lineWidth = 1.8 - k * 0.3;
         ctx.beginPath();
 
@@ -2400,7 +2455,6 @@
       }
 
       ctx.restore();
-      requestAnimationFrame(render);
     }
     render();
   }
@@ -3660,11 +3714,7 @@
         if (backdrop) {
           backdrop.style.background = `radial-gradient(circle at 25% 45%, rgba(${r}, ${g}, ${b}, 0.42) 0%, rgba(${r}, ${g}, ${b}, 0.14) 50%, transparent 80%)`;
         }
-        const closeCircle = document.getElementById('close-lyrics-btn');
-        if (closeCircle) {
-          closeCircle.style.background = `rgba(${r}, ${g}, ${b}, 0.55)`;
-          closeCircle.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
-        }
+        // Keep close chevron clean frosted glass without muddy color tinting
       } catch (e) {}
 
       overlay?.classList.add('active');
@@ -3970,6 +4020,7 @@
       lightBtn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'dark'); } catch (e) {}
       syncAmoledAvailability(true);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
     });
 
     lightBtn?.addEventListener('click', () => {
@@ -3978,6 +4029,7 @@
       darkBtn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'light'); } catch (e) {}
       syncAmoledAvailability(false);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
     });
 
     amoledToggle?.addEventListener('change', () => {
@@ -4025,6 +4077,7 @@
       root.style.setProperty('--md-sys-color-primary-container', `rgba(${r}, ${g}, ${b}, 0.28)`);
       root.style.setProperty('--md-sys-color-on-primary-container', `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 60)}, ${Math.min(255, b + 60)}, 1)`);
       root.style.setProperty('--glow-color-1', `rgba(${r}, ${g}, ${b}, 0.45)`);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
 
       try {
         localStorage.setItem('oumusic_accent_color', colorHex);
@@ -4110,10 +4163,12 @@
         lightBtn?.classList.add('active');
         darkBtn?.classList.remove('active');
         syncAmoledAvailability(false);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
       } else {
         darkBtn?.classList.add('active');
         lightBtn?.classList.remove('active');
         syncAmoledAvailability(true);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
       }
 
       // 2. AMOLED
@@ -4216,6 +4271,31 @@
       if (savedCross !== null && crossfadeSlider) {
         crossfadeSlider.value = savedCross;
         if (crossfadeLabel) crossfadeLabel.textContent = `${savedCross} сек`;
+      }
+    } catch (e) {}
+
+    // Lossless Quality Mode Toggle
+    const losslessToggle = document.getElementById('setting-lossless-toggle');
+    const eqBox = document.getElementById('equalizer-settings-box');
+    const losslessBanner = document.getElementById('lossless-active-banner');
+
+    function applyLosslessUI(isLossless) {
+      if (losslessToggle) losslessToggle.checked = isLossless;
+      if (eqBox) eqBox.style.display = isLossless ? 'none' : 'block';
+      if (losslessBanner) losslessBanner.style.display = isLossless ? 'block' : 'none';
+      engine.setLosslessMode(isLossless);
+    }
+
+    losslessToggle?.addEventListener('change', () => {
+      const active = losslessToggle.checked;
+      applyLosslessUI(active);
+      try { localStorage.setItem('oumusic_lossless_mode', active ? 'true' : 'false'); } catch (e) {}
+    });
+
+    try {
+      const savedLossless = localStorage.getItem('oumusic_lossless_mode') === 'true';
+      if (savedLossless) {
+        applyLosslessUI(true);
       }
     } catch (e) {}
 
@@ -5135,7 +5215,7 @@
     c.height = 1080;
 
     const hex = await extractCoverDominantColor(currentTrack?.coverUrl || currentTrack?.thumbBase64);
-    let r = 240, g = 36, b = 48; // Vibrant saturated red Spotify style default
+    let r = 245, g = 38, b = 52; // Vibrant red Spotify reference default
     if (hex && hex.startsWith('#')) {
       let h = hex.replace('#', '');
       if (h.length === 3) h = h.split('').map((x) => x + x).join('');
@@ -5144,60 +5224,47 @@
       b = parseInt(h.substring(4, 6), 16) || b;
     }
 
-    // Boost saturation and brightness so it matches reference Spotify vibrancy
+    // Ensure vibrant saturation matching Spotify reference card
     const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    if (lum < 0.22) {
-      r = Math.min(255, Math.max(195, r + 160));
+    if (lum < 0.20) {
+      r = Math.min(255, Math.max(200, r + 150));
       g = Math.min(255, Math.max(35, g + 25));
-      b = Math.min(255, Math.max(75, b + 60));
+      b = Math.min(255, Math.max(70, b + 60));
     }
 
-    // Outer background: solid vibrant saturated color
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    // Outer background: slightly darker shade of the color
+    const darkR = Math.max(0, Math.round(r * 0.88));
+    const darkG = Math.max(0, Math.round(g * 0.88));
+    const darkB = Math.max(0, Math.round(b * 0.88));
+    ctx.fillStyle = `rgb(${darkR}, ${darkG}, ${darkB})`;
     ctx.fillRect(0, 0, c.width, c.height);
 
-    // Inner Card: 900x900 rounded card with deep soft drop shadow
-    const cardX = 90;
-    const cardY = 90;
-    const cardW = 900;
-    const cardH = 900;
-    const cardR = 52;
+    // Inner Card: 920x920 rounded card with soft drop shadow
+    const cardX = 80;
+    const cardY = 80;
+    const cardW = 920;
+    const cardH = 920;
+    const cardR = 48;
 
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
-    ctx.shadowBlur = 60;
+    ctx.shadowBlur = 54;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 24;
+    ctx.shadowOffsetY = 22;
 
-    const cardLuminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    const isBright = cardLuminance > 0.42;
-    const textColor = isBright ? '#0B0B0E' : '#FFFFFF';
-    const subtextColor = isBright ? 'rgba(11, 11, 14, 0.65)' : 'rgba(255, 255, 255, 0.72)';
-    
-    // Card color: slightly tinted or subtly brighter/darker than outer canvas
-    const cardBg = isBright
-      ? `rgb(${Math.max(0, Math.round(r * 0.95))}, ${Math.max(0, Math.round(g * 0.95))}, ${Math.max(0, Math.round(b * 0.95))})`
-      : `rgb(${Math.min(255, Math.round(r * 1.05))}, ${Math.min(255, Math.round(g * 1.05))}, ${Math.min(255, Math.round(b * 1.05))})`;
-
+    // Card background: vibrant primary cover color
+    const cardBg = `rgb(${r}, ${g}, ${b})`;
     ctx.fillStyle = cardBg;
     ctx.beginPath();
     ctx.roundRect(cardX, cardY, cardW, cardH, cardR);
     ctx.fill();
     ctx.restore();
 
-    // Subtle ambient top-to-bottom inner gradient
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(cardX, cardY, cardW, cardH, cardR);
-    ctx.clip();
-    const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
+    // In Spotify lyric share cards, text is solid deep black (#000000) on vibrant/warm backgrounds
+    const textColor = '#000000';
+    const subtextColor = 'rgba(0, 0, 0, 0.65)';
 
-    const covSize = 120;
+    const covSize = 115;
     const covX = cardX + 54;
     const covY = cardY + 54;
 
@@ -5212,15 +5279,15 @@
       imgLoaded = true;
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(covX, covY, covSize, covSize, 20);
+      ctx.roundRect(covX, covY, covSize, covSize, 18);
       ctx.clip();
       ctx.drawImage(img, covX, covY, covSize, covSize);
       ctx.restore();
 
-      ctx.strokeStyle = isBright ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.25)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(covX, covY, covSize, covSize, 20);
+      ctx.roundRect(covX, covY, covSize, covSize, 18);
       ctx.stroke();
 
       drawCardDetails();
@@ -5228,13 +5295,12 @@
 
     img.onerror = () => {
       if (!imgLoaded) {
-        // Fallback elegant cover icon
-        ctx.fillStyle = isBright ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)';
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
         ctx.beginPath();
-        ctx.roundRect(covX, covY, covSize, covSize, 20);
+        ctx.roundRect(covX, covY, covSize, covSize, 18);
         ctx.fill();
         ctx.fillStyle = textColor;
-        ctx.font = '800 48px sans-serif';
+        ctx.font = '800 44px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('🎵', covX + covSize / 2, covY + covSize / 2);
@@ -5244,11 +5310,11 @@
     img.src = imgSrc;
 
     function drawCardDetails() {
-      const metaX = covX + covSize + 26;
+      const metaX = covX + covSize + 24;
       const title = currentTrack?.title || 'ouMusic Track';
       const artist = currentTrack?.artist || 'Исполнитель';
 
-      // Title (Bold, modern Spotify typography)
+      // Title (Bold solid black Spotify typography)
       ctx.fillStyle = textColor;
       ctx.font = '800 38px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
       ctx.textAlign = 'left';
@@ -5262,12 +5328,12 @@
         return s + '...';
       }
 
-      ctx.fillText(trunc(title, maxMetaW), metaX, covY + 40);
+      ctx.fillText(trunc(title, maxMetaW), metaX, covY + 38);
 
       // Artist
       ctx.fillStyle = subtextColor;
       ctx.font = '600 26px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
-      ctx.fillText(trunc(artist, maxMetaW), metaX, covY + 82);
+      ctx.fillText(trunc(artist, maxMetaW), metaX, covY + 80);
 
       // Selected lyric lines
       let lines = Array.from(window.selectedQuoteIndices || [])
@@ -5283,9 +5349,9 @@
         ];
       }
 
-      // Large bold lyrics typography matching Spotify reference image
+      // Large bold lyrics typography matching Spotify reference image exactly
       ctx.fillStyle = textColor;
-      ctx.font = '800 44px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
+      ctx.font = '800 45px -apple-system, BlinkMacSystemFont, "Montserrat", "Segoe UI", sans-serif';
       ctx.textBaseline = 'alphabetic';
 
       const lineMaxW = cardW - 108;
@@ -5316,9 +5382,9 @@
         startY += lineHeight;
       });
 
-      // Bottom-left official ouMusic Branding Logo + Wordmark
+      // Bottom-left official ouMusic Branding Logo + Wordmark (like Spotify in reference image)
       const footerY = cardY + cardH - 64;
-      const logoRadius = 22;
+      const logoRadius = 24;
       const logoX = covX + logoRadius;
 
       // Circle
@@ -5327,23 +5393,30 @@
       ctx.arc(logoX, footerY, logoRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Inner ring
+      // Inner ring cutout
       ctx.fillStyle = cardBg;
       ctx.beginPath();
-      ctx.arc(logoX, footerY, 14, 0, Math.PI * 2);
+      ctx.arc(logoX, footerY, 15, 0, Math.PI * 2);
       ctx.fill();
 
       // Center dot
       ctx.fillStyle = textColor;
       ctx.beginPath();
-      ctx.arc(logoX, footerY, 6.5, 0, Math.PI * 2);
+      ctx.arc(logoX, footerY, 7, 0, Math.PI * 2);
       ctx.fill();
+
+      // Soundwave dynamic lines
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(logoX, footerY, 19, -Math.PI * 0.35, Math.PI * 0.35);
+      ctx.stroke();
 
       // Wordmark "ouMusic"
       ctx.fillStyle = textColor;
-      ctx.font = '800 36px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
+      ctx.font = '800 38px -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif';
       ctx.textBaseline = 'middle';
-      ctx.fillText('ouMusic', logoX + logoRadius + 14, footerY);
+      ctx.fillText('ouMusic', logoX + logoRadius + 16, footerY);
     }
   }
 
