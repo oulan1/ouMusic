@@ -517,6 +517,36 @@ html, body {
   padding: 0 8px;
   z-index: 30;
   box-shadow: var(--md-elevation-4);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="light"] .mobile-nav-capsule {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  color: var(--md-sys-color-on-surface);
+}
+
+[data-theme="light"] .nav-tab {
+  color: #555566;
+}
+
+[data-theme="light"] .nav-tab.active {
+  color: var(--md-sys-color-primary, #6750a4);
+}
+
+[data-liquid-glass="true"] .mobile-nav-capsule {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="light"][data-liquid-glass="true"] .mobile-nav-capsule {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.85);
 }
 
 .nav-tab {
@@ -836,10 +866,10 @@ html, body {
 .cover-lightbox-modal {
   position: fixed;
   inset: 0;
-  background: rgba(5, 5, 10, 0.92);
+  background: rgba(5, 5, 10, 0.94);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  z-index: 150;
+  z-index: 99999 !important;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1169,5 +1199,80 @@ html, body {
     padding: 10px 8px;
     font-size: 0.78rem;
     gap: 6px;
+  }
+}
+
+/* Responsive Top App Bar for Mobile & Tablets */
+@media (max-width: 768px) {
+  .top-app-bar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .top-app-bar .brand-title {
+    display: none;
+  }
+  .brand-logo {
+    gap: 0;
+    padding: 0;
+  }
+  .top-bar-left {
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .top-search-container {
+    width: 100%;
+    min-width: 0;
+    flex: 1;
+    padding: 6px 10px;
+  }
+  .top-search-input {
+    font-size: 0.84rem;
+    min-width: 0;
+  }
+  .top-bar-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .top-bar-right .icon-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #top-profile-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .top-app-bar {
+    padding: 0 6px;
+    gap: 6px;
+  }
+  .top-bar-left {
+    gap: 6px;
+  }
+  .top-bar-right {
+    gap: 4px;
+  }
+  .top-bar-right .icon-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  #top-profile-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
   }
 }
