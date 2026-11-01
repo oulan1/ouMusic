@@ -2463,19 +2463,108 @@
   }
 
   /* My Studio: Waveform Trimmer & Lyrics Constructor */
-  function initStudioUI() {
-    let studioAudioBuf = null;
-    let studioAudioContext = null;
-    let originalBlob = null;
-    let trimmedBlob = null;
-    let thumbBase64 = null;
-    let lyricsLines = [];
-    let curLineIdx = 0;
-    const studioAudio = new Audio();
+    /* ==========================================================================
+     STUDIO 4-STEP WIZARD & M-CORE DSP EQUALIZER ENGINE
+     Step 1: Metadata (Cover, Title, Artist, Explicit, Genres)
+     Step 2: Audio (Upload, Visual Waveform Trimming, Fragment Confirmation)
+     Step 3: Lyrics (LRC paste, Clipboard, 60fps Live Tap Syncer)
+     Step 4: Instrumental (100% Guaranteed Preview, M-Core DSP Tuner, .oump3 Build)
+     ========================================================================== */
+  function formatTime(sec) {
+    if (isNaN(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  window.formatTime = formatTime;
 
-    // Genres chips in studio
+  function initStudioUI() {
+    let studioAudioBuf = null;       // Full decoded AudioBuffer
+    let activeStudioBuffer = null;   // Active AudioBuffer (sliced fragment or full)
+    let originalBlob = null;         // Original uploaded audio file Blob
+    let trimmedBlob = null;          // Confirmed audio Blob (WAV slice or original)
+    let thumbBase64 = null;          // 160x160 JPEG thumbnail
+    let lyricsLines = [];            // Parsed lyrics lines with { time, text }
+    let curLineIdx = 0;              // Current line index for tap syncer
+    let isFragmentConfirmed = false;
+    let trimStartTime = 0;
+    let trimEndTime = 0;
+    let currentStudioStep = 1;
+    const studioAudio = new Audio(); // HTMLAudioElement for step 3 text playback
+
+    // ----------------------------------------------------
+    // WIZARD STEP NAVIGATION (4 STEPS)
+    // ----------------------------------------------------
+    function goToStudioStep(step) {
+      currentStudioStep = step;
+      for (let i = 1; i <= 4; i++) {
+        const tab = document.getElementById(`studio-tab-${i}`);
+        const container = document.getElementById(`studio-step-${i}-container`);
+        if (tab) {
+          tab.classList.toggle('active', i === step);
+          if (i < step) tab.classList.add('completed');
+          else if (i > step) tab.classList.remove('completed');
+        }
+        if (container) {
+          container.style.display = i === step ? 'block' : 'none';
+        }
+      }
+
+      if (step === 4) {
+        updateStep4AudioStatus();
+      } else if (isTesting) {
+        stopStudioPreview();
+      }
+
+      document.getElementById('screen-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    window.goToStudioStep = goToStudioStep;
+    window.setStudioAudioBuffer = function(buf, blob) {
+      studioAudioBuf = buf;
+      activeStudioBuffer = buf;
+      originalBlob = blob || new Blob(['audio'], { type: 'audio/wav' });
+      trimmedBlob = originalBlob;
+      isFragmentConfirmed = true;
+      updateStep4AudioStatus();
+    };
+
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById(`studio-tab-${i}`)?.addEventListener('click', () => goToStudioStep(i));
+    }
+
+    // Step 1 -> Step 2 Navigation
+    document.getElementById('studio-to-step-2-btn')?.addEventListener('click', () => {
+      const title = document.getElementById('studio-title-input')?.value.trim();
+      const artist = document.getElementById('studio-artist-input')?.value.trim();
+      if (!title || !artist) {
+        showToast('Пожалуйста, укажите название трека и артиста на Шаге 1');
+        return;
+      }
+      goToStudioStep(2);
+    });
+
+    // Step 2 Navigation
+    document.getElementById('studio-back-to-step-1-btn')?.addEventListener('click', () => goToStudioStep(1));
+    document.getElementById('studio-to-step-3-btn')?.addEventListener('click', () => {
+      if (!studioAudioBuf && !originalBlob) {
+        showToast('Пожалуйста, выберите аудиофайл на Шаге 2');
+        return;
+      }
+      goToStudioStep(3);
+    });
+
+    // Step 3 Navigation
+    document.getElementById('studio-back-to-step-2-btn')?.addEventListener('click', () => goToStudioStep(2));
+    document.getElementById('studio-to-step-4-btn')?.addEventListener('click', () => goToStudioStep(4));
+
+    // Step 4 Navigation
+    document.getElementById('studio-back-to-step-3-btn')?.addEventListener('click', () => goToStudioStep(3));
+
+    // ----------------------------------------------------
+    // STEP 1: METADATA & GENRES & COVER
+    // ----------------------------------------------------
     const genreBox = document.getElementById('studio-genres-chips');
-    if (genreBox) {
+    if (genreBox && typeof EXTENDED_GENRES !== 'undefined') {
       genreBox.innerHTML = '';
       EXTENDED_GENRES.forEach((g) => {
         const b = document.createElement('button');
@@ -2487,7 +2576,6 @@
       });
     }
 
-    // Cover upload & Canvas thumb compression
     const coverDrop = document.getElementById('studio-cover-dropzone');
     const coverFile = document.getElementById('studio-cover-file');
     const coverImg = document.getElementById('studio-cover-preview');
@@ -2499,16 +2587,19 @@
         const f = e.target.files[0];
         const r = new FileReader();
         r.onload = (ev) => {
-          coverImg.src = ev.target.result;
-          coverImg.style.display = 'block';
-          coverPlc.style.display = 'none';
+          if (coverImg) {
+            coverImg.src = ev.target.result;
+            coverImg.style.display = 'block';
+          }
+          if (coverPlc) coverPlc.style.display = 'none';
 
           const img = new Image();
           img.onload = () => {
             const c = document.createElement('canvas');
             c.width = 160;
             c.height = 160;
-            c.getContext('2d').drawImage(img, 0, 0, 160, 160);
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0, 160, 160);
             thumbBase64 = c.toDataURL('image/jpeg', 0.85);
           };
           img.src = ev.target.result;
@@ -2517,45 +2608,111 @@
       }
     });
 
-    // Audio file upload & decoding
+    // Artist suggestions
+    const artInp = document.getElementById('studio-artist-input');
+    const artSugg = document.getElementById('studio-artist-suggestions');
+    artInp?.addEventListener('input', () => {
+      const q = artInp.value.toLowerCase().trim();
+      if (!q || !window.uniqueArtists || window.uniqueArtists.length === 0) {
+        if (artSugg) artSugg.style.display = 'none';
+        return;
+      }
+      const matches = window.uniqueArtists.filter(a => a.toLowerCase().includes(q)).slice(0, 5);
+      if (matches.length === 0) {
+        if (artSugg) artSugg.style.display = 'none';
+        return;
+      }
+      if (artSugg) {
+        artSugg.innerHTML = matches.map(m => `<div class="artist-sugg-item" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem;">${m}</div>`).join('');
+        artSugg.style.display = 'block';
+        artSugg.querySelectorAll('.artist-sugg-item').forEach(el => {
+          el.addEventListener('click', () => {
+            artInp.value = el.textContent;
+            artSugg.style.display = 'none';
+          });
+        });
+      }
+    });
+
+    // ----------------------------------------------------
+    // STEP 2: AUDIO UPLOAD, DECODING & WAVEFORM TRIMMER
+    // ----------------------------------------------------
     const chooseAudBtn = document.getElementById('studio-choose-audio-btn');
     const audFileInput = document.getElementById('studio-audio-file');
     const audStatus = document.getElementById('studio-audio-status');
     const waveBox = document.getElementById('studio-waveform-box');
+    const waveCanvas = document.getElementById('studio-waveform-canvas');
+    const waveContainer = document.getElementById('waveform-container');
+    const trimHighlight = document.getElementById('trim-highlight');
+    const startHandle = document.getElementById('trim-handle-start');
+    const endHandle = document.getElementById('trim-handle-end');
+    const trimStartLbl = document.getElementById('trim-start-label');
+    const trimEndLbl = document.getElementById('trim-end-label');
+    const trimDurLbl = document.getElementById('trim-duration-label');
+    const playTrimBtn = document.getElementById('studio-play-trim-btn');
 
     chooseAudBtn?.addEventListener('click', () => audFileInput?.click());
+
     audFileInput?.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         originalBlob = file;
-        audStatus.textContent = 'Декодирование волны...';
-        audStatus.style.background = '#F59E0B';
+        if (audStatus) {
+          audStatus.textContent = 'Декодирование...';
+          audStatus.style.background = '#F59E0B';
+        }
 
         try {
-          studioAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const buf = await file.arrayBuffer();
-          studioAudioBuf = await studioAudioContext.decodeAudioData(buf);
+          await engine.ensureContext();
+          const ctx = engine.audioCtx;
+          if (ctx.state === 'suspended') await ctx.resume();
 
-          audStatus.textContent = 'Аудио готово';
-          audStatus.style.background = '#10B981';
-          waveBox.style.display = 'block';
+          const arrayBuf = await file.arrayBuffer();
+          studioAudioBuf = await ctx.decodeAudioData(arrayBuf.slice(0));
+          activeStudioBuffer = studioAudioBuf;
+          trimmedBlob = originalBlob;
 
+          if (audStatus) {
+            audStatus.textContent = `Готово (${formatTime(studioAudioBuf.duration)})`;
+            audStatus.style.background = '#10B981';
+          }
+          if (waveBox) waveBox.style.display = 'block';
+
+          trimStartTime = 0;
+          trimEndTime = studioAudioBuf.duration;
           drawWaveform(studioAudioBuf);
+          updateTrimLabels();
+          updateStep4AudioStatus();
+          showToast('Аудиофайл успешно загружен!');
         } catch (err) {
-          audStatus.textContent = 'Ошибка';
-          audStatus.style.background = '#EF4444';
-          alert('Ошибка декодирования аудио: ' + err.message);
+          console.error('Audio decode error:', err);
+          if (audStatus) {
+            audStatus.textContent = 'Ошибка файла';
+            audStatus.style.background = '#EF4444';
+          }
+          alert('Ошибка при чтении аудио: ' + err.message);
         }
       }
     });
 
-    // Helper: encode AudioBuffer slice to genuine WAV Blob offline
-    function audioBufferToWav(buffer, startSec = 0, endSec = buffer.duration) {
+    function sliceAudioBuffer(ctx, buffer, startSec, endSec) {
       const sampleRate = buffer.sampleRate;
-      const numChannels = buffer.numberOfChannels;
       const startSample = Math.max(0, Math.floor(startSec * sampleRate));
       const endSample = Math.min(buffer.length, Math.floor(endSec * sampleRate));
-      const length = Math.max(1, endSample - startSample);
+      const frameCount = Math.max(1, endSample - startSample);
+      const newBuf = ctx.createBuffer(buffer.numberOfChannels, frameCount, sampleRate);
+      for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const fromData = buffer.getChannelData(ch);
+        const toData = newBuf.getChannelData(ch);
+        toData.set(fromData.subarray(startSample, endSample));
+      }
+      return newBuf;
+    }
+
+    function audioBufferToWav(buffer) {
+      const sampleRate = buffer.sampleRate;
+      const numChannels = buffer.numberOfChannels;
+      const length = buffer.length;
 
       const wavBuffer = new ArrayBuffer(44 + length * numChannels * 2);
       const view = new DataView(wavBuffer);
@@ -2581,7 +2738,7 @@
       let offset = 44;
       for (let i = 0; i < length; i++) {
         for (let ch = 0; ch < numChannels; ch++) {
-          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[startSample + i] || 0));
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i] || 0));
           view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
           offset += 2;
         }
@@ -2589,93 +2746,54 @@
       return new Blob([wavBuffer], { type: 'audio/wav' });
     }
 
-    // State for fragment trimming & validation
-    let trimStartTime = 0;
-    let trimEndTime = 0;
-    let isFragmentConfirmed = false;
-    let previewSourceNode = null;
-    let isPreviewPlaying = false;
+    function drawWaveform(buffer) {
+      if (!waveCanvas || !buffer) return;
+      const c = waveCanvas;
+      const ctx = c.getContext('2d');
+      c.width = waveContainer ? waveContainer.clientWidth || 700 : 700;
+      c.height = 100;
+      ctx.clearRect(0, 0, c.width, c.height);
 
-    function updateWaveformVisuals() {
-      const c = document.getElementById('studio-waveform-canvas');
-      const startHandle = document.getElementById('trim-handle-start');
-      const endHandle = document.getElementById('trim-handle-end');
-      const highlight = document.getElementById('trim-highlight');
-      if (!c || !studioAudioBuf) return;
+      const data = buffer.getChannelData(0);
+      const step = Math.ceil(data.length / c.width);
+      const amp = c.height / 2;
 
+      ctx.fillStyle = '#8B5CF6';
+      for (let i = 0; i < c.width; i++) {
+        let min = 1.0;
+        let max = -1.0;
+        for (let j = 0; j < step; j++) {
+          const datum = data[i * step + j];
+          if (datum < min) min = datum;
+          if (datum > max) max = datum;
+        }
+        ctx.fillRect(i, (1 + min) * amp, 1, Math.max(2, (max - min) * amp));
+      }
+    }
+
+    function updateTrimLabels() {
+      if (!studioAudioBuf) return;
       const dur = studioAudioBuf.duration || 1;
       const startPct = Math.max(0, Math.min(100, (trimStartTime / dur) * 100));
       const endPct = Math.max(0, Math.min(100, (trimEndTime / dur) * 100));
 
-      if (startHandle) startHandle.style.left = `${startPct}%`;
-      if (endHandle) endHandle.style.left = `${endPct}%`;
-      if (highlight) {
-        highlight.style.left = `${startPct}%`;
-        highlight.style.width = `${Math.max(0, endPct - startPct)}%`;
+      if (startHandle) startHandle.style.left = startPct + '%';
+      if (endHandle) endHandle.style.left = endPct + '%';
+      if (trimHighlight) {
+        trimHighlight.style.left = startPct + '%';
+        trimHighlight.style.width = Math.max(0, endPct - startPct) + '%';
       }
 
-      const startLbl = document.getElementById('trim-start-label');
-      const endLbl = document.getElementById('trim-end-label');
-      const durLbl = document.getElementById('trim-duration-label');
-      if (startLbl) startLbl.textContent = formatSec(trimStartTime);
-      if (endLbl) endLbl.textContent = formatSec(trimEndTime);
-      if (durLbl) durLbl.textContent = `${(trimEndTime - trimStartTime).toFixed(1)} сек`;
-
-      // Redraw canvas with vibrant selected region and dimmed unselected regions
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, c.width, c.height);
-
-      const data = studioAudioBuf.getChannelData(0);
-      const step = Math.ceil(data.length / c.width);
-      const amp = c.height / 2;
-
-      const startPx = Math.floor((trimStartTime / dur) * c.width);
-      const endPx = Math.floor((trimEndTime / dur) * c.width);
-
-      for (let i = 0; i < c.width; i++) {
-        let min = 1.0, max = -1.0;
-        for (let j = 0; j < step; j++) {
-          const datum = data[i * step + j] || 0;
-          if (datum < min) min = datum;
-          if (datum > max) max = datum;
-        }
-        const isSelected = i >= startPx && i <= endPx;
-        ctx.fillStyle = isSelected ? '#8B5CF6' : 'rgba(255, 255, 255, 0.22)';
-        ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
-      }
+      if (trimStartLbl) trimStartLbl.textContent = formatLrcTime(trimStartTime);
+      if (trimEndLbl) trimEndLbl.textContent = formatLrcTime(trimEndTime);
+      if (trimDurLbl) trimDurLbl.textContent = `${Math.max(0, trimEndTime - trimStartTime).toFixed(1)} сек`;
     }
 
-    function drawWaveform(buf) {
-      const c = document.getElementById('studio-waveform-canvas');
-      if (!c || !buf) return;
-      c.width = c.offsetWidth || 600;
-      c.height = c.offsetHeight || 120;
-
-      trimStartTime = 0;
-      trimEndTime = buf.duration;
-      isFragmentConfirmed = false;
-
-      updateWaveformVisuals();
-    }
-
-    // Dragging trim handles & clicking waveform container
-    const waveContainer = document.getElementById('waveform-container');
-    const startHandle = document.getElementById('trim-handle-start');
-    const endHandle = document.getElementById('trim-handle-end');
-
+    // Trimming Drag Interaction
     let activeDrag = null;
-
-    startHandle?.addEventListener('pointerdown', (e) => {
-      activeDrag = 'start';
-      startHandle.setPointerCapture(e.pointerId);
-      e.stopPropagation();
-    });
-
-    endHandle?.addEventListener('pointerdown', (e) => {
-      activeDrag = 'end';
-      endHandle.setPointerCapture(e.pointerId);
-      e.stopPropagation();
-    });
+    startHandle?.addEventListener('pointerdown', (e) => { activeDrag = 'start'; e.preventDefault(); });
+    endHandle?.addEventListener('pointerdown', (e) => { activeDrag = 'end'; e.preventDefault(); });
+    window.addEventListener('pointerup', () => { activeDrag = null; });
 
     waveContainer?.addEventListener('pointermove', (e) => {
       if (!activeDrag || !studioAudioBuf) return;
@@ -2685,18 +2803,14 @@
       const targetSec = pct * dur;
 
       if (activeDrag === 'start') {
-        trimStartTime = Math.min(targetSec, trimEndTime - 0.5);
+        trimStartTime = Math.max(0, Math.min(targetSec, trimEndTime - 0.5));
       } else if (activeDrag === 'end') {
-        trimEndTime = Math.max(targetSec, trimStartTime + 0.5);
+        trimEndTime = Math.min(dur, Math.max(targetSec, trimStartTime + 0.5));
       }
-      updateWaveformVisuals();
+      updateTrimLabels();
     });
 
-    const stopDrag = () => { activeDrag = null; };
-    waveContainer?.addEventListener('pointerup', stopDrag);
-    waveContainer?.addEventListener('pointercancel', stopDrag);
-
-    // Clicking on waveform container adjusts nearest handle
+    // Waveform Click & Seek
     waveContainer?.addEventListener('click', (e) => {
       if (e.target === startHandle || e.target === endHandle || !studioAudioBuf) return;
       const rect = waveContainer.getBoundingClientRect();
@@ -2705,38 +2819,34 @@
 
       const distToStart = Math.abs(targetSec - trimStartTime);
       const distToEnd = Math.abs(targetSec - trimEndTime);
-
       if (distToStart < distToEnd) {
-        trimStartTime = Math.min(targetSec, trimEndTime - 0.5);
+        trimStartTime = Math.max(0, Math.min(targetSec, trimEndTime - 0.5));
       } else {
-        trimEndTime = Math.max(targetSec, trimStartTime + 0.5);
+        trimEndTime = Math.min(studioAudioBuf.duration, Math.max(targetSec, trimStartTime + 0.5));
       }
-      updateWaveformVisuals();
+      updateTrimLabels();
     });
 
-    const playTrimBtn = document.getElementById('studio-play-trim-btn');
+    // Trimmer Preview Player
+    let isPreviewingTrim = false;
+    let previewSourceNode = null;
 
     function stopTrimPreview() {
       if (previewSourceNode) {
         try { previewSourceNode.stop(); } catch (e) {}
-        previewSourceNode.disconnect();
         previewSourceNode = null;
       }
-      isPreviewPlaying = false;
-      if (playTrimBtn) {
-        playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-play"></use></svg><span>Прослушать отрезок</span>';
-      }
+      isPreviewingTrim = false;
+      if (playTrimBtn) playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-play"></use></svg><span>Прослушать фрагмент</span>';
     }
 
     playTrimBtn?.addEventListener('click', () => {
-      if (!studioAudioBuf || !studioAudioContext) return;
-      if (isPreviewPlaying) {
+      if (!studioAudioBuf) return;
+      if (isPreviewingTrim) {
         stopTrimPreview();
         return;
       }
-
-      stopTrimPreview();
-      const ctx = studioAudioContext;
+      const ctx = engine.audioCtx;
       if (ctx.state === 'suspended') ctx.resume();
 
       previewSourceNode = ctx.createBufferSource();
@@ -2745,51 +2855,98 @@
 
       const dur = trimEndTime > trimStartTime ? (trimEndTime - trimStartTime) : studioAudioBuf.duration;
       previewSourceNode.start(0, trimStartTime, dur);
-      isPreviewPlaying = true;
+      isPreviewingTrim = true;
+      if (playTrimBtn) playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-pause"></use></svg><span>Остановить фрагмент</span>';
 
-      playTrimBtn.innerHTML = '<svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-pause"></use></svg><span>Остановить</span>';
       previewSourceNode.onended = () => {
         stopTrimPreview();
       };
     });
 
-    // Confirm trim & proceed to Step 2
+    // Confirm Fragment & Move to Step 3
     document.getElementById('studio-confirm-trim-btn')?.addEventListener('click', () => {
       stopTrimPreview();
       isFragmentConfirmed = true;
-      if (studioAudioBuf && trimEndTime > trimStartTime) {
-        trimmedBlob = audioBufferToWav(studioAudioBuf, trimStartTime, trimEndTime);
+      const ctx = engine.audioCtx;
+      if (studioAudioBuf && trimEndTime > trimStartTime && (trimEndTime - trimStartTime) < studioAudioBuf.duration - 0.5) {
+        activeStudioBuffer = sliceAudioBuffer(ctx, studioAudioBuf, trimStartTime, trimEndTime);
+        trimmedBlob = audioBufferToWav(activeStudioBuffer);
+        showToast(`Фрагмент ${(trimEndTime - trimStartTime).toFixed(1)} сек подтвержден!`);
       } else {
+        activeStudioBuffer = studioAudioBuf;
         trimmedBlob = originalBlob;
+        showToast('Используется весь трек');
       }
-      waveBox.style.display = 'none';
-      document.getElementById('studio-step-2-box').style.display = 'block';
       studioAudio.src = URL.createObjectURL(trimmedBlob);
       studioAudio.load();
-      alert(`Фрагмент аудио (${(trimEndTime - trimStartTime).toFixed(1)} сек) успешно обрезан и подтвержден! Переходите к Шагу 2.`);
+      updateStep4AudioStatus();
+      goToStudioStep(3);
     });
 
+    // Keep Entire Track & Move to Step 3
     document.getElementById('studio-keep-original-btn')?.addEventListener('click', () => {
       stopTrimPreview();
       isFragmentConfirmed = true;
+      activeStudioBuffer = studioAudioBuf;
       trimmedBlob = originalBlob;
-      waveBox.style.display = 'none';
-      document.getElementById('studio-step-2-box').style.display = 'block';
       studioAudio.src = URL.createObjectURL(trimmedBlob);
       studioAudio.load();
-      alert('Оригинальный аудиофайл сохранен без обрезки! Переходите к Шагу 2.');
+      updateStep4AudioStatus();
+      showToast('Выбран весь трек целиком');
+      goToStudioStep(3);
     });
 
-    // Step 2 Lyrics paste & Live Tap with Millisecond [00:00.00] Support
+    // ----------------------------------------------------
+    // STEP 3: LYRICS & LIVE TAP SYNCER
+    // ----------------------------------------------------
+    function renderLyricsRows() {
+      const container = document.getElementById('studio-lyrics-lines-list');
+      if (!container) return;
+      container.innerHTML = '';
+      lyricsLines.forEach((line, idx) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.04);';
+        if (idx === curLineIdx) row.style.border = '1px solid var(--md-sys-color-primary)';
+
+        const timeSpan = document.createElement('span');
+        timeSpan.style.cssText = 'font-family: monospace; font-size: 0.8rem; color: var(--md-sys-color-primary); font-weight: 700; min-width: 75px;';
+        timeSpan.textContent = line.time !== null ? `[${formatLrcTime(line.time)}]` : '[--:--.--]';
+
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.value = line.text;
+        textInput.style.cssText = 'flex: 1; background: transparent; border: none; color: #FFF; outline: none; font-size: 0.9rem;';
+        textInput.addEventListener('input', () => { line.text = textInput.value; });
+
+        const setTimeBtn = document.createElement('button');
+        setTimeBtn.type = 'button';
+        setTimeBtn.className = 'icon-btn';
+        setTimeBtn.title = 'Установить текущее время';
+        setTimeBtn.innerHTML = '<svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-clock"></use></svg>';
+        setTimeBtn.addEventListener('click', () => {
+          line.time = studioAudio.currentTime;
+          renderLyricsRows();
+        });
+
+        row.appendChild(timeSpan);
+        row.appendChild(textInput);
+        row.appendChild(setTimeBtn);
+        container.appendChild(row);
+      });
+    }
+
     document.getElementById('studio-apply-pasted-lyrics-btn')?.addEventListener('click', () => {
       const raw = document.getElementById('studio-paste-lyrics-textarea')?.value || '';
-      if (!raw.trim()) return;
+      if (!raw.trim()) {
+        showToast('Пожалуйста, введите текст песни');
+        return;
+      }
       lyricsLines = parseLRC(raw);
       curLineIdx = 0;
       renderLyricsRows();
+      showToast(`Текст разбит на ${lyricsLines.length} строк`);
     });
 
-    // Paste ready LRC with timestamps directly from clipboard
     document.getElementById('studio-paste-lrc-clipboard-btn')?.addEventListener('click', async () => {
       let text = '';
       try {
@@ -2797,96 +2954,71 @@
           text = await navigator.clipboard.readText();
         }
       } catch (err) {
-        console.warn('Clipboard read failed, using textarea:', err);
+        console.warn('Clipboard read error:', err);
       }
       if (!text) {
         text = document.getElementById('studio-paste-lyrics-textarea')?.value || '';
       }
       if (!text.trim()) {
-        alert('Буфер обмена пуст. Скопируйте текст песни с таймингами (LRC) или вставьте его в текстовое поле.');
+        alert('Буфер обмена пуст. Пожалуйста, скопируйте текст с таймингами формата [00:00.00] или вставьте его в поле.');
         return;
       }
-
-      const textarea = document.getElementById('studio-paste-lyrics-textarea');
-      if (textarea) textarea.value = text;
-
+      const ta = document.getElementById('studio-paste-lyrics-textarea');
+      if (ta) ta.value = text;
       lyricsLines = parseLRC(text);
       curLineIdx = 0;
       renderLyricsRows();
+      showToast(`Успешно загружен LRC (${lyricsLines.length} строк) с миллисекундами!`);
     });
 
-    function renderLyricsRows() {
-      const list = document.getElementById('studio-lyrics-rows-list');
-      if (!list) return;
-      list.innerHTML = '';
-
-      lyricsLines.forEach((r, idx) => {
-        const item = document.createElement('div');
-        item.className = `tap-sync-row ${idx === curLineIdx ? 'current-target' : ''}`;
-        const timeStr = r.time !== null ? formatLrcTime(r.time) : '--:--.--';
-
-        item.innerHTML = `
-          <div class="tap-sync-time" style="cursor: pointer;" title="Нажмите, чтобы сделать текущей строкой для тапа">${timeStr}</div>
-          <input type="text" class="tap-sync-input" value="${r.text.replace(/"/g, '&quot;')}">
-          <button class="icon-btn delete-line-btn" style="width: 28px; height: 28px; color: var(--md-sys-color-error);"><svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-trash"></use></svg></button>
-        `;
-
-        item.querySelector('.tap-sync-time')?.addEventListener('click', () => {
-          curLineIdx = idx;
-          renderLyricsRows();
-        });
-
-        item.querySelector('.tap-sync-input')?.addEventListener('input', (e) => {
-          r.text = e.target.value;
-        });
-
-        item.querySelector('.delete-line-btn')?.addEventListener('click', () => {
-          lyricsLines.splice(idx, 1);
-          renderLyricsRows();
-        });
-
-        list.appendChild(item);
-      });
-    }
-
-    // Studio player
-    const playSyncBtn = document.getElementById('studio-sync-play-btn');
-    playSyncBtn?.addEventListener('click', () => {
+    // Syncer Play/Pause
+    const syncerPlayBtn = document.getElementById('studio-play-syncer-btn');
+    const syncerPlayLbl = document.getElementById('studio-syncer-play-label');
+    syncerPlayBtn?.addEventListener('click', () => {
       if (studioAudio.paused) {
         studioAudio.play();
-        playSyncBtn.querySelector('span').textContent = 'Пауза';
+        if (syncerPlayLbl) syncerPlayLbl.textContent = 'Пауза';
       } else {
         studioAudio.pause();
-        playSyncBtn.querySelector('span').textContent = 'Воспроизвести';
+        if (syncerPlayLbl) syncerPlayLbl.textContent = 'Воспроизвести для разметки';
       }
     });
 
-    studioAudio.addEventListener('timeupdate', () => {
-      const tLbl = document.getElementById('studio-player-timer');
-      if (tLbl) tLbl.textContent = formatLrcTime(studioAudio.currentTime);
-    });
+    studioAudio.onended = () => {
+      if (syncerPlayLbl) syncerPlayLbl.textContent = 'Воспроизвести для разметки';
+    };
 
-    // TAP action
+    // Live Tap Syncer
     const tapAction = () => {
-      if (lyricsLines.length === 0 || curLineIdx >= lyricsLines.length) return;
+      if (curLineIdx >= lyricsLines.length) return;
       lyricsLines[curLineIdx].time = studioAudio.currentTime;
       curLineIdx++;
       renderLyricsRows();
     };
     document.getElementById('studio-tap-record-btn')?.addEventListener('click', tapAction);
 
-    // Step 3: Instrumental configuration
-    // Step 3: Interactive Multi-Parameter Vocal Remover DSP & Live Tuner
+    window.addEventListener('keydown', (e) => {
+      if (currentStudioStep === 3 && e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        tapAction();
+      }
+    });
+
+    // ----------------------------------------------------
+    // STEP 4: M-CORE DSP EQUALIZER & 100% RELIABLE PREVIEW
+    // ----------------------------------------------------
     const instToggle = document.getElementById('studio-instrumental-toggle');
     const instControls = document.getElementById('studio-instrumental-controls');
     const instTestBtn = document.getElementById('studio-test-instrumental-btn');
     const instTestLabel = document.getElementById('studio-test-instrumental-label');
+    const instTestIcon = document.getElementById('studio-test-inst-icon');
     const instToggleModeBtn = document.getElementById('studio-test-toggle-mode-btn');
     const instModeLabel = document.getElementById('studio-test-mode-label');
     const instResetBtn = document.getElementById('studio-reset-dsp-btn');
     const previewProgressBox = document.getElementById('studio-preview-progress-box');
     const previewScrubber = document.getElementById('studio-preview-scrubber');
     const previewTimeEl = document.getElementById('studio-test-time');
+    const audioIndicator = document.getElementById('studio-audio-indicator');
 
     // DSP Sliders
     const sBass = document.getElementById('slider-inst-bass-freq');
@@ -2916,6 +3048,7 @@
         makeupGain: sMakeup ? Number(sMakeup.value) : 1.30
       };
     }
+    window.getStudioDSPConfig = getStudioDSPConfig;
 
     function updateDSPUI() {
       if (vBass && sBass) vBass.textContent = `${sBass.value} Гц`;
@@ -2936,6 +3069,7 @@
       if (sNotchQ) sNotchQ.value = 1.4;
       if (sMakeup) sMakeup.value = 1.30;
       updateDSPUI();
+      showToast('Параметры сброшены до студийных значений');
     });
 
     instToggle?.addEventListener('change', () => {
@@ -2943,6 +3077,19 @@
       if (instControls) instControls.style.display = active ? 'block' : 'none';
       if (!active && isTesting) stopStudioPreview();
     });
+
+    function updateStep4AudioStatus() {
+      const readyMsg = document.getElementById('studio-audio-ready-msg');
+      const timeEl = document.getElementById('studio-test-time');
+      const buf = activeStudioBuffer || studioAudioBuf;
+      if (buf) {
+        if (readyMsg) readyMsg.textContent = `Аудио готово: ${formatTime(buf.duration)} • M-Core DSP готов к прослушиванию`;
+        if (timeEl && !isTesting) timeEl.textContent = `00:00 / ${formatTime(buf.duration)}`;
+      } else {
+        if (readyMsg) readyMsg.textContent = 'Аудиофайл еще не выбран на Шаге 2';
+        if (timeEl && !isTesting) timeEl.textContent = '00:00 / 00:00';
+      }
+    }
 
     let isTesting = false;
     let isMinusovActive = true;
@@ -2964,19 +3111,22 @@
       if (!previewAudioCtx || !dspBassFilter) return;
       const cfg = getStudioDSPConfig();
       const t = previewAudioCtx.currentTime;
-      dspBassFilter.frequency.setTargetAtTime(cfg.bassFreq, t, 0.02);
-      dspAirFilter.frequency.setTargetAtTime(cfg.airFreq, t, 0.02);
-      dspNotchFilter.frequency.setTargetAtTime(cfg.notchFreq, t, 0.02);
-      dspNotchFilter.Q.setTargetAtTime(cfg.notchQ, t, 0.02);
-      dspMakeupGain.gain.setTargetAtTime(cfg.makeupGain, t, 0.02);
+      dspBassFilter.frequency.setValueAtTime(cfg.bassFreq, t);
+      dspAirFilter.frequency.setValueAtTime(cfg.airFreq, t);
+      dspNotchFilter.frequency.setValueAtTime(cfg.notchFreq, t);
+      dspNotchFilter.Q.setValueAtTime(cfg.notchQ, t);
+      dspMakeupGain.gain.setValueAtTime(cfg.makeupGain, t);
       const depthVal = cfg.depth / 100;
-      dspCenterGainL.gain.setTargetAtTime(-1.15 * depthVal, t, 0.02);
-      dspCenterGainR.gain.setTargetAtTime(-1.15 * depthVal, t, 0.02);
+      dspCenterGainL.gain.setValueAtTime(-1.15 * depthVal, t);
+      dspCenterGainR.gain.setValueAtTime(-1.15 * depthVal, t);
     }
 
     function stopStudioPreview() {
       if (previewSource) {
-        try { previewSource.stop(); } catch (e) {}
+        try {
+          previewSource.onended = null;
+          previewSource.stop();
+        } catch (e) {}
         previewSource = null;
       }
       if (previewAnimId) {
@@ -2985,30 +3135,40 @@
       }
       isTesting = false;
       if (instTestLabel) instTestLabel.textContent = 'Прослушать минусовку';
-      if (instToggleModeBtn) instToggleModeBtn.style.display = 'none';
-      if (previewProgressBox) previewProgressBox.style.display = 'none';
+      if (instTestIcon) instTestIcon.innerHTML = '<use href="#icon-play"></use>';
+      if (audioIndicator) audioIndicator.style.opacity = '0.35';
     }
 
     async function startStudioPreview(offset = 0) {
-      const buffer = trimmedAudioBuffer || studioAudioBuf;
+      const buffer = activeStudioBuffer || studioAudioBuf;
       if (!buffer) {
-        alert('Пожалуйста, сначала загрузите или выберите фрагмент трека в Шаге 1.');
+        showToast('Пожалуйста, сначала выберите аудиофайл на Шаге 2');
+        goToStudioStep(2);
         return;
       }
 
-      await engine.ensureContext();
+      if (engine && engine.isPlaying) {
+        engine.softPause();
+      }
+      engine.ensureContext();
       previewAudioCtx = engine.audioCtx;
       const ctx = previewAudioCtx;
-      if (ctx.state === 'suspended') await ctx.resume();
+      if (ctx.state === 'suspended') {
+        try { ctx.resume(); } catch (e) {}
+      }
 
       if (previewSource) {
-        try { previewSource.stop(); } catch (e) {}
+        try {
+          previewSource.onended = null;
+          previewSource.stop();
+        } catch (e) {}
         previewSource = null;
       }
 
       previewSource = ctx.createBufferSource();
       previewSource.buffer = buffer;
 
+      // Stereo Difference Matrix (L - R)
       const splitter = ctx.createChannelSplitter(2);
       const merger = ctx.createChannelMerger(2);
 
@@ -3022,18 +3182,21 @@
       splitter.connect(gainR_to_R, 1);
       splitter.connect(dspCenterGainL, 0);
 
+      // Bass LowPass filter
       dspBassFilter = ctx.createBiquadFilter();
       dspBassFilter.type = 'lowpass';
       const bassGain = ctx.createGain(); bassGain.gain.value = 0.72;
       previewSource.connect(dspBassFilter);
       dspBassFilter.connect(bassGain);
 
+      // Air HighPass filter
       dspAirFilter = ctx.createBiquadFilter();
       dspAirFilter.type = 'highpass';
       const airGain = ctx.createGain(); airGain.gain.value = 0.24;
       previewSource.connect(dspAirFilter);
       dspAirFilter.connect(airGain);
 
+      // Merge into stereo channels
       gainL_to_L.connect(merger, 0, 0);
       dspCenterGainR.connect(merger, 0, 0);
       bassGain.connect(merger, 0, 0);
@@ -3044,14 +3207,17 @@
       bassGain.connect(merger, 0, 1);
       airGain.connect(merger, 0, 1);
 
+      // Vocal Notch Filter
       dspNotchFilter = ctx.createBiquadFilter();
       dspNotchFilter.type = 'notch';
 
+      // Makeup Gain
       dspMakeupGain = ctx.createGain();
 
       merger.connect(dspNotchFilter);
       dspNotchFilter.connect(dspMakeupGain);
 
+      // Instant A/B Crossfade Gains
       dspDryGain = ctx.createGain();
       dspWetGain = ctx.createGain();
       dspDryGain.gain.value = isMinusovActive ? 0.0 : 1.0;
@@ -3074,9 +3240,9 @@
       previewStartTime = ctx.currentTime - startSec;
       isTesting = true;
 
-      if (instTestLabel) instTestLabel.textContent = 'Остановить';
-      if (instToggleModeBtn) instToggleModeBtn.style.display = 'inline-flex';
-      if (previewProgressBox) previewProgressBox.style.display = 'block';
+      if (instTestLabel) instTestLabel.textContent = 'Остановить прослушивание';
+      if (instTestIcon) instTestIcon.innerHTML = '<use href="#icon-pause"></use>';
+      if (audioIndicator) audioIndicator.style.opacity = '1';
 
       previewSource.onended = () => {
         if (isTesting && ctx.currentTime - previewStartTime >= buffer.duration - 0.5) {
@@ -3113,59 +3279,55 @@
       isMinusovActive = !isMinusovActive;
       if (dspDryGain && dspWetGain && previewAudioCtx) {
         const t = previewAudioCtx.currentTime;
-        dspDryGain.gain.setTargetAtTime(isMinusovActive ? 0.0 : 1.0, t, 0.03);
-        dspWetGain.gain.setTargetAtTime(isMinusovActive ? 1.0 : 0.0, t, 0.03);
+        dspDryGain.gain.setValueAtTime(isMinusovActive ? 0.0 : 1.0, t);
+        dspWetGain.gain.setValueAtTime(isMinusovActive ? 1.0 : 0.0, t);
       }
       if (instModeLabel) {
-        instModeLabel.innerHTML = isMinusovActive ? 'Режим: <strong>Минусовка</strong>' : 'Режим: <strong>Оригинал</strong>';
+        instModeLabel.innerHTML = isMinusovActive ? 'Режим: <strong>Минусовка (DSP)</strong>' : 'Режим: <strong>Оригинал (с голосом)</strong>';
       }
+      showToast(isMinusovActive ? 'Включен режим минусовки' : 'Включен оригинальный звук');
     });
 
     previewScrubber?.addEventListener('input', () => {
-      const buffer = trimmedAudioBuffer || studioAudioBuf;
+      const buffer = activeStudioBuffer || studioAudioBuf;
       if (!buffer) return;
       const targetSec = (Number(previewScrubber.value) / 100) * buffer.duration;
       startStudioPreview(targetSec);
     });
 
-    // Build .oump3 button with strict fragment & lyrics validation gate
+    // ----------------------------------------------------
+    // BUILD .OUMP3 CONTAINER
+    // ----------------------------------------------------
     document.getElementById('studio-build-oump3-btn')?.addEventListener('click', async () => {
       const title = document.getElementById('studio-title-input')?.value.trim();
       const artist = document.getElementById('studio-artist-input')?.value.trim();
 
       if (!title || !artist) {
-        alert('Пожалуйста, укажите название трека и артиста в метаданных!');
+        showToast('Пожалуйста, укажите название трека и артиста на Шаге 1');
+        goToStudioStep(1);
         return;
       }
       if (!originalBlob) {
-        alert('Пожалуйста, выберите аудиофайл на Шаге 1!');
-        return;
-      }
-      if (!isFragmentConfirmed) {
-        alert('Пожалуйста, выберите и подтвердите фрагмент аудио на Шаге 1 перед скачиванием!');
+        showToast('Пожалуйста, выберите аудиофайл на Шаге 2');
+        goToStudioStep(2);
         return;
       }
 
       const validLines = lyricsLines.filter((l) => l.text && l.text.trim());
-      if (validLines.length === 0) {
-        alert('Запрещено скачивать трек без текста! Пожалуйста, добавьте текст песни на Шаге 2 (хотя бы 1 строку).');
-        return;
-      }
-
-      const lrcText = lyricsLines
+      const lrcText = validLines
         .filter((l) => l.time !== null)
         .map((l) => `[${formatLrcTime(l.time)}]${l.text}`)
         .join('\n');
 
       const isExplicitChecked = !!document.getElementById('studio-explicit-toggle')?.checked;
-      const isInstChecked = !!document.getElementById('studio-instrumental-toggle')?.checked;
+      const isInstChecked = !!instToggle?.checked;
       const dspConfig = isInstChecked ? getStudioDSPConfig() : null;
 
       try {
         const oump3Blob = await buildOump3Container({
           title,
           artist,
-          duration: studioAudioBuf ? studioAudioBuf.duration : 180,
+          duration: activeStudioBuffer ? activeStudioBuffer.duration : (studioAudioBuf ? studioAudioBuf.duration : 180),
           hasLyrics: !!lrcText,
           isExplicit: isExplicitChecked,
           explicit: isExplicitChecked,
@@ -3183,12 +3345,14 @@
         a.click();
         URL.revokeObjectURL(dl);
 
-        alert(`Трек "${artist} — ${title}.oump3" успешно собран!`);
+        showToast(`Файл "${artist} - ${title}.oump3" успешно собран!`);
       } catch (e) {
-        alert('Ошибка при сборке .oump3: ' + e.message);
+        console.error('Build oump3 error:', e);
+        alert('Ошибка сборки .oump3: ' + e.message);
       }
     });
   }
+
 
   /* Fullscreen Lyrics Overlay & 60 FPS Millisecond Sync Engine */
   let currentParsedLyrics = [];

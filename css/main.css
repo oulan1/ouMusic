@@ -1055,3 +1055,125 @@ html, body {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 35px rgba(0, 0, 0, 0.25);
   transition: transform 0.25s ease;
 }
+
+
+/* ==========================================================================
+   STUDIO 4-STEP WIZARD STYLES
+   ========================================================================== */
+.studio-steps-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.studio-step-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--md-sys-color-surface-container);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-shape-corner-medium);
+  color: var(--md-sys-color-outline);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  outline: none;
+}
+
+.studio-step-tab:hover {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.studio-step-tab.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(236, 72, 153, 0.18));
+  border-color: var(--md-sys-color-primary);
+  color: #FFF;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+}
+
+.studio-step-tab.completed {
+  border-color: rgba(16, 185, 129, 0.5);
+  color: var(--md-sys-color-on-surface);
+}
+
+.studio-step-tab .step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  transition: all 0.2s ease;
+}
+
+.studio-step-tab.active .step-num {
+  background: var(--md-sys-color-primary);
+  color: #FFF;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+}
+
+.studio-step-tab.completed .step-num {
+  background: #10B981;
+  color: #FFF;
+}
+
+.studio-step-container {
+  animation: studioFadeIn 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes studioFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studio-nav-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Studio Animated Equalizer Bars */
+.studio-audio-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+.studio-audio-indicator .bar {
+  width: 3px;
+  height: 100%;
+  background: var(--md-sys-color-primary);
+  border-radius: 2px;
+  animation: eqBounce 1s infinite ease-in-out;
+}
+.studio-audio-indicator .bar:nth-child(1) { animation-delay: 0.1s; }
+.studio-audio-indicator .bar:nth-child(2) { animation-delay: 0.3s; }
+.studio-audio-indicator .bar:nth-child(3) { animation-delay: 0.2s; }
+.studio-audio-indicator .bar:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes eqBounce {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+@media (max-width: 680px) {
+  .studio-step-tab {
+    padding: 10px 8px;
+    font-size: 0.78rem;
+    gap: 6px;
+  }
+}
