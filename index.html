@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.6.5">
-  <link rel="stylesheet" href="css/main.css?v=2.6.5">
-  <link rel="stylesheet" href="css/components.css?v=2.6.5">
-  <link rel="stylesheet" href="css/player.css?v=2.6.5">
+  <link rel="stylesheet" href="css/tokens.css?v=2.6.6">
+  <link rel="stylesheet" href="css/main.css?v=2.6.6">
+  <link rel="stylesheet" href="css/components.css?v=2.6.6">
+  <link rel="stylesheet" href="css/player.css?v=2.6.6">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -101,6 +101,9 @@
       <!-- Check Circle / Downloaded -->
       <symbol id="icon-check-circle" viewBox="0 0 24 24">
         <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
       </symbol>
 
       <!-- Verified Badge (Music Note with check badge) -->
@@ -1302,31 +1305,37 @@
           <div class="player-top-caption">СЕЙЧАС ИГРАЕТ</div>
           <div class="player-top-album" id="fs-album-title">ouMusic</div>
         </div>
-        <button class="icon-btn" id="fs-more-options-btn" title="Опции">
-          <svg class="svg-icon"><use href="#icon-more-vert"></use></svg>
+        <button class="icon-btn" id="fs-top-queue-btn" title="Очередь">
+          <svg class="svg-icon"><use href="#icon-queue"></use></svg>
         </button>
       </div>
 
       <!-- Cover & 60 FPS Spectrum Area -->
       <div class="player-cover-container">
-        <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="640" height="640"></canvas>
+        <canvas id="cover-spectrum-canvas" class="cover-spectrum-canvas" width="800" height="800"></canvas>
         <div class="player-cover-box" id="player-cover-clickable" title="Нажмите, чтобы открыть обложку">
           <img id="fs-cover-img" src="assets/oumusic.png" alt="Cover" class="player-cover-img">
         </div>
       </div>
 
-      <!-- Meta Row -->
-      <div class="player-meta-row">
-        <div class="player-meta-text">
-          <div class="player-title" style="display: flex; align-items: center;"><span id="fs-title">Название трека</span><span class="badge-explicit" id="fs-explicit-badge" style="display: none;" title="Ненормативная лексика">E</span></div>
-          <div class="player-artist" id="fs-artist">Исполнитель</div>
+      <!-- Modern Player Meta Row (Screenshot 2) -->
+      <div class="player-meta-row modern-player-meta">
+        <div class="player-artist-pill" id="player-artist-pill" title="Открыть страницу артиста">
+          <img id="fs-artist-avatar-img" class="player-artist-avatar" src="assets/oumusic.png" alt="Artist">
+          <div class="player-meta-text">
+            <div class="player-title">
+              <span id="fs-title">Название трека</span>
+              <span class="badge-explicit" id="fs-explicit-badge" style="display: none;" title="Ненормативная лексика">E</span>
+            </div>
+            <div class="player-artist" id="fs-artist">Исполнитель</div>
+          </div>
         </div>
         <div class="player-meta-actions">
-          <button class="icon-btn" id="fs-dislike-btn" title="Дизлайк (Не предлагать)">
-            <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+          <button class="icon-btn" id="fs-share-track-btn" title="Поделиться треком">
+            <svg class="svg-icon"><use href="#icon-share"></use></svg>
           </button>
-          <button class="icon-btn" id="fs-like-btn" title="Нравится">
-            <svg class="svg-icon"><use href="#icon-heart"></use></svg>
+          <button class="icon-btn" id="fs-more-options-btn" title="Опции">
+            <svg class="svg-icon"><use href="#icon-more-vert"></use></svg>
           </button>
         </div>
       </div>
@@ -1340,41 +1349,44 @@
         </div>
       </div>
 
-      <!-- Transport Controls -->
+      <!-- Transport Controls (Screenshot 2: Shuffle, Prev, Big Accent Play FAB, Next, Heart Like) -->
       <div class="player-main-controls">
         <button class="icon-btn" id="fs-shuffle-btn" title="Перемешать">
           <svg class="svg-icon"><use href="#icon-shuffle"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-prev-btn" title="Назад (10 сек)" style="width: 48px; height: 48px;">
-          <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-prev"></use></svg>
+        <button class="icon-btn" id="fs-prev-btn" title="Предыдущий трек" style="width: 52px; height: 52px;">
+          <svg class="svg-icon" style="width: 28px; height: 28px;"><use href="#icon-prev"></use></svg>
         </button>
         <button class="play-pause-fab" id="fs-play-btn" title="Пауза / Плей">
           <svg class="svg-icon"><use href="#icon-play"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-next-btn" title="Вперед" style="width: 48px; height: 48px;">
-          <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-next"></use></svg>
+        <button class="icon-btn" id="fs-next-btn" title="Следующий трек" style="width: 52px; height: 52px;">
+          <svg class="svg-icon" style="width: 28px; height: 28px;"><use href="#icon-next"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-repeat-btn" title="Повтор">
-          <svg class="svg-icon"><use href="#icon-repeat"></use></svg>
+        <button class="icon-btn" id="fs-like-btn" title="Нравится">
+          <svg class="svg-icon"><use href="#icon-heart"></use></svg>
         </button>
       </div>
 
-      <!-- Bottom Utils -->
+      <!-- Bottom Secondary Row (Repeat, Lyrics, Queue) -->
       <div class="player-bottom-utils">
-        <button class="icon-btn" id="fs-open-lyrics-btn" title="Текст песни (Караоке)">
-          <svg class="svg-icon"><use href="#icon-mic"></use></svg>
+        <button class="icon-btn" id="fs-repeat-btn" title="Повтор">
+          <svg class="svg-icon"><use href="#icon-repeat"></use></svg>
+        </button>
+        <button class="icon-btn" id="fs-open-lyrics-btn" title="Текст песни (Караоке)" style="width: 44px; height: 44px;">
+          <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-mic"></use></svg>
         </button>
         <button class="icon-btn" id="fs-open-queue-btn" title="Очередь воспроизведения">
           <svg class="svg-icon"><use href="#icon-queue"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-profile-btn" title="Мой профиль" style="padding: 0; overflow: hidden; border-radius: 50%; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.2);">
-          <img id="fs-profile-avatar-img" src="assets/oumusic.png" alt="Профиль" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;">
+        <button class="icon-btn" id="fs-dislike-btn" title="Не предлагать" style="display: none;">
+          <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-sleep-timer-btn" title="Таймер сна">
+        <button class="icon-btn" id="fs-sleep-timer-btn" title="Таймер сна" style="display: none;">
           <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-share-track-btn" title="Поделиться треком">
-          <svg class="svg-icon"><use href="#icon-share"></use></svg>
+        <button class="icon-btn" id="fs-profile-btn" title="Мой профиль" style="display: none;">
+          <img id="fs-profile-avatar-img" src="assets/oumusic.png" alt="Профиль">
         </button>
       </div>
     </div>
@@ -1385,9 +1397,15 @@
     <!-- Atmospheric Ambient Glow Backdrop -->
     <div class="lyrics-glow-backdrop" id="lyrics-glow-backdrop"></div>
 
-    <!-- Top Action Bar -->
+    <!-- Top Action Bar (Screenshot 1: Chevron Left, Center Caption, Right Actions) -->
     <div class="lyrics-top-bar">
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="lyrics-close-circle-btn" id="close-lyrics-btn" title="Свернуть караоке">
+        <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-chevron-down"></use></svg>
+      </button>
+
+      <div class="lyrics-top-caption" id="lyrics-top-caption">Найденное</div>
+
+      <div style="display: flex; align-items: center; gap: 8px;">
         <!-- Vocal Remover BETA Button -->
         <button class="vocal-remover-btn" id="lyrics-vocal-remover-toggle" title="Отключить / включить голос исполнителя">
           <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-mic"></use></svg>
@@ -1400,11 +1418,6 @@
           <span>Цитата</span>
         </button>
       </div>
-
-      <!-- Circular Close Chevron Button (Top-Right like screenshot) -->
-      <button class="lyrics-close-circle-btn" id="close-lyrics-btn" title="Свернуть караоке">
-        <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-chevron-down"></use></svg>
-      </button>
     </div>
 
     <!-- 3-2-1 Countdown visual -->
@@ -1449,25 +1462,120 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating Bottom Mini Player Bar (Screenshot 1) -->
+    <div class="lyrics-bottom-mini-bar" id="lyrics-bottom-mini-bar">
+      <div class="lyrics-mini-left" id="lyrics-mini-open-player" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer;">
+        <img class="lyrics-mini-cover" id="lyrics-bottom-cover" src="assets/oumusic.png" alt="Cover" style="width: 42px; height: 42px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: #222;">
+        <div class="lyrics-mini-meta" style="flex: 1; min-width: 0;">
+          <div class="lyrics-mini-title-row" style="display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <span id="lyrics-bottom-title">Название трека</span>
+            <span class="badge-explicit" id="lyrics-bottom-exp" style="display: none; font-size: 9px; width: 15px; height: 15px;">E</span>
+          </div>
+          <div class="lyrics-mini-artist" id="lyrics-bottom-artist" style="font-size: 0.82rem; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Исполнитель</div>
+        </div>
+      </div>
+      <div class="lyrics-mini-actions" style="display: flex; align-items: center; gap: 8px;">
+        <button class="icon-btn" id="lyrics-bottom-like-btn" title="Нравится" style="width: 38px; height: 38px;">
+          <svg class="svg-icon"><use href="#icon-heart"></use></svg>
+        </button>
+        <button class="icon-btn" id="lyrics-bottom-play-btn" title="Воспроизведение" style="width: 38px; height: 38px;">
+          <svg class="svg-icon" id="lyrics-bottom-play-icon"><use href="#icon-pause"></use></svg>
+        </button>
+      </div>
+    </div>
   </div>
 
-  <!-- BOTTOM SHEET: 3 DOTS TRACK OPTIONS & REAL-TIME FX -->
+  <!-- BOTTOM SHEET: 3 DOTS TRACK OPTIONS (Screenshot 3 Design) -->
   <div class="bottom-sheet-backdrop" id="track-options-backdrop">
-    <div class="bottom-sheet" id="track-options-sheet">
+    <div class="bottom-sheet modern-track-sheet" id="track-options-sheet">
       <div class="bottom-sheet-handle"></div>
-      <div class="sheet-header">
-        <div class="sheet-title" id="sheet-track-title">Опции трека</div>
-        <button class="icon-btn" id="close-track-options-btn"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+
+      <!-- Track Header (Screenshot 3) -->
+      <div class="sheet-track-header" id="sheet-track-header-row">
+        <img id="sheet-track-cover" src="assets/oumusic.png" alt="Cover" class="sheet-track-cover">
+        <div class="sheet-track-meta">
+          <div class="sheet-track-title">
+            <span id="sheet-track-title">Название трека</span>
+            <span class="badge-explicit" id="sheet-track-exp" style="display: none;">E</span>
+          </div>
+          <div class="sheet-track-dur" id="sheet-track-dur">0:00</div>
+        </div>
+        <button class="icon-btn" id="close-track-options-btn" title="Закрыть">
+          <svg class="svg-icon"><use href="#icon-chevron-right"></use></svg>
+        </button>
       </div>
 
-      <!-- Real-Time M-Core FX Section -->
-      <div style="background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 14px; margin-bottom: 16px;">
+      <!-- Artist Row (Screenshot 3) -->
+      <div class="sheet-artist-row" id="sheet-artist-row" title="Перейти к артисту">
+        <img id="sheet-artist-avatar" src="assets/oumusic.png" alt="Artist" class="sheet-artist-avatar">
+        <span id="sheet-artist-name" class="sheet-artist-name">Исполнитель</span>
+      </div>
+      <div id="sheet-age-badge" class="sheet-age-badge" style="display: none;">Возрастное ограничение 18+</div>
+
+      <!-- 3 Circular Action Chips (Screenshot 3) -->
+      <div class="sheet-chips-row">
+        <button class="sheet-action-chip" id="sheet-chip-like" title="Нравится">
+          <div class="sheet-chip-circle" id="sheet-chip-like-circle">
+            <svg class="svg-icon"><use id="sheet-chip-like-icon" href="#icon-heart"></use></svg>
+          </div>
+          <span class="sheet-chip-label" id="sheet-chip-like-label">Нравится</span>
+        </button>
+
+        <button class="sheet-action-chip" id="sheet-chip-download" title="Скачать в память">
+          <div class="sheet-chip-circle" id="sheet-chip-download-circle">
+            <svg class="svg-icon"><use id="sheet-chip-download-icon" href="#icon-download"></use></svg>
+          </div>
+          <span class="sheet-chip-label" id="sheet-chip-download-label">Скачать</span>
+        </button>
+
+        <button class="sheet-action-chip" id="sheet-chip-vocal" title="Минусовка без вокала">
+          <div class="sheet-chip-circle" id="sheet-chip-vocal-circle">
+            <svg class="svg-icon"><use href="#icon-mic"></use></svg>
+          </div>
+          <span class="sheet-chip-label" id="sheet-chip-vocal-label">Минусовка</span>
+        </button>
+      </div>
+
+      <!-- Menu Actions (Screenshot 3) -->
+      <div class="sheet-actions-list">
+        <button class="sheet-action-item" id="sheet-act-share">
+          <svg class="svg-icon"><use href="#icon-share"></use></svg>
+          <span>Поделиться</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-add-playlist">
+          <svg class="svg-icon"><use href="#icon-plus"></use></svg>
+          <span>Добавить в плейлист</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-open-lyrics">
+          <svg class="svg-icon"><use href="#icon-mic"></use></svg>
+          <span>Показать текст песни</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-listen-device">
+          <svg class="svg-icon"><use href="#icon-play"></use></svg>
+          <span>Слушать на устройстве</span>
+        </button>
+        <button class="sheet-action-item danger" id="sheet-act-remove-offline">
+          <svg class="svg-icon"><use href="#icon-trash"></use></svg>
+          <span>Удалить с устройства</span>
+        </button>
+        <button class="sheet-action-item" id="sheet-act-about-track">
+          <svg class="svg-icon"><use href="#icon-equalizer"></use></svg>
+          <span>О треке / M-Core FX</span>
+        </button>
+        <button class="sheet-action-item danger" id="sheet-act-dislike">
+          <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
+          <span>Не нравится</span>
+        </button>
+      </div>
+
+      <!-- Collapsible Real-Time M-Core FX Drawer -->
+      <div id="sheet-mcore-fx-drawer" style="display: none; background: var(--md-sys-color-surface-container-high); border-radius: var(--md-shape-corner-medium); padding: 14px; margin-top: 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <span style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-primary);">Аудиоэффекты M-Core FX</span>
           <button class="btn btn-outlined" id="fx-reset-all-btn" style="padding: 4px 10px; font-size: 0.72rem;">Сбросить эффекты</button>
         </div>
 
-        <!-- Slider 1: Slowed / Speed Up -->
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>Скорость и Тон (Slowed / Speed)</span>
@@ -1476,7 +1584,6 @@
           <input type="range" id="fx-speed-slider" class="m3-range-input" min="0.70" max="1.35" step="0.01" value="1.00">
         </div>
 
-        <!-- Slider 2: Reverb -->
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>Пространство (Reverb)</span>
@@ -1485,7 +1592,6 @@
           <input type="range" id="fx-reverb-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
         </div>
 
-        <!-- Slider 3: 8D Audio -->
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>8D Аудио (Вращение)</span>
@@ -1493,42 +1599,6 @@
           </div>
           <input type="range" id="fx-spatial-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
         </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <button class="sheet-action-item" id="sheet-act-like">
-          <svg class="svg-icon"><use href="#icon-heart"></use></svg>
-          <span id="sheet-like-label">Добавить в понравившиеся</span>
-        </button>
-        <button class="sheet-action-item" id="sheet-act-play-next">
-          <svg class="svg-icon"><use href="#icon-next"></use></svg>
-          <span>Включить следующим</span>
-        </button>
-        <button class="sheet-action-item" id="sheet-act-add-queue">
-          <svg class="svg-icon"><use href="#icon-queue"></use></svg>
-          <span>Добавить в конец очереди</span>
-        </button>
-        <button class="sheet-action-item" id="sheet-act-add-playlist">
-          <svg class="svg-icon"><use href="#icon-plus"></use></svg>
-          <span>Добавить в плейлист</span>
-        </button>
-        <button class="sheet-action-item" id="sheet-act-download">
-          <svg class="svg-icon"><use href="#icon-download"></use></svg>
-          <span id="sheet-download-label">Скачать в кэш</span>
-        </button>
-        <button class="sheet-action-item" id="sheet-act-share">
-          <svg class="svg-icon"><use href="#icon-share"></use></svg>
-          <span>Поделиться треком</span>
-        </button>
-        <button class="sheet-action-item danger" id="sheet-act-dislike">
-          <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
-          <span>Не предлагать / Скрыть трек</span>
-        </button>
-        <button class="sheet-action-item danger" id="sheet-act-delete-track">
-          <svg class="svg-icon" style="color: var(--md-sys-color-error);"><use href="#icon-trash"></use></svg>
-          <span style="color: var(--md-sys-color-error); font-weight: 600;">Удалить локальный трек</span>
-        </button>
       </div>
     </div>
   </div>
@@ -1895,7 +1965,7 @@
   </div>
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.6.5"></script>
-  <script src="js/app.standalone.js?v=2.6.5"></script>
+  <script src="tracks/catalog.js?v=2.6.6"></script>
+  <script src="js/app.standalone.js?v=2.6.6"></script>
 </body>
 </html>

@@ -540,13 +540,25 @@ html, body {
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9999px !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
 [data-theme="light"][data-liquid-glass="true"] .mobile-nav-capsule {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 9999px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+/* Nav capsule tabs: completely flat, transparent buttons inside capsule */
+.mobile-nav-capsule .nav-tab,
+[data-liquid-glass="true"] .mobile-nav-capsule .nav-tab,
+[data-theme="light"][data-liquid-glass="true"] .mobile-nav-capsule .nav-tab {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .nav-tab {
@@ -1032,7 +1044,6 @@ html, body {
 [data-liquid-glass="true"] .play-pause-fab,
 [data-liquid-glass="true"] .wave-main-fab,
 [data-liquid-glass="true"] .lyrics-cover-btn,
-[data-liquid-glass="true"] .nav-tab,
 [data-liquid-glass="true"] .studio-step-tab,
 [data-liquid-glass="true"] .sheet-action-item {
   background: rgba(255, 255, 255, 0.08) !important;
@@ -1076,8 +1087,7 @@ html, body {
 [data-liquid-glass="true"] .btn-outlined,
 [data-liquid-glass="true"] .chip,
 [data-liquid-glass="true"] .vocal-remover-btn,
-[data-liquid-glass="true"] #lyrics-share-quote-btn,
-[data-liquid-glass="true"] .nav-tab {
+[data-liquid-glass="true"] #lyrics-share-quote-btn {
   border-radius: 9999px !important;
 }
 

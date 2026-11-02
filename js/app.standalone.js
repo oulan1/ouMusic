@@ -187,7 +187,17 @@
     });
   }
 
-  /* Full Track Deletion Engine */
+  function getAllPlaylistsAsync() {
+    return new Promise((resolve) => {
+      const store = getStore('playlists', 'readonly');
+      if (!store) return resolve([]);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  }
+
+  /* Full Track Deletion Engine (No Crashes, Clean Library & Cache Cleanup) */
   async function deleteTrack(id) {
     if (!id) return;
     try {
@@ -203,10 +213,10 @@
       const likesStore = getStore('likes', 'readwrite');
       if (likesStore) likesStore.delete(id);
 
-      // 4. Remove from playlists
+      // 4. Remove from playlists safely
       const plStore = getStore('playlists', 'readwrite');
       if (plStore) {
-        const allPl = await getAllPlaylists();
+        const allPl = await getAllPlaylistsAsync();
         allPl.forEach((pl) => {
           if (Array.isArray(pl.trackIds) && pl.trackIds.includes(id)) {
             pl.trackIds = pl.trackIds.filter((tId) => tId !== id);
@@ -215,12 +225,13 @@
         });
       }
 
-      // 5. Instantly remove matching DOM rows from the page
+      // 5. Instantly remove matching DOM rows and badges
       document.querySelectorAll(`.track-row[data-track-id="${id}"]`).forEach((el) => el.remove());
 
       // 6. Update in-memory lists
       catalogTracks = catalogTracks.filter((t) => t.id !== id);
       playbackQueue = playbackQueue.filter((t) => t.id !== id);
+      if (window.downloadedTrackIds) window.downloadedTrackIds.delete(id);
 
       // 7. If currently playing this track, advance or stop
       if (currentTrack && currentTrack.id === id) {
@@ -241,13 +252,50 @@
       renderPlaylistsGrid();
       if (window.renderLibraryTabs) window.renderLibraryTabs();
 
-      alert('Трек успешно удален из приложения!');
+      showToast('Трек успешно удален');
     } catch (e) {
       console.error('Failed to delete track:', e);
-      alert('Ошибка при удалении трека: ' + e.message);
+      showToast('Ошибка при удалении: ' + e.message);
     }
   }
   window.deleteTrack = deleteTrack;
+
+  /* Dedicated Offline Storage Remover (Deletes cached audio from device without deleting catalog song) */
+  async function removeTrackFromOffline(track) {
+    if (!track) return;
+    try {
+      const offStore = getStore('offline_tracks', 'readwrite');
+      if (offStore) offStore.delete(track.id);
+
+      track.isDownloaded = false;
+      if (window.downloadedTrackIds) window.downloadedTrackIds.delete(track.id);
+
+      // If user-uploaded local track without cloud audioUrl, delete fully
+      if (track.isUploadedLocal && !track.audioUrl) {
+        return await deleteTrack(track.id);
+      } else {
+        track.isLocal = false;
+        await saveTrackMetadata(track);
+      }
+
+      // Remove downloaded checkmark badge from DOM
+      const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
+      if (row) {
+        const badge = row.querySelector('.badge-downloaded');
+        if (badge) badge.remove();
+      }
+
+      if (typeof updateSheetDownloadChip === 'function') {
+        updateSheetDownloadChip(track);
+      }
+
+      showToast(`Трек "${track.title}" удален из памяти устройства`);
+    } catch (e) {
+      console.error('Failed to remove track from offline cache:', e);
+      showToast('Ошибка при удалении из кэша: ' + e.message);
+    }
+  }
+  window.removeTrackFromOffline = removeTrackFromOffline;
 
   async function getOfflineTrack(id) {
     return new Promise((resolve) => {
@@ -1928,6 +1976,7 @@
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
     currentTrack = track;
+    updatePlayerMeta(track); // Instantly update player UI, cover, title, artist & avatar
 
     // Check offline store first
     const offlineRecord = await getOfflineTrack(track.id);
@@ -2018,6 +2067,7 @@
     await updateProfileStats();
   }
 
+  window.updatePlayerMeta = updatePlayerMeta;
   function updatePlayerMeta(track) {
     const mini = document.getElementById('mini-player');
     if (mini) mini.style.display = 'flex';
@@ -2049,6 +2099,23 @@
     if (miniExp) miniExp.style.display = isExp ? 'inline-flex' : 'none';
     if (fsExp) fsExp.style.display = isExp ? 'inline-flex' : 'none';
     if (lyrExp) lyrExp.style.display = isExp ? 'inline-flex' : 'none';
+
+    // Modern Artist Avatar in Fullscreen Player (Screenshot 2)
+    const artistRecord = verifiedArtists.get((track.artist || '').trim().toLowerCase());
+    const fsArtistAvatar = document.getElementById('fs-artist-avatar-img');
+    if (fsArtistAvatar) {
+      fsArtistAvatar.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
+    }
+
+    // Modern Karaoke Bottom Floating Mini Bar (Screenshot 1)
+    const lyrBotCover = document.getElementById('lyrics-bottom-cover');
+    const lyrBotTitle = document.getElementById('lyrics-bottom-title');
+    const lyrBotArtist = document.getElementById('lyrics-bottom-artist');
+    const lyrBotExp = document.getElementById('lyrics-bottom-exp');
+    if (lyrBotCover) lyrBotCover.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
+    if (lyrBotTitle) lyrBotTitle.textContent = track.title || 'Трек';
+    if (lyrBotArtist) lyrBotArtist.textContent = track.artist || 'Исполнитель';
+    if (lyrBotExp) lyrBotExp.style.display = isExp ? 'inline-flex' : 'none';
 
     // Hide share on local tracks
     const fsShare = document.getElementById('fs-share-track-btn');
@@ -2182,42 +2249,62 @@
     window.playPrevTrack = prevHandler;
     document.getElementById('fs-prev-btn')?.addEventListener('click', prevHandler);
 
-    // Scrubber
+    // Smooth 60 FPS Scrubber Loop (Zero Jerkiness on High-Refresh Screens)
     const scrubber = document.getElementById('fs-scrubber');
     const curTimeEl = document.getElementById('fs-time-current');
     const durTimeEl = document.getElementById('fs-time-duration');
     const miniProgress = document.getElementById('mini-progress-bar');
+    let isScrubberDragging = false;
 
-    engine.onTimeUpdate = (cur, dur) => {
+    function smoothScrubberTick() {
+      requestAnimationFrame(smoothScrubberTick);
+      if (!engine.isPlaying || isScrubberDragging) return;
+      const cur = engine.audioElement.currentTime || 0;
+      const dur = engine.audioElement.duration || 1;
       if (dur > 0) {
         const pct = (cur / dur) * 100;
-        if (scrubber && !scrubber.matches(':active')) {
+        if (scrubber) {
           scrubber.value = pct;
           scrubber.style.setProperty('--range-progress', `${pct}%`);
         }
         if (miniProgress) miniProgress.style.width = `${pct}%`;
         if (curTimeEl) curTimeEl.textContent = formatSec(cur);
         if (durTimeEl) durTimeEl.textContent = formatSec(dur);
+      }
+    }
+    requestAnimationFrame(smoothScrubberTick);
 
-        // Throttled position update: eliminates Android OS IPC audio thread starvation
+    engine.onTimeUpdate = (cur, dur) => {
+      if (dur > 0) {
         syncMediaSessionPosition(false);
       }
     };
 
     if (scrubber) {
-      scrubber.addEventListener('input', () => {
+      const onDragStart = () => { isScrubberDragging = true; };
+      const onDragMove = () => {
+        isScrubberDragging = true;
         scrubber.style.setProperty('--range-progress', `${scrubber.value}%`);
         if (engine.audioElement.duration) {
           const t = (scrubber.value / 100) * engine.audioElement.duration;
           if (curTimeEl) curTimeEl.textContent = formatSec(t);
         }
-      });
-      scrubber.addEventListener('change', () => {
+      };
+      const onDragEnd = () => {
+        if (!isScrubberDragging) return;
+        isScrubberDragging = false;
         scrubber.style.setProperty('--range-progress', `${scrubber.value}%`);
         if (engine.audioElement.duration) {
           engine.seek((scrubber.value / 100) * engine.audioElement.duration);
         }
-      });
+      };
+
+      scrubber.addEventListener('pointerdown', onDragStart);
+      scrubber.addEventListener('touchstart', onDragStart, { passive: true });
+      scrubber.addEventListener('input', onDragMove);
+      scrubber.addEventListener('change', onDragEnd);
+      scrubber.addEventListener('pointerup', onDragEnd);
+      scrubber.addEventListener('touchend', onDragEnd);
     }
 
     // Likes
@@ -2259,6 +2346,12 @@
       modal.classList.add('active');
     }
     window.openCoverLightbox = openCoverLightbox;
+
+    document.getElementById('player-artist-pill')?.addEventListener('click', () => {
+      if (currentTrack && currentTrack.artist) {
+        renderArtistScreen(currentTrack.artist);
+      }
+    });
 
     const coverSelectors = '#player-cover-clickable, .player-cover-box, #fs-cover-img, .lyrics-cover-card, #lyrics-cover-img, .mini-cover, #mini-cover-img';
     document.querySelectorAll(coverSelectors).forEach((el) => {
@@ -2364,6 +2457,74 @@
     closeBtn?.addEventListener('click', closeSheet);
     backdrop?.addEventListener('click', (e) => {
       if (e.target === backdrop) closeSheet();
+    });
+
+    // Modern Circular Chips Wiring (Screenshot 3)
+    document.getElementById('sheet-chip-like')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      await toggleLike(selectedSheetTrack.id);
+      await updateLikeDislikeState(selectedSheetTrack.id);
+      updateSheetLikeChip(selectedSheetTrack);
+    });
+
+    document.getElementById('sheet-chip-download')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      const t = selectedSheetTrack;
+      const isDownloaded = !!(t.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(t.id)));
+      if (isDownloaded) {
+        await removeTrackFromOffline(t);
+      } else {
+        await downloadTrackToOffline(t);
+      }
+      updateSheetDownloadChip(t);
+    });
+
+    document.getElementById('sheet-chip-vocal')?.addEventListener('click', () => {
+      const next = !engine.isVocalRemoverEnabled;
+      engine.setVocalRemover(next);
+      const vocalChip = document.getElementById('sheet-chip-vocal');
+      if (vocalChip) {
+        if (next) vocalChip.classList.add('active');
+        else vocalChip.classList.remove('active');
+      }
+    });
+
+    // Artist Row click -> Open Artist Page
+    document.getElementById('sheet-artist-row')?.addEventListener('click', () => {
+      if (selectedSheetTrack && selectedSheetTrack.artist) {
+        closeSheet();
+        renderArtistScreen(selectedSheetTrack.artist);
+      }
+    });
+
+    // Remove from device action
+    document.getElementById('sheet-act-remove-offline')?.addEventListener('click', async () => {
+      if (!selectedSheetTrack) return;
+      const t = selectedSheetTrack;
+      closeSheet();
+      await removeTrackFromOffline(t);
+    });
+
+    // About track / M-Core FX toggle
+    document.getElementById('sheet-act-about-track')?.addEventListener('click', () => {
+      const fxDrawer = document.getElementById('sheet-mcore-fx-drawer');
+      if (fxDrawer) {
+        fxDrawer.style.display = fxDrawer.style.display === 'none' ? 'block' : 'none';
+      }
+    });
+
+    // Open lyrics from sheet
+    document.getElementById('sheet-act-open-lyrics')?.addEventListener('click', () => {
+      closeSheet();
+      document.getElementById('fs-open-lyrics-btn')?.click();
+    });
+
+    // Listen on device
+    document.getElementById('sheet-act-listen-device')?.addEventListener('click', () => {
+      if (selectedSheetTrack) {
+        closeSheet();
+        playTrack(selectedSheetTrack);
+      }
     });
 
     // Track Actions Wiring
@@ -2581,21 +2742,94 @@
   }
   window.downloadTrackToOffline = downloadTrackToOffline;
 
+  async function updateSheetDownloadChip(track) {
+    const chip = document.getElementById('sheet-chip-download');
+    const icon = document.getElementById('sheet-chip-download-icon');
+    const label = document.getElementById('sheet-chip-download-label');
+    let isDownloaded = !!(track && (track.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(track.id))));
+    if (!isDownloaded && track && track.id) {
+      try {
+        const off = await getOfflineTrack(track.id);
+        if (off) isDownloaded = true;
+      } catch (e) {}
+    }
+    if (chip && icon && label) {
+      if (isDownloaded) {
+        chip.classList.add('active');
+        icon.setAttribute('href', '#icon-check');
+        label.textContent = 'Скачано';
+      } else {
+        chip.classList.remove('active');
+        icon.setAttribute('href', '#icon-download');
+        label.textContent = 'Скачать';
+      }
+    }
+  }
+
+  async function updateSheetLikeChip(track) {
+    const chip = document.getElementById('sheet-chip-like');
+    const icon = document.getElementById('sheet-chip-like-icon');
+    const label = document.getElementById('sheet-chip-like-label');
+    const liked = await isLiked(track.id).catch(() => false);
+    if (chip && icon && label) {
+      if (liked) {
+        chip.classList.add('active');
+        icon.setAttribute('href', '#icon-heart-filled');
+        label.textContent = 'Нравится';
+      } else {
+        chip.classList.remove('active');
+        icon.setAttribute('href', '#icon-heart');
+        label.textContent = 'Нравится';
+      }
+    }
+  }
+
   function openTrackOptionsSheet(track) {
     if (!track) return;
     selectedSheetTrack = track;
     const backdrop = document.getElementById('track-options-backdrop');
     const sheet = document.getElementById('track-options-sheet');
-    const title = document.getElementById('sheet-track-title');
-    if (title) title.textContent = `${track.artist} — ${track.title}`;
+
+    // Populate Header (Screenshot 3)
+    const coverEl = document.getElementById('sheet-track-cover');
+    const titleEl = document.getElementById('sheet-track-title');
+    const expBadge = document.getElementById('sheet-track-exp');
+    const durEl = document.getElementById('sheet-track-dur');
+    if (coverEl) coverEl.src = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
+    if (titleEl) titleEl.textContent = track.title || 'Трек';
+    if (expBadge) expBadge.style.display = (track.isExplicit || track.explicit) ? 'inline-flex' : 'none';
+    if (durEl) durEl.textContent = formatSec(track.duration || 0);
+
+    // Populate Artist Row (Screenshot 3)
+    const artistRecord = verifiedArtists.get((track.artist || '').trim().toLowerCase());
+    const avatarEl = document.getElementById('sheet-artist-avatar');
+    const artistNameEl = document.getElementById('sheet-artist-name');
+    const ageBadge = document.getElementById('sheet-age-badge');
+    if (avatarEl) avatarEl.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || track.coverUrl || 'assets/oumusic.png';
+    if (artistNameEl) artistNameEl.textContent = track.artist || 'Исполнитель';
+    if (ageBadge) ageBadge.style.display = (track.isExplicit || track.explicit) ? 'block' : 'none';
+
+    // Update 3 Circular Chips
+    updateSheetLikeChip(track);
+    updateSheetDownloadChip(track);
+    const vocalChip = document.getElementById('sheet-chip-vocal');
+    if (vocalChip) {
+      if (engine.isVocalRemoverEnabled) vocalChip.classList.add('active');
+      else vocalChip.classList.remove('active');
+    }
 
     // Hide share button for local tracks
     const shareBtn = document.getElementById('sheet-act-share');
     if (shareBtn) shareBtn.style.display = track.isLocal ? 'none' : 'flex';
 
+    // Hide FX drawer by default
+    const fxDrawer = document.getElementById('sheet-mcore-fx-drawer');
+    if (fxDrawer) fxDrawer.style.display = 'none';
+
     backdrop?.classList.add('active');
     sheet?.classList.add('active');
   }
+  window.openTrackOptionsSheet = openTrackOptionsSheet;
 
   /* Modern Calm Audio-Reactive Waves around Album Cover (No Clipping, Soft Gentle Flow) */
   function initCircularSpectrum() {
@@ -2640,10 +2874,15 @@
       get smoothVol() { return smoothVol; }
     };
 
-    function render() {
+    let lastCoverRenderTime = 0;
+    function render(now) {
       requestAnimationFrame(render);
 
-      // Throttling: only draw when fullscreen player is active and lyrics overlay is closed
+      // Throttling for 240Hz screens: clamp redraws to smooth 60-70 FPS maximum
+      if (now && now - lastCoverRenderTime < 14) return;
+      lastCoverRenderTime = now || 0;
+
+      // Only draw when fullscreen player is active and lyrics overlay is closed
       if (!fsPlayer || !fsPlayer.classList.contains('active')) {
         return;
       }
@@ -2658,8 +2897,8 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      // Proportional cover radius: in 640x640 canvas (at 128% CSS ratio), cover box occupies 250px radius
-      const coverRadius = Math.round(canvas.width / 2.56); // 250px
+      // Proportional cover radius: in 800x800 canvas (at 165% CSS ratio), cover box occupies ~242px radius
+      const coverRadius = Math.round(canvas.width / 3.3); // ~242px
 
       let rawBass = 0;
       let rawVol = 0;
@@ -2681,28 +2920,25 @@
         rawVol = volSum / 45 / 255;
       }
 
-      // Smooth, natural elastic tracking (No wooden jerking, pure fluid responsiveness)
-      // Smooth swell on beats (0.22), gentle release on pauses/quiet moments (0.065)
+      // Responsive punch on beat swell (0.28) and fluid smooth release (0.08)
       if (rawBass > smoothBass) {
-        smoothBass += (rawBass - smoothBass) * 0.22;
+        smoothBass += (rawBass - smoothBass) * 0.28;
       } else {
-        smoothBass += (rawBass - smoothBass) * 0.065;
+        smoothBass += (rawBass - smoothBass) * 0.08;
       }
 
       if (rawVol > smoothVol) {
-        smoothVol += (rawVol - smoothVol) * 0.18;
+        smoothVol += (rawVol - smoothVol) * 0.22;
       } else {
-        smoothVol += (rawVol - smoothVol) * 0.055;
+        smoothVol += (rawVol - smoothVol) * 0.07;
       }
 
-      waveTime += 0.016 + smoothBass * 0.018;
+      waveTime += 0.018 + smoothBass * 0.022;
 
-      // Normalized musical amplitude: 0.0 when quiet, up to 1.0 on peak loud sections
-      // Power curve 1.25 gives rich dynamic contrast from quiet to loud
-      const amp = Math.min(1.0, Math.pow(Math.max(0, smoothVol * 1.6 + smoothBass * 0.4), 1.25));
+      // Normalized musical amplitude
+      const amp = Math.min(1.0, Math.pow(Math.max(0, smoothVol * 1.6 + smoothBass * 0.45), 1.25));
 
-      // User Color Logic:
-      // Quiet -> Wave is neutral white/pale without color (r=255, g=255, b=255)
+      // Quiet -> Wave is neutral white/pale without color
       // Loud -> Wave saturates with vibrant theme accent color
       const r = Math.round(255 + (targetR - 255) * amp);
       const g = Math.round(255 + (targetG - 255) * amp);
@@ -2710,13 +2946,13 @@
 
       ctx.save();
 
-      // 1. Soft Breathing Ambient Halo (Blooms organically as volume and bass swell)
+      // 1. Soft Breathing Ambient Halo
       if (amp > 0.05) {
-        const haloRadius = coverRadius + 4 + amp * 38;
-        const haloAlpha = Math.min(0.28, amp * 0.28);
+        const haloRadius = coverRadius + 10 + amp * 55;
+        const haloAlpha = Math.min(0.32, amp * 0.32);
         const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.95, cx, cy, haloRadius);
         grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${haloAlpha})`);
-        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${haloAlpha * 0.3})`);
+        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${haloAlpha * 0.35})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -2724,27 +2960,23 @@
         ctx.fill();
       }
 
-      // 2. Concentric Liquid Fluid Waves (Naturally expand and ripple with amplitude)
-      const rings = 3;
+      // 2. Concentric Liquid Waves (Extending past square cover corners: flats at 242px, corners at ~335px)
+      const rings = 4;
       for (let k = 0; k < rings; k++) {
-        // When quiet: rests snugly at +3px, +9px, +15px.
-        // When loud: swells outward fluidly up to +34px!
-        const ringBase = coverRadius + 3 + k * 6 + amp * (12 + k * 8) + smoothBass * 6;
-
-        // Opacity: Pale (0.05 - 0.09) when quiet, intense (up to 0.65) when loud
-        const ringAlpha = (0.06 + amp * 0.55) * (1 - k * 0.22);
+        // Base ring positions spaced outside the album cover:
+        const ringBase = coverRadius + 14 + k * 28 + amp * (22 + k * 16) + smoothBass * 16;
+        const ringAlpha = (0.08 + amp * 0.58) * (1 - k * 0.18);
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
-        ctx.lineWidth = 1.6 + amp * 0.8 - k * 0.2;
+        ctx.lineWidth = 1.8 + amp * 1.2 - k * 0.25;
         ctx.beginPath();
 
-        const points = 90;
+        const points = 72;
         const step = (Math.PI * 2) / points;
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          // Fluid multi-harmonic ripples (natural liquid oscillation, no rigid cams)
-          const wave = Math.sin(theta * 4 + waveTime * 1.1 + k * 0.8) * (1.8 + amp * 6.5) +
-                       Math.cos(theta * 7 - waveTime * 0.7) * (1.0 + smoothBass * 4.5);
+          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k * 0.9) * (2.2 + amp * 7.5) +
+                       Math.cos(theta * 6 - waveTime * 0.8) * (1.2 + smoothBass * 5.5);
           const rad = ringBase + wave;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
@@ -2803,8 +3035,11 @@
         get smoothMid() { return smoothMid; }
       };
 
-      function renderWave() {
+      let lastWaveFpsTime = 0;
+      function renderWave(now) {
         animFrameId = requestAnimationFrame(renderWave);
+        if (now && now - lastWaveFpsTime < 14) return;
+        lastWaveFpsTime = now || 0;
 
         // Mobile performance throttling:
         // Do not draw when home screen is hidden, or player/lyrics overlay is open, or tab is hidden
@@ -3934,9 +4169,40 @@
   let currentParsedLyrics = [];
   let activeLyricIndex = -1;
 
+  window.isLyricsUserScrolling = false;
+  let lyricsInactivityTimer = null;
+
+  function registerLyricsScrollListener() {
+    const container = document.getElementById('lyrics-scroll-container');
+    if (!container || container._hasScrollListener) return;
+    container._hasScrollListener = true;
+
+    const onUserInteraction = () => {
+      window.isLyricsUserScrolling = true;
+      if (lyricsInactivityTimer) clearTimeout(lyricsInactivityTimer);
+      lyricsInactivityTimer = setTimeout(() => {
+        window.isLyricsUserScrolling = false;
+        // 3 seconds of inactivity smoothly springs back to active line
+        if (activeLyricIndex >= 0) {
+          const lines = container.children;
+          if (lines && lines[activeLyricIndex]) {
+            const targetY = Math.max(0, lines[activeLyricIndex].offsetTop - 30);
+            container.scrollTo({ top: targetY, behavior: 'smooth' });
+          }
+        }
+      }, 3000);
+    };
+
+    container.addEventListener('touchstart', onUserInteraction, { passive: true });
+    container.addEventListener('touchmove', onUserInteraction, { passive: true });
+    container.addEventListener('wheel', onUserInteraction, { passive: true });
+    container.addEventListener('scroll', onUserInteraction, { passive: true });
+  }
+
   function loadLyrics(lrcText, track) {
     currentParsedLyrics = parseLRC(lrcText);
     renderLyricsDisplay();
+    registerLyricsScrollListener();
   }
   window.loadLyrics = loadLyrics;
 
@@ -4032,8 +4298,11 @@
 
       if (lines[newIdx]) {
         const lineEl = lines[newIdx];
-        const targetY = lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2);
-        container.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+        // On mobile: active line is at the top/upper third so user reads down seamlessly
+        if (!window.isLyricsUserScrolling) {
+          const targetY = Math.max(0, lineEl.offsetTop - 30);
+          container.scrollTo({ top: targetY, behavior: 'smooth' });
+        }
       }
     }
   }
@@ -4090,6 +4359,21 @@
 
     fsOpenBtn?.addEventListener('click', openKaraoke);
     closeBtn?.addEventListener('click', () => {
+      overlay?.classList.remove('active');
+    });
+
+    // Floating Bottom Mini Player Bar in Karaoke (Screenshot 1)
+    document.getElementById('lyrics-bottom-play-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      engine.togglePlay();
+    });
+    document.getElementById('lyrics-bottom-like-btn')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!currentTrack) return;
+      await toggleLike(currentTrack.id);
+      updateLikeDislikeState(currentTrack.id);
+    });
+    document.getElementById('lyrics-mini-open-player')?.addEventListener('click', () => {
       overlay?.classList.remove('active');
     });
 
@@ -4194,6 +4478,10 @@
       const lyricsPlayIcon = document.getElementById('lyrics-ctrl-play-icon');
       if (lyricsPlayIcon) {
         lyricsPlayIcon.innerHTML = `<use href="${playing ? '#icon-pause' : '#icon-play'}"></use>`;
+      }
+      const lyricsBottomPlayIcon = document.getElementById('lyrics-bottom-play-icon');
+      if (lyricsBottomPlayIcon) {
+        lyricsBottomPlayIcon.innerHTML = `<use href="${playing ? '#icon-pause' : '#icon-play'}"></use>`;
       }
     };
 
