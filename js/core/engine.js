@@ -284,21 +284,17 @@ class MCoreEngine {
     }
   }
 
-  async softPause() {
-    if (!this.softGainNode || !this.audioCtx) {
-      this.audioElement.pause();
-      this.isPlaying = false;
-      return;
+  softPause() {
+    this.isPlaying = false;
+    if (this.onPlayStateChange) this.onPlayStateChange(false);
+    if (typeof updateMediaSessionPlaybackState === 'function') {
+      updateMediaSessionPlaybackState(false);
     }
-
-    const ctx = this.audioCtx;
-    this.softGainNode.gain.cancelScheduledValues(ctx.currentTime);
-    this.softGainNode.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-
-    setTimeout(() => {
-      this.audioElement.pause();
-      this.isPlaying = false;
-    }, 300);
+    if (this.softGainNode && this.audioCtx) {
+      this.softGainNode.gain.cancelScheduledValues(this.audioCtx.currentTime);
+      this.softGainNode.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
+    }
+    this.audioElement.pause();
   }
 
   togglePlay() {
@@ -312,6 +308,9 @@ class MCoreEngine {
   seek(seconds) {
     if (!isNaN(seconds) && this.audioElement.duration) {
       this.audioElement.currentTime = Math.max(0, Math.min(seconds, this.audioElement.duration));
+      if (typeof syncMediaSessionPosition === 'function') {
+        syncMediaSessionPosition(true);
+      }
     }
   }
 

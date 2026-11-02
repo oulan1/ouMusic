@@ -676,35 +676,38 @@
 
     async softPlay() {
       this.ensureContext();
+      this.isPlaying = true;
+      if (this.onPlayStateChange) this.onPlayStateChange(true);
+      if (typeof updateMediaSessionPlaybackState === 'function') {
+        updateMediaSessionPlaybackState(true);
+      }
       try {
         if (this.softGainNode && this.audioCtx) {
           const ctx = this.audioCtx;
           this.softGainNode.gain.cancelScheduledValues(ctx.currentTime);
-          this.softGainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
+          this.softGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
           await this.audioElement.play();
-          this.softGainNode.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.3);
+          this.softGainNode.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.12);
         } else {
           await this.audioElement.play();
         }
-        this.isPlaying = true;
       } catch (e) {
         console.warn('[Engine] Play failed or needs gesture:', e);
       }
     }
 
-    async softPause() {
+    softPause() {
+      this.isPlaying = false;
+      if (this.onPlayStateChange) this.onPlayStateChange(false);
+      if (typeof updateMediaSessionPlaybackState === 'function') {
+        updateMediaSessionPlaybackState(false);
+      }
       if (this.softGainNode && this.audioCtx) {
         const ctx = this.audioCtx;
         this.softGainNode.gain.cancelScheduledValues(ctx.currentTime);
-        this.softGainNode.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-        setTimeout(() => {
-          this.audioElement.pause();
-          this.isPlaying = false;
-        }, 300);
-      } else {
-        this.audioElement.pause();
-        this.isPlaying = false;
+        this.softGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
       }
+      this.audioElement.pause();
     }
 
     togglePlay() {
@@ -716,8 +719,11 @@
     }
 
     seek(sec) {
-      if (this.audioElement.duration) {
+      if (this.audioElement && this.audioElement.duration) {
         this.audioElement.currentTime = Math.max(0, Math.min(sec, this.audioElement.duration));
+        if (typeof syncMediaSessionPosition === 'function') {
+          syncMediaSessionPosition(true);
+        }
       }
     }
 
@@ -1895,7 +1901,7 @@
   function syncMediaSessionPosition(force = false) {
     if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
     const now = performance.now();
-    if (!force && now - lastMediaSessionPositionSync < 4000) return; // Throttle to 4s to prevent Android audio buffer starvation
+    if (!force && now - lastMediaSessionPositionSync < 1000) return; // Smooth 1s position updates on lockscreen & Dynamic Island
     lastMediaSessionPositionSync = now;
     try {
       const dur = engine.audioElement.duration;
@@ -2600,9 +2606,6 @@
 
     let smoothVol = 0;
     let smoothBass = 0;
-    let kickImpulse = 0;
-    let runningBassAvg = 0.22;
-    let lastBeatTime = 0;
     let waveTime = 0;
     let cachedFreqData = null;
 
@@ -2633,7 +2636,6 @@
 
     // Expose state for automated verification
     window._coverWaveState = {
-      get kickImpulse() { return kickImpulse; },
       get smoothBass() { return smoothBass; },
       get smoothVol() { return smoothVol; }
     };
@@ -2656,10 +2658,10 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      // Precision cover radius: in 640x640 canvas (at 128% CSS ratio), cover box occupies 250px radius
+      // Proportional cover radius: in 640x640 canvas (at 128% CSS ratio), cover box occupies 250px radius
       const coverRadius = Math.round(canvas.width / 2.56); // 250px
 
-      let rawKick = 0;
+      let rawBass = 0;
       let rawVol = 0;
 
       if (engine.analyserNode && engine.isPlaying) {
@@ -2668,94 +2670,82 @@
         }
         engine.analyserNode.getByteFrequencyData(cachedFreqData);
 
-        // Sub-bass & Kick drum onset frequency bands (bins 1 to 5, ~30Hz - 150Hz)
-        let kickSum = 0;
-        for (let i = 1; i <= 5; i++) kickSum += cachedFreqData[i];
-        rawKick = kickSum / 5 / 255;
+        // Deep punch & sub-bass energy (bins 1 to 7, ~30Hz - 220Hz)
+        let bassSum = 0;
+        for (let i = 1; i <= 7; i++) bassSum += cachedFreqData[i];
+        rawBass = bassSum / 7 / 255;
 
-        // Overall musical volume/energy (bins 1 to 45)
+        // Full musical spectrum loudness (bins 1 to 45)
         let volSum = 0;
         for (let i = 1; i <= 45; i++) volSum += cachedFreqData[i];
         rawVol = volSum / 45 / 255;
       }
 
-      // Dynamic Beat Detection: Track running baseline & detect instantaneous kick strikes
-      runningBassAvg += (rawKick - runningBassAvg) * 0.04;
-      const bassDelta = rawKick - runningBassAvg;
-      const now = performance.now();
-
-      // Physical kick impulse shockwave: triggers when drum kick strikes
-      if (bassDelta > 0.075 && rawKick > 0.24 && (now - lastBeatTime) > 160) {
-        const strike = Math.min(1.0, bassDelta * 3.8 + rawKick * 0.4);
-        if (strike > kickImpulse) {
-          kickImpulse = strike;
-        }
-        lastBeatTime = now;
+      // Smooth, natural elastic tracking (No wooden jerking, pure fluid responsiveness)
+      // Smooth swell on beats (0.22), gentle release on pauses/quiet moments (0.065)
+      if (rawBass > smoothBass) {
+        smoothBass += (rawBass - smoothBass) * 0.22;
       } else {
-        // Rapid damped spring release: pushes out fast, bounces back in rhythm
-        kickImpulse *= 0.84;
+        smoothBass += (rawBass - smoothBass) * 0.065;
       }
 
-      // Smooth envelope tracking
-      if (rawKick > smoothBass) {
-        smoothBass += (rawKick - smoothBass) * 0.32;
+      if (rawVol > smoothVol) {
+        smoothVol += (rawVol - smoothVol) * 0.18;
       } else {
-        smoothBass += (rawKick - smoothBass) * 0.06;
+        smoothVol += (rawVol - smoothVol) * 0.055;
       }
-      smoothVol += (rawVol - smoothVol) * (rawVol > smoothVol ? 0.22 : 0.05);
 
-      waveTime += 0.018 + smoothBass * 0.015;
+      waveTime += 0.016 + smoothBass * 0.018;
 
-      // Nonlinear volume sensitivity:
-      // When quiet: energy drops drastically towards 0 (rings pale, hug cover tightly)
-      // When loud: energy reaches 1.0 (rings expand, glow brightly)
-      const energy = Math.min(1.0, Math.pow(Math.max(0, smoothVol * 1.5 + smoothBass * 0.35), 1.35));
+      // Normalized musical amplitude: 0.0 when quiet, up to 1.0 on peak loud sections
+      // Power curve 1.25 gives rich dynamic contrast from quiet to loud
+      const amp = Math.min(1.0, Math.pow(Math.max(0, smoothVol * 1.6 + smoothBass * 0.4), 1.25));
 
-      // Color intensity: muted and pale on quiet sounds, vibrant on loud beats
-      const r = Math.round(targetR * 0.65 + (targetR * 0.35 + 255 * 0.2) * energy);
-      const g = Math.round(targetG * 0.65 + (targetG * 0.35 + 255 * 0.2) * energy);
-      const b = Math.round(targetB * 0.65 + (targetB * 0.35 + 255 * 0.2) * energy);
+      // User Color Logic:
+      // Quiet -> Wave is neutral white/pale without color (r=255, g=255, b=255)
+      // Loud -> Wave saturates with vibrant theme accent color
+      const r = Math.round(255 + (targetR - 255) * amp);
+      const g = Math.round(255 + (targetG - 255) * amp);
+      const b = Math.round(255 + (targetB - 255) * amp);
 
       ctx.save();
 
-      // 1. Soft Breathing Ambient Bloom (Naturally disappears when sound is weak/quiet)
-      if (energy > 0.04 || kickImpulse > 0.06) {
-        const bloomRadius = coverRadius + 6 + energy * 26 + kickImpulse * 22;
-        const bloomAlpha = Math.min(0.32, energy * 0.26 + kickImpulse * 0.16);
-        const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.94, cx, cy, bloomRadius);
-        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${bloomAlpha})`);
-        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${bloomAlpha * 0.35})`);
+      // 1. Soft Breathing Ambient Halo (Blooms organically as volume and bass swell)
+      if (amp > 0.05) {
+        const haloRadius = coverRadius + 4 + amp * 38;
+        const haloAlpha = Math.min(0.28, amp * 0.28);
+        const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.95, cx, cy, haloRadius);
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${haloAlpha})`);
+        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${haloAlpha * 0.3})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
+        ctx.arc(cx, cy, haloRadius, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 2. Concentric Undulating Fluid Waves with tangible Bass Kick Punch
+      // 2. Concentric Liquid Fluid Waves (Naturally expand and ripple with amplitude)
       const rings = 3;
       for (let k = 0; k < rings; k++) {
-        // Physical Kick Push: When quiet, rings sit at +3px, +9px, +15px.
-        // When drum kicks in, kickImpulse immediately pushes rings outward by up to +32px!
-        const basePush = energy * (8 + k * 6);
-        const punchPush = kickImpulse * (14 + k * 8);
-        const ringBase = coverRadius + 3 + k * 6 + basePush + punchPush;
+        // When quiet: rests snugly at +3px, +9px, +15px.
+        // When loud: swells outward fluidly up to +34px!
+        const ringBase = coverRadius + 3 + k * 6 + amp * (12 + k * 8) + smoothBass * 6;
 
-        // Opacity: Pale & faint (0.04-0.08) on quiet sound, intense on beat
-        const ringAlpha = Math.max(0.04, (0.05 + energy * 0.52 + kickImpulse * 0.38) * (1 - k * 0.22));
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ringAlpha})`;
-        ctx.lineWidth = 1.6 + kickImpulse * 0.9 - k * 0.2;
+        // Opacity: Pale (0.05 - 0.09) when quiet, intense (up to 0.65) when loud
+        const ringAlpha = (0.06 + amp * 0.55) * (1 - k * 0.22);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
+        ctx.lineWidth = 1.6 + amp * 0.8 - k * 0.2;
         ctx.beginPath();
 
-        const points = 88;
+        const points = 90;
         const step = (Math.PI * 2) / points;
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          // Harmonic micro-ripples (no longer a fixed 3-lobe rotating orbit)
-          const ripple = Math.sin(theta * 6 + waveTime * 0.5) * (0.8 + energy * 3.2) +
-                         Math.cos(theta * 10 - waveTime * 0.4 + k) * (0.5 + smoothBass * 2.0);
-          const rad = ringBase + ripple;
+          // Fluid multi-harmonic ripples (natural liquid oscillation, no rigid cams)
+          const wave = Math.sin(theta * 4 + waveTime * 1.1 + k * 0.8) * (1.8 + amp * 6.5) +
+                       Math.cos(theta * 7 - waveTime * 0.7) * (1.0 + smoothBass * 4.5);
+          const rad = ringBase + wave;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
 
