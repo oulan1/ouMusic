@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.6.2';
+const CACHE_NAME = 'oumusic-shell-v2.6.3';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -32,10 +32,12 @@ const APP_SHELL_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(APP_SHELL_ASSETS).catch((err) => {
-        console.warn('[SW] Non-critical assets pre-cache issue:', err);
-      });
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.allSettled(
+        APP_SHELL_ASSETS.map((url) =>
+          cache.add(url).catch((err) => console.warn('[SW] Pre-cache item warning:', url, err))
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -58,20 +60,44 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Range requests (аудиостриминг первых байт или потоковое аудио) пропускаем напрямую в сеть
-  if (request.headers.get('range') || request.url.includes('.oump3')) {
+  // 1. Navigation requests (PWA offline boot & reload)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return networkResponse;
+      }).catch(async () => {
+        return (await caches.match(request, { ignoreSearch: true })) ||
+               (await caches.match('./index.html')) ||
+               (await caches.match('index.html')) ||
+               (await caches.match('./'));
+      })
+    );
     return;
   }
 
-  // Для запросов каталога используем Network First с откатом на кэш
-    // Всегда свежие данные (Network First) для каталога, артистов и корневого HTML
-  if (
-    url.pathname.endsWith('catalog.json') ||
-    url.pathname.endsWith('artists.txt') ||
-    url.pathname.endsWith('index.html') ||
-    url.pathname === '/' ||
-    url.pathname.endsWith('/ouMusic/')
-  ) {
+  // 2. Audio track files (.oump3 / .wav / .mp3) - Cache First with offline fallback
+  if (url.pathname.endsWith('.oump3') || url.pathname.endsWith('.wav') || url.pathname.endsWith('.mp3')) {
+    event.respondWith(
+      caches.match(request, { ignoreSearch: true }).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((resp) => {
+          if (resp && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return resp;
+        }).catch(() => null);
+      })
+    );
+    return;
+  }
+
+  // 3. Metadata files (catalog.json, artists.txt) - Network First with Cache Fallback
+  if (url.pathname.endsWith('catalog.json') || url.pathname.endsWith('artists.txt')) {
     event.respondWith(
       fetch(request, { cache: 'no-cache' }).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
@@ -79,14 +105,14 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return networkResponse;
-      }).catch(() => caches.match(request))
+      }).catch(() => caches.match(request, { ignoreSearch: true }))
     );
     return;
   }
 
-  // Для статических ассетов App Shell используем Stale-While-Revalidate
+  // 4. App Shell assets (CSS, JS, Icons) - Cache First with Background Revalidation
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
+    caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
       const fetchPromise = fetch(request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const clone = networkResponse.clone();

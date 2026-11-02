@@ -398,6 +398,41 @@ class MCoreEngine {
     }, 50);
   }
 
+setLosslessMode(active) {
+      this.isLosslessMode = !!active;
+      if (!this.audioCtx) return;
+      if (this.isLosslessMode) {
+        // Advanced Hi-Res Master / Spatial Air Restoration:
+        // 60Hz +3.8dB: Tight harmonic sub-bass punch
+        // 230Hz -1.2dB: Precision mid-bass mud cut (clarity & separation)
+        // 910Hz +1.2dB: Rich vocal body & acoustic presence
+        // 3.6kHz +2.6dB: Crisp snare & percussion transient attack
+        // 14kHz +4.5dB: Crystalline high-frequency air & stereo depth
+        const losslessGains = [3.8, -1.2, 1.2, 2.6, 4.5];
+        losslessGains.forEach((g, i) => this.setEQBand(i, g));
+
+        if (this.compressorNode) {
+          const t = this.audioCtx.currentTime;
+          // Hi-Res mastering: open dynamic headroom, fast transparent attack
+          this.compressorNode.threshold.setValueAtTime(-6, t);
+          this.compressorNode.knee.setValueAtTime(18, t);
+          this.compressorNode.ratio.setValueAtTime(1.4, t);
+          this.compressorNode.attack.setValueAtTime(0.002, t);
+          this.compressorNode.release.setValueAtTime(0.20, t);
+        }
+        if (this.normalizerGainNode) {
+          // Transparent +1.6dB clean makeup gain for instant full-bodied presence
+          this.normalizerGainNode.gain.setValueAtTime(1.05, this.audioCtx.currentTime);
+        }
+      } else {
+        const savedPreset = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_eq_preset') || 'flat') : 'flat';
+        this.applyEQPreset(savedPreset);
+        if (this.normalizerGainNode) {
+          this.normalizerGainNode.gain.setValueAtTime(0.85, this.audioCtx.currentTime);
+        }
+      }
+    }
+
   resetFX() {
     this.setPlaybackRate(1.0);
     this.setReverb(0);

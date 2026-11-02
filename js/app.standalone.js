@@ -169,7 +169,7 @@
     });
   }
 
-  async function saveOfflineTrack(id, audioBlob, coverBlob = null, lrcText = '') {
+  async function saveOfflineTrack(id, audioBlob, coverBlob = null, lrcText = '', meta = null) {
     return new Promise((resolve) => {
       const store = getStore('offline_tracks', 'readwrite');
       if (!store) return resolve(false);
@@ -179,6 +179,7 @@
         coverBlob,
         lrcText: lrcText || '',
         lyricsText: lrcText || '',
+        meta: meta || null,
         cachedAt: new Date().toISOString()
       });
       req.onsuccess = () => resolve(true);
@@ -828,21 +829,34 @@
       this.isLosslessMode = !!active;
       if (!this.audioCtx) return;
       if (this.isLosslessMode) {
-        // Studio Hi-Fi Harman/Hi-Res mastering enhancement:
-        // 60Hz +2.0dB (deep clean sub-bass), 230Hz -0.5dB (clarity), 910Hz +0.5dB (vocal clarity), 3.6kHz +2.0dB (crisp transients), 14kHz +2.5dB (sparkle)
-        const losslessGains = [2.0, -0.5, 0.5, 2.0, 2.5];
+        // Advanced Hi-Res Master / Spatial Air Restoration:
+        // 60Hz +3.8dB: Tight harmonic sub-bass punch
+        // 230Hz -1.2dB: Precision mid-bass mud cut (clarity & separation)
+        // 910Hz +1.2dB: Rich vocal body & acoustic presence
+        // 3.6kHz +2.6dB: Crisp snare & percussion transient attack
+        // 14kHz +4.5dB: Crystalline high-frequency air & stereo depth
+        const losslessGains = [3.8, -1.2, 1.2, 2.6, 4.5];
         losslessGains.forEach((g, i) => this.setEQBand(i, g));
+
         if (this.compressorNode) {
           const t = this.audioCtx.currentTime;
-          this.compressorNode.threshold.setValueAtTime(-14, t);
-          this.compressorNode.knee.setValueAtTime(24, t);
-          this.compressorNode.ratio.setValueAtTime(1.8, t);
-          this.compressorNode.attack.setValueAtTime(0.003, t);
-          this.compressorNode.release.setValueAtTime(0.25, t);
+          // Hi-Res mastering: open dynamic headroom, fast transparent attack
+          this.compressorNode.threshold.setValueAtTime(-6, t);
+          this.compressorNode.knee.setValueAtTime(18, t);
+          this.compressorNode.ratio.setValueAtTime(1.4, t);
+          this.compressorNode.attack.setValueAtTime(0.002, t);
+          this.compressorNode.release.setValueAtTime(0.20, t);
+        }
+        if (this.normalizerGainNode) {
+          // Transparent +1.6dB clean makeup gain for instant full-bodied presence
+          this.normalizerGainNode.gain.setValueAtTime(1.05, this.audioCtx.currentTime);
         }
       } else {
         const savedPreset = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_eq_preset') || 'flat') : 'flat';
         this.applyEQPreset(savedPreset);
+        if (this.normalizerGainNode) {
+          this.normalizerGainNode.gain.setValueAtTime(0.85, this.audioCtx.currentTime);
+        }
       }
     }
 
@@ -1185,7 +1199,8 @@
         document.getElementById('fullscreen-player')?.classList.remove('active');
         document.getElementById('lyrics-overlay')?.classList.remove('active');
         renderArtistScreen(name);
-        navigateTo('artist');
+        navigateTo('artist', false);
+        window.location.hash = 'artist=' + encodeURIComponent(name);
       }
       return;
     }
@@ -1460,31 +1475,105 @@
       window.syncArcNav(screenId);
     }
 
-    if (pushHash && !window.location.hash.includes('=')) {
+    if (pushHash) {
       window.location.hash = screenId;
     }
   }
   window.navigateTo = navigateTo;
+  window.handleHash = handleHash;
+  window.playTrack = playTrack;
 
   function handleHash() {
-    const hash = window.location.hash.slice(1);
-    if (!hash) return;
+    const rawHash = window.location.hash.replace(/^#/, '');
+    if (!rawHash || rawHash === 'home') {
+      navigateTo('home', false);
+      return;
+    }
 
-    if (hash.startsWith('track=')) {
-      const id = decodeURIComponent(hash.slice(6));
+    if (rawHash.startsWith('track=')) {
+      const id = decodeURIComponent(rawHash.slice(6));
       const found = catalogTracks.find((t) => t.id === id || t.filename === id);
       if (found) playTrack(found);
-    } else if (hash.startsWith('artist=')) {
-      const name = decodeURIComponent(hash.slice(7));
+    } else if (rawHash.startsWith('artist=')) {
+      const name = decodeURIComponent(rawHash.slice(7));
       renderArtistScreen(name);
       navigateTo('artist', false);
-    } else if (['home', 'library', 'studio', 'profile', 'settings'].includes(hash)) {
-      navigateTo(hash, false);
+    } else if (['home', 'library', 'studio', 'profile', 'settings'].includes(rawHash)) {
+      navigateTo(rawHash, false);
     }
   }
 
+  // Mobile Hardware & Gesture Back Button Support (Closes active overlays first, then navigates)
+  window.addEventListener('popstate', (e) => {
+    // 1. Close lightbox modal
+    const lightbox = document.getElementById('cover-lightbox-modal');
+    if (lightbox && lightbox.classList.contains('active')) {
+      lightbox.classList.remove('active');
+      return;
+    }
+
+    // 2. Close lyrics overlay
+    const lyricsOverlay = document.getElementById('lyrics-overlay');
+    if (lyricsOverlay && lyricsOverlay.classList.contains('active')) {
+      lyricsOverlay.classList.remove('active');
+      return;
+    }
+
+    // 3. Close quote dialog
+    const quoteDialog = document.getElementById('quote-card-dialog');
+    if (quoteDialog && quoteDialog.classList.contains('active')) {
+      quoteDialog.classList.remove('active');
+      return;
+    }
+
+    // 4. Close track options sheet
+    const optionsSheet = document.getElementById('track-options-sheet');
+    const optionsBackdrop = document.getElementById('track-options-backdrop');
+    if (optionsSheet && optionsSheet.classList.contains('active')) {
+      optionsSheet.classList.remove('active');
+      optionsBackdrop?.classList.remove('active');
+      return;
+    }
+
+    // 5. Close fullscreen player
+    const fsPlayer = document.getElementById('fullscreen-player');
+    if (fsPlayer && fsPlayer.classList.contains('active')) {
+      fsPlayer.classList.remove('active');
+      return;
+    }
+
+    // 6. Handle hash screen navigation
+    handleHash();
+  });
+
   /* Catalog & Feeds */
   async function loadInitialTracks() {
+    try {
+      const allOff = await getAllTracksMetadata();
+      window.downloadedTrackIds = new Set(allOff.filter(t => t.isLocal || t.isDownloaded).map(t => t.id));
+      const offStore = getStore('offline_tracks', 'readonly');
+      if (offStore) {
+        const req = offStore.getAllKeys();
+        req.onsuccess = () => {
+          if (req.result && Array.isArray(req.result)) {
+            req.result.forEach(id => window.downloadedTrackIds.add(id));
+            document.querySelectorAll('.track-row').forEach(row => {
+              const tid = row.getAttribute('data-track-id');
+              if (tid && window.downloadedTrackIds.has(tid)) {
+                const titleEl = row.querySelector('.track-title');
+                if (titleEl && !titleEl.querySelector('.badge-downloaded')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'badge-downloaded';
+                  badge.title = 'Скачан для офлайн-прослушивания';
+                  badge.innerHTML = `<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>`;
+                  titleEl.appendChild(badge);
+                }
+              }
+            });
+          }
+        };
+      }
+    } catch (e) {}
     let tracks = [];
     try {
       let res = null;
@@ -1494,9 +1583,18 @@
     if (!res || !res.ok) {
       try { res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' }); } catch(e) {}
     }
-      if (res.ok) tracks = await res.json();
+      if (res.ok) {
+        tracks = await res.json();
+        try { localStorage.setItem('oumusic_cached_catalog', JSON.stringify(tracks)); } catch(e) {}
+      }
     } catch (e) {
-      // Local file:// protocol fallback
+      // Local file:// protocol or offline fallback
+    }
+    if (!tracks || tracks.length === 0) {
+      try {
+        const cachedStr = localStorage.getItem('oumusic_cached_catalog');
+        if (cachedStr) tracks = JSON.parse(cachedStr);
+      } catch(e) {}
     }
 
     if ((!tracks || tracks.length === 0) && window.__TRACKS_CATALOG__ && Array.isArray(window.__TRACKS_CATALOG__)) {
@@ -1623,7 +1721,7 @@
           <span>${track.title || 'Безымянный трек'}</span>
           ${(track.isExplicit || track.explicit) ? '<span class="badge-explicit" title="Ненормативная лексика">E</span>' : ''}
           ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon"><use href="#icon-verified"></use></svg></span>' : ''}
-          ${track.isLocal ? '<span class="badge-downloaded" title="Локальный трек"><svg class="svg-icon"><use href="#icon-check-circle"></use></svg></span>' : ''}
+          ${(track.isLocal || track.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(track.id))) ? '<span class="badge-downloaded" title="Скачан для офлайн-прослушивания"><svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg></span>' : ''}
         </div>
         <div class="track-artist">${artistsHtml}</div>
       </div>
@@ -1833,6 +1931,14 @@
       audioSrc = offlineRecord.audioBlob;
       if (offlineRecord.coverBlob) {
         track.coverUrl = URL.createObjectURL(offlineRecord.coverBlob);
+      }
+      if (offlineRecord.lyricsText || offlineRecord.lrcText) {
+        track.lyricsText = offlineRecord.lyricsText || offlineRecord.lrcText;
+      }
+      if (offlineRecord.meta) {
+        if (offlineRecord.meta.hasInstrumental !== undefined) track.hasInstrumental = offlineRecord.meta.hasInstrumental;
+        if (offlineRecord.meta.instrumentalConfig) track.instrumentalConfig = offlineRecord.meta.instrumentalConfig;
+        if (offlineRecord.meta.isExplicit !== undefined) track.isExplicit = offlineRecord.meta.isExplicit;
       }
     } else if (!track.isLocal && track.filename) {
       try {
@@ -2294,8 +2400,9 @@
 
     document.getElementById('sheet-act-download')?.addEventListener('click', async () => {
       if (!selectedSheetTrack) return;
+      const t = selectedSheetTrack;
       closeSheet();
-      alert(`Трек "${selectedSheetTrack.title}" сохранен в локальный оффлайн-кэш!`);
+      await downloadTrackToOffline(t);
     });
 
     document.getElementById('sheet-act-share')?.addEventListener('click', async () => {
@@ -2393,6 +2500,81 @@
     });
   }
 
+  
+  // Real Offline Download Manager with Loading Spinner & Checkmark Badge
+  window.downloadedTrackIds = new Set();
+
+  async function downloadTrackToOffline(track) {
+    if (!track) return;
+    const existing = await getOfflineTrack(track.id);
+    if (existing && existing.audioBlob) {
+      showToast(`Трек "${track.title}" уже сохранен в оффлайн-кэш!`);
+      return;
+    }
+
+    const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
+    let spinner = null;
+    if (row) {
+      const titleEl = row.querySelector('.track-title');
+      if (titleEl && !titleEl.querySelector('.download-spinner')) {
+        spinner = document.createElement('span');
+        spinner.className = 'download-spinner';
+        spinner.innerHTML = `<svg class="svg-icon rotating" style="fill: var(--md-sys-color-primary);"><use href="#icon-sync"></use></svg>`;
+        titleEl.appendChild(spinner);
+      }
+    }
+    showToast(`Загрузка трека "${track.title}" в оффлайн-кэш...`);
+
+    try {
+      const encName = encodeURIComponent(track.filename || `${track.artist} - ${track.title}.oump3`);
+      const candidates = [
+        resolveAppUrl(`tracks/${encName}`),
+        `./tracks/${encName}`,
+        `tracks/${encName}`,
+        `/ouMusic/tracks/${encName}`,
+        `https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`
+      ];
+      let resp = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url);
+          if (r && r.ok) { resp = r; break; }
+        } catch (e) {}
+      }
+      if (!resp) throw new Error('Файл недоступен на сервере');
+      const blob = await resp.blob();
+      const unpacked = await unpackOump3Full(blob);
+
+      await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta);
+      if (unpacked.meta) {
+        track.hasInstrumental = unpacked.meta.hasInstrumental ?? track.hasInstrumental;
+        track.instrumentalConfig = unpacked.meta.instrumentalConfig ?? track.instrumentalConfig;
+      }
+      if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
+      track.isLocal = true;
+      track.isDownloaded = true;
+      await saveTrackMetadata(track);
+      if (window.downloadedTrackIds) window.downloadedTrackIds.add(track.id);
+
+      if (spinner) spinner.remove();
+      if (row) {
+        const titleEl = row.querySelector('.track-title');
+        if (titleEl && !titleEl.querySelector('.badge-downloaded')) {
+          const badge = document.createElement('span');
+          badge.className = 'badge-downloaded';
+          badge.title = 'Скачан в оффлайн-кэш';
+          badge.innerHTML = `<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>`;
+          titleEl.appendChild(badge);
+        }
+      }
+      showToast(`✓ Трек "${track.title}" скачан! Доступен без интернета.`);
+    } catch (err) {
+      if (spinner) spinner.remove();
+      showToast(`Ошибка загрузки: ${err.message}`);
+    }
+  }
+  window.downloadTrackToOffline = downloadTrackToOffline;
+
   function openTrackOptionsSheet(track) {
     if (!track) return;
     selectedSheetTrack = track;
@@ -2485,45 +2667,51 @@
         curVol = totalSum / 40 / 255;
       }
 
-      // Calm easing
-      smoothVol += (curVol - smoothVol) * 0.08;
-      smoothBass += (curBass - smoothBass) * 0.12;
-      waveTime += 0.02;
+      // Fast attack & smooth decay for authentic kick & snare rhythm response
+      if (curBass > smoothBass) {
+        smoothBass += (curBass - smoothBass) * 0.34;
+      } else {
+        smoothBass += (curBass - smoothBass) * 0.09;
+      }
+      smoothVol += (curVol - smoothVol) * 0.16;
+      waveTime += 0.022 + smoothBass * 0.016;
 
-      const intensity = Math.min(1.0, Math.max(0, smoothVol * 1.8));
+      const beatImpulse = Math.max(0, curBass - smoothBass);
+      const intensity = Math.min(1.0, Math.max(0, smoothVol * 1.8 + smoothBass * 0.4));
       const r = Math.round(255 + (targetR - 255) * intensity);
       const g = Math.round(255 + (targetG - 255) * intensity);
       const b = Math.round(255 + (targetB - 255) * intensity);
 
       ctx.save();
 
-      // 1. Soft Breathing Bloom right at the outer edge
-      const bloomRadius = coverRadius + 14 + smoothBass * 28;
+      // 1. Soft Breathing Bloom with rhythmic expansion on beats
+      const bloomRadius = coverRadius + 14 + smoothBass * 38 + beatImpulse * 14;
       const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.9, cx, cy, bloomRadius);
-      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.14 + smoothVol * 0.25})`);
-      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.05 + smoothVol * 0.12})`);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.16 + smoothVol * 0.28})`);
+      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.06 + smoothVol * 0.14})`);
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Calm Concentric Undulating Fluid Waves framing the cover
+      // 2. Concentric Undulating Fluid Waves with tangible beat pulsation
       const rings = 3;
+      const beatPulse = smoothBass * 14 + beatImpulse * 12;
       for (let k = 0; k < rings; k++) {
-        const ringBase = coverRadius + 8 + k * 18 + smoothBass * (10 + k * 8);
-        const ringAlpha = (0.35 + intensity * 0.45) * (1 - k * 0.25);
+        const ringBase = coverRadius + 8 + k * 18 + smoothBass * (12 + k * 9);
+        const ringAlpha = (0.38 + intensity * 0.45) * (1 - k * 0.24);
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.06, ringAlpha)})`;
-        ctx.lineWidth = 1.8 - k * 0.3;
+        ctx.lineWidth = 2.0 - k * 0.3;
         ctx.beginPath();
 
-        const points = 80;
+        const points = 84;
         const step = (Math.PI * 2) / points;
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          const wave = Math.sin(theta * 3 + waveTime * 0.8 + k) * (2.5 + smoothBass * 5) +
-                       Math.cos(theta * 6 - waveTime * 0.5) * (1.5 + smoothVol * 3);
+          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k) * (3.5 + beatPulse) +
+                       Math.cos(theta * 6 - waveTime * 0.7) * (1.8 + smoothVol * 6);
           const rad = ringBase + wave;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
@@ -2568,67 +2756,54 @@
           midEnergy = midSum / 36 / 255;
         }
 
-        // Smooth continuous organic rotation and idle breathing
-        angle += 0.018 + bassEnergy * 0.045;
-        const idlePulse = Math.sin(angle * 1.5) * 3.5;
-        // Calibrated base radius for 540x540 canvas with generous safety margin
-        const baseRadius = 78 + idlePulse + bassEnergy * 32;
+        // Fast attack & smooth decay for natural pulsing
+        angle += 0.016 + bassEnergy * 0.035;
+        const idlePulse = Math.sin(angle * 1.8) * 3.5;
+        const baseRadius = 82 + idlePulse + bassEnergy * 36;
 
-        // Dynamic primary accent color from CSS variables
-        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim() || '#8B5CF6';
-
-        // 1. Radiant Glowing Radial Backdrop Aura
-        const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.25, cx, cy, baseRadius * 1.55);
-        aura.addColorStop(0, primaryColor);
-        aura.addColorStop(0.42, 'rgba(236, 72, 153, 0.45)'); // neon magenta
-        aura.addColorStop(0.78, 'rgba(59, 130, 246, 0.2)'); // electric blue
-        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        // Theme-aware radiant colors (Matching cover visualizer elegance)
+        let tr = 139, tg = 92, tb = 246;
+        try {
+          const rootStyle = getComputedStyle(document.documentElement);
+          const accent = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
+          if (accent.startsWith('#')) {
+            let h = accent.replace('#', '');
+            if (h.length === 3) h = h.split('').map(c => c + c).join('');
+            tr = parseInt(h.substring(0, 2), 16) || tr;
+            tg = parseInt(h.substring(2, 4), 16) || tg;
+            tb = parseInt(h.substring(4, 6), 16) || tb;
+          }
+        } catch (e) {}
 
         ctx.save();
+
+        // 1. Ethereal Soft Breathing Radial Nucleus (No muddy shadowBlur)
+        const coreBloom = baseRadius * 1.35 + bassEnergy * 28;
+        const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.2, cx, cy, coreBloom);
+        aura.addColorStop(0, `rgba(${tr}, ${tg}, ${tb}, ${0.55 + bassEnergy * 0.35})`);
+        aura.addColorStop(0.5, `rgba(${Math.min(255, tr + 40)}, ${tg}, ${Math.min(255, tb + 60)}, ${0.22 + bassEnergy * 0.2})`);
+        aura.addColorStop(0.85, `rgba(${tr}, ${tg}, ${tb}, 0.05)`);
+        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = aura;
         ctx.beginPath();
-        ctx.arc(cx, cy, baseRadius * 1.55, 0, Math.PI * 2);
+        ctx.arc(cx, cy, coreBloom, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
 
-        // 2. Inner Concentric Shimmer Ring
-        ctx.save();
-        ctx.beginPath();
-        const innerPoints = 48;
-        const innerBase = baseRadius * 0.72;
-        for (let i = 0; i <= innerPoints; i++) {
-          const theta = (i / innerPoints) * Math.PI * 2;
-          const distInner = Math.sin(theta * 4 - angle * 1.4) * (3 + midEnergy * 8);
-          const rInner = innerBase + distInner;
-          const ix = cx + Math.cos(theta) * rInner;
-          const iy = cy + Math.sin(theta) * rInner;
-          if (i === 0) ctx.moveTo(ix, iy);
-          else ctx.lineTo(ix, iy);
-        }
-        ctx.closePath();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
-        ctx.lineWidth = 1.6;
-        ctx.stroke();
-        ctx.restore();
-
-        // 3. Calm Concentric Multi-Harmonic Liquid Fluid Waves (matching cover visualizer aesthetic)
-        const rings = 4;
+        // 2. High-End Concentric Undulating Fluid Waves (5 layered harmonic rings)
+        const rings = 5;
         for (let k = 0; k < rings; k++) {
-          const ringBase = baseRadius * 0.72 + k * 16 + bassEnergy * (12 + k * 8);
-          const ringAlpha = (0.32 + bassEnergy * 0.45) * (1 - k * 0.22);
-          ctx.save();
-          ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0.08, ringAlpha)})`;
-          ctx.lineWidth = 2.2 - k * 0.35;
-          ctx.shadowColor = primaryColor;
-          ctx.shadowBlur = 12 + k * 4;
+          const ringBase = baseRadius * 0.65 + k * 14 + bassEnergy * (14 + k * 7);
+          const ringAlpha = (0.42 + bassEnergy * 0.45) * (1 - k * 0.18);
+          ctx.strokeStyle = `rgba(${tr}, ${tg}, ${tb}, ${Math.max(0.08, ringAlpha)})`;
+          ctx.lineWidth = 1.9 - k * 0.25;
           ctx.beginPath();
 
-          const points = 90;
+          const points = 96;
           const step = (Math.PI * 2) / points;
           for (let p = 0; p <= points; p++) {
             const theta = p * step;
-            const wave = Math.sin(theta * 4 + angle * 1.1 + k) * (3.5 + bassEnergy * 9) +
-                         Math.cos(theta * 7 - angle * 0.7) * (2.0 + midEnergy * 6);
+            const wave = Math.sin(theta * 3 + angle * 1.4 + k * 0.7) * (3.0 + bassEnergy * 11) +
+                         Math.cos(theta * 5 - angle * 0.9 + k * 0.5) * (2.0 + midEnergy * 8);
             const rad = ringBase + wave;
             const x = cx + Math.cos(theta) * rad;
             const y = cy + Math.sin(theta) * rad;
@@ -2638,8 +2813,25 @@
           }
           ctx.closePath();
           ctx.stroke();
-          ctx.restore();
         }
+
+        // 3. Crisp Inner Luminous Contour Ring
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 + bassEnergy * 0.4})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        const innerPoints = 64;
+        for (let i = 0; i <= innerPoints; i++) {
+          const theta = (i / innerPoints) * Math.PI * 2;
+          const w = Math.sin(theta * 4 - angle * 1.5) * (2.5 + midEnergy * 6);
+          const r = baseRadius * 0.58 + w;
+          const ix = cx + Math.cos(theta) * r;
+          const iy = cy + Math.sin(theta) * r;
+          if (i === 0) ctx.moveTo(ix, iy);
+          else ctx.lineTo(ix, iy);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
 
         animFrameId = requestAnimationFrame(renderWave);
       }
@@ -3811,6 +4003,7 @@
         // Keep close chevron clean frosted glass without muddy color tinting
       } catch (e) {}
 
+      try { history.pushState({ modal: 'karaoke' }, ''); } catch (e) {}
       overlay?.classList.add('active');
     };
 
@@ -4721,7 +4914,8 @@
         if (currentParsedLyrics[start + 1]) window.selectedQuoteIndices.add(start + 1);
       }
       populateQuoteLinesSelector();
-      quoteDialog?.classList.add('active');
+      try { history.pushState({ modal: 'quote' }, ''); } catch (e) {}
+        quoteDialog?.classList.add('active');
       renderQuoteCanvasPreview();
     };
     window.openQuoteModal = openQuoteModal;
