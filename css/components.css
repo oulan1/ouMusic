@@ -623,6 +623,7 @@
    Wave Home Section — Authentic Immersive "Моя Волна" Experience
    ========================================================================== */
 
+/* Home Wave Container: Clean zero-backdrop-blur for silky 120 FPS rendering */
 .wave-home-section {
   position: relative;
   display: flex;
@@ -635,11 +636,10 @@
   background: radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.18) 0%, rgba(236, 72, 153, 0.08) 45%, rgba(18, 18, 24, 0) 75%);
   border-radius: var(--md-shape-corner-extra-large);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
 }
 
+/* Naturally soft multi-stop radial gradient without expensive filter: blur() passes */
 .wave-ambient-glow {
   position: absolute;
   top: 35%;
@@ -648,16 +648,10 @@
   width: 380px;
   height: 380px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--glow-color-1, rgba(139, 92, 246, 0.35)) 0%, rgba(236, 72, 153, 0.15) 50%, transparent 70%);
-  filter: blur(40px);
+  background: radial-gradient(circle, var(--glow-color-1, rgba(139, 92, 246, 0.28)) 0%, rgba(236, 72, 153, 0.12) 35%, rgba(139, 92, 246, 0.03) 60%, transparent 75%);
   pointer-events: none;
   z-index: 0;
-  animation: waveAmbientPulse 6s ease-in-out infinite alternate;
-}
-
-@keyframes waveAmbientPulse {
-  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
-  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.95; }
+  opacity: 0.85;
 }
 
 .wave-header-center {

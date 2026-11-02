@@ -2735,53 +2735,103 @@
       const ctx = canvas.getContext('2d');
       let angle = 0;
       let animFrameId = null;
+      let smoothBass = 0;
+      let smoothMid = 0;
+      let cachedWaveFreqData = null;
 
-      function renderWave() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-
-        let bassEnergy = 0;
-        let midEnergy = 0;
-        if (engine.analyserNode && engine.isPlaying) {
-          const freqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
-          engine.analyserNode.getByteFrequencyData(freqData);
-
-          let bassSum = 0;
-          for (let i = 0; i < 14; i++) bassSum += freqData[i];
-          bassEnergy = bassSum / 14 / 255;
-
-          let midSum = 0;
-          for (let i = 14; i < 50; i++) midSum += freqData[i];
-          midEnergy = midSum / 36 / 255;
-        }
-
-        // Fast attack & smooth decay for natural pulsing
-        angle += 0.016 + bassEnergy * 0.035;
-        const idlePulse = Math.sin(angle * 1.8) * 3.5;
-        const baseRadius = 82 + idlePulse + bassEnergy * 36;
-
-        // Theme-aware radiant colors (Matching cover visualizer elegance)
-        let tr = 139, tg = 92, tb = 246;
+      // Theme-aware radiant colors cached outside 120 FPS render loop
+      let tr = 139, tg = 92, tb = 246;
+      function syncWaveColors() {
         try {
           const rootStyle = getComputedStyle(document.documentElement);
           const accent = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
           if (accent.startsWith('#')) {
             let h = accent.replace('#', '');
-            if (h.length === 3) h = h.split('').map(c => c + c).join('');
+            if (h.length === 3) h = h.split('').map((c) => c + c).join('');
             tr = parseInt(h.substring(0, 2), 16) || tr;
             tg = parseInt(h.substring(2, 4), 16) || tg;
             tb = parseInt(h.substring(4, 6), 16) || tb;
+          } else if (accent.startsWith('rgb')) {
+            const m = accent.match(/\d+/g);
+            if (m && m.length >= 3) {
+              tr = parseInt(m[0], 10);
+              tg = parseInt(m[1], 10);
+              tb = parseInt(m[2], 10);
+            }
           }
         } catch (e) {}
+      }
+      syncWaveColors();
+      window.syncWaveColors = syncWaveColors;
+
+      // Expose state for telemetry & verification tests
+      window._waveState = {
+        get smoothBass() { return smoothBass; },
+        get smoothMid() { return smoothMid; }
+      };
+
+      function renderWave() {
+        animFrameId = requestAnimationFrame(renderWave);
+
+        // Mobile performance throttling:
+        // Do not draw when home screen is hidden, or player/lyrics overlay is open, or tab is hidden
+        const homeScreen = document.getElementById('screen-home');
+        if (!homeScreen || !homeScreen.classList.contains('active') || document.hidden) {
+          return;
+        }
+        const fsPlayer = document.getElementById('fullscreen-player');
+        const lyricsOverlay = document.getElementById('lyrics-overlay');
+        if ((fsPlayer && fsPlayer.classList.contains('active')) || (lyricsOverlay && lyricsOverlay.classList.contains('active'))) {
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        let targetBass = 0;
+        let targetMid = 0;
+        if (engine.analyserNode && engine.isPlaying) {
+          if (!cachedWaveFreqData || cachedWaveFreqData.length !== engine.analyserNode.frequencyBinCount) {
+            cachedWaveFreqData = new Uint8Array(engine.analyserNode.frequencyBinCount);
+          }
+          engine.analyserNode.getByteFrequencyData(cachedWaveFreqData);
+
+          let bassSum = 0;
+          for (let i = 0; i < 14; i++) bassSum += cachedWaveFreqData[i];
+          targetBass = bassSum / 14 / 255;
+
+          let midSum = 0;
+          for (let i = 14; i < 50; i++) midSum += cachedWaveFreqData[i];
+          targetMid = midSum / 36 / 255;
+        }
+
+        // Cinematic asymmetric smoothing:
+        // Punchy responsive attack on beats (0.30)
+        // Gentle, luxurious decay on pause or silence (~0.035 = ~0.8s smooth glide into idle)
+        if (targetBass > smoothBass) {
+          smoothBass += (targetBass - smoothBass) * 0.30;
+        } else {
+          smoothBass += (targetBass - smoothBass) * 0.035;
+        }
+
+        if (targetMid > smoothMid) {
+          smoothMid += (targetMid - smoothMid) * 0.25;
+        } else {
+          smoothMid += (targetMid - smoothMid) * 0.035;
+        }
+
+        angle += 0.016 + smoothBass * 0.032;
+        const idlePulse = Math.sin(angle * 1.8) * 3.5;
+        const baseRadius = 82 + idlePulse + smoothBass * 36;
 
         ctx.save();
 
         // 1. Ethereal Soft Breathing Radial Nucleus (No muddy shadowBlur)
-        const coreBloom = baseRadius * 1.35 + bassEnergy * 28;
+        const coreBloom = baseRadius * 1.35 + smoothBass * 28;
         const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.2, cx, cy, coreBloom);
-        aura.addColorStop(0, `rgba(${tr}, ${tg}, ${tb}, ${0.55 + bassEnergy * 0.35})`);
-        aura.addColorStop(0.5, `rgba(${Math.min(255, tr + 40)}, ${tg}, ${Math.min(255, tb + 60)}, ${0.22 + bassEnergy * 0.2})`);
+        aura.addColorStop(0, `rgba(${tr}, ${tg}, ${tb}, ${0.55 + smoothBass * 0.35})`);
+        aura.addColorStop(0.5, `rgba(${Math.min(255, tr + 40)}, ${tg}, ${Math.min(255, tb + 60)}, ${0.22 + smoothBass * 0.2})`);
         aura.addColorStop(0.85, `rgba(${tr}, ${tg}, ${tb}, 0.05)`);
         aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = aura;
@@ -2792,8 +2842,8 @@
         // 2. High-End Concentric Undulating Fluid Waves (5 layered harmonic rings)
         const rings = 5;
         for (let k = 0; k < rings; k++) {
-          const ringBase = baseRadius * 0.65 + k * 14 + bassEnergy * (14 + k * 7);
-          const ringAlpha = (0.42 + bassEnergy * 0.45) * (1 - k * 0.18);
+          const ringBase = baseRadius * 0.65 + k * 14 + smoothBass * (14 + k * 7);
+          const ringAlpha = (0.42 + smoothBass * 0.45) * (1 - k * 0.18);
           ctx.strokeStyle = `rgba(${tr}, ${tg}, ${tb}, ${Math.max(0.08, ringAlpha)})`;
           ctx.lineWidth = 1.9 - k * 0.25;
           ctx.beginPath();
@@ -2802,8 +2852,8 @@
           const step = (Math.PI * 2) / points;
           for (let p = 0; p <= points; p++) {
             const theta = p * step;
-            const wave = Math.sin(theta * 3 + angle * 1.4 + k * 0.7) * (3.0 + bassEnergy * 11) +
-                         Math.cos(theta * 5 - angle * 0.9 + k * 0.5) * (2.0 + midEnergy * 8);
+            const wave = Math.sin(theta * 3 + angle * 1.4 + k * 0.7) * (3.0 + smoothBass * 11) +
+                         Math.cos(theta * 5 - angle * 0.9 + k * 0.5) * (2.0 + smoothMid * 8);
             const rad = ringBase + wave;
             const x = cx + Math.cos(theta) * rad;
             const y = cy + Math.sin(theta) * rad;
@@ -2816,13 +2866,13 @@
         }
 
         // 3. Crisp Inner Luminous Contour Ring
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 + bassEnergy * 0.4})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 + smoothBass * 0.4})`;
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         const innerPoints = 64;
         for (let i = 0; i <= innerPoints; i++) {
           const theta = (i / innerPoints) * Math.PI * 2;
-          const w = Math.sin(theta * 4 - angle * 1.5) * (2.5 + midEnergy * 6);
+          const w = Math.sin(theta * 4 - angle * 1.5) * (2.5 + smoothMid * 6);
           const r = baseRadius * 0.58 + w;
           const ix = cx + Math.cos(theta) * r;
           const iy = cy + Math.sin(theta) * r;
@@ -2832,8 +2882,6 @@
         ctx.closePath();
         ctx.stroke();
         ctx.restore();
-
-        animFrameId = requestAnimationFrame(renderWave);
       }
 
       if (animFrameId) cancelAnimationFrame(animFrameId);

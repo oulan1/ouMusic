@@ -945,29 +945,16 @@ html, body {
   --lg-specular-bottom: inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35);
 }
 
+/* 1. Primary Floating Glass Panels (Top-level surfaces only: backdrop-filter enabled) */
 [data-liquid-glass="true"] .top-app-bar,
 [data-liquid-glass="true"] .arc-sidebar,
 [data-liquid-glass="true"] .mini-player,
 [data-liquid-glass="true"] .dialog-card,
 [data-liquid-glass="true"] .bottom-sheet,
-[data-liquid-glass="true"] #screen-profile > div:first-child,
-[data-liquid-glass="true"] .stat-card,
-[data-liquid-glass="true"] .home-wave-card,
-[data-liquid-glass="true"] .studio-box,
-[data-liquid-glass="true"] .studio-preset-card,
-[data-liquid-glass="true"] .option-card,
-[data-liquid-glass="true"] .settings-group,
-[data-liquid-glass="true"] .mod-panel-card,
-[data-liquid-glass="true"] .top-search-container,
-[data-liquid-glass="true"] .track-row,
-[data-liquid-glass="true"] .playlist-card,
-[data-liquid-glass="true"] .chart-card,
-[data-liquid-glass="true"] .m3-select-container,
-[data-liquid-glass="true"] .cover-lightbox-modal,
-[data-liquid-glass="true"] .lyrics-cover-card {
+[data-liquid-glass="true"] .cover-lightbox-modal {
   -webkit-backdrop-filter: var(--lg-glass-blur) !important;
   backdrop-filter: var(--lg-glass-blur) !important;
-  background: rgba(18, 18, 28, 0.65) !important;
+  background: rgba(18, 18, 28, 0.68) !important;
   box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), 0 16px 36px rgba(0, 0, 0, 0.45) !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
 }
@@ -977,13 +964,53 @@ html, body {
 [data-liquid-glass="true"][data-theme="light"] .mini-player,
 [data-liquid-glass="true"][data-theme="light"] .dialog-card,
 [data-liquid-glass="true"][data-theme="light"] .bottom-sheet,
-[data-liquid-glass="true"][data-theme="light"] .stat-card,
-[data-liquid-glass="true"][data-theme="light"] .home-wave-card,
-[data-liquid-glass="true"][data-theme="light"] .track-row,
-[data-liquid-glass="true"][data-theme="light"] .top-search-container {
-  background: rgba(255, 255, 255, 0.65) !important;
+[data-liquid-glass="true"][data-theme="light"] .cover-lightbox-modal {
+  background: rgba(255, 255, 255, 0.75) !important;
   border: 1px solid rgba(255, 255, 255, 0.65) !important;
   box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 2. Specular Glass Content Cards & Lists (Zero GPU blur passes, 120 FPS rock-solid, zero flickering) */
+[data-liquid-glass="true"] .track-row,
+[data-liquid-glass="true"] .settings-group,
+[data-liquid-glass="true"] .option-card,
+[data-liquid-glass="true"] .stat-card,
+[data-liquid-glass="true"] .home-wave-card,
+[data-liquid-glass="true"] .studio-box,
+[data-liquid-glass="true"] .studio-preset-card,
+[data-liquid-glass="true"] .mod-panel-card,
+[data-liquid-glass="true"] .top-search-container,
+[data-liquid-glass="true"] .playlist-card,
+[data-liquid-glass="true"] .chart-card,
+[data-liquid-glass="true"] .m3-select-container,
+[data-liquid-glass="true"] .lyrics-cover-card,
+[data-liquid-glass="true"] #screen-profile > div:first-child {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.42), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.22), 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+}
+
+[data-liquid-glass="true"][data-theme="light"] .track-row,
+[data-liquid-glass="true"][data-theme="light"] .settings-group,
+[data-liquid-glass="true"][data-theme="light"] .option-card,
+[data-liquid-glass="true"][data-theme="light"] .stat-card,
+[data-liquid-glass="true"][data-theme="light"] .home-wave-card,
+[data-liquid-glass="true"][data-theme="light"] .studio-box,
+[data-liquid-glass="true"][data-theme="light"] .studio-preset-card,
+[data-liquid-glass="true"][data-theme="light"] .mod-panel-card,
+[data-liquid-glass="true"][data-theme="light"] .top-search-container,
+[data-liquid-glass="true"][data-theme="light"] .playlist-card,
+[data-liquid-glass="true"][data-theme="light"] .chart-card,
+[data-liquid-glass="true"][data-theme="light"] .m3-select-container,
+[data-liquid-glass="true"][data-theme="light"] .lyrics-cover-card,
+[data-liquid-glass="true"][data-theme="light"] #screen-profile > div:first-child {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.9), 0 6px 18px rgba(0, 0, 0, 0.06) !important;
 }
 
 [data-liquid-glass="true"] .track-row:hover {
@@ -1315,6 +1342,9 @@ html, body {
 
 /* Disable backdrop blur on mobile karaoke buttons to prevent GPU tile dropouts */
 @media (max-width: 860px) {
+  [data-liquid-glass="true"] {
+    --lg-glass-blur: blur(16px) saturate(140%) !important;
+  }
   [data-liquid-glass="true"] .vocal-remover-btn,
   [data-liquid-glass="true"] #lyrics-share-quote-btn,
   [data-liquid-glass="true"] .lyrics-close-circle-btn {
