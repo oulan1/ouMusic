@@ -2898,7 +2898,9 @@
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       // Proportional cover radius: in 800x800 canvas (at 165% CSS ratio), cover box occupies ~242px radius
-      const coverRadius = Math.round(canvas.width / 3.3); // ~242px
+      // Proportional cover radius in 800x800 canvas:
+      // Base coverRadius sits snugly at 236px (slightly smaller in all states, with expansive headroom for loud sounds)
+      const coverRadius = 236;
 
       let rawBass = 0;
       let rawVol = 0;
@@ -2946,13 +2948,13 @@
 
       ctx.save();
 
-      // 1. Soft Breathing Ambient Halo
+      // 1. Soft Breathing Ambient Halo (compact and delicate)
       if (amp > 0.05) {
-        const haloRadius = coverRadius + 10 + amp * 55;
-        const haloAlpha = Math.min(0.32, amp * 0.32);
-        const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.95, cx, cy, haloRadius);
+        const haloRadius = coverRadius + 6 + amp * 38;
+        const haloAlpha = Math.min(0.24, amp * 0.24);
+        const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.92, cx, cy, haloRadius);
         grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${haloAlpha})`);
-        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${haloAlpha * 0.35})`);
+        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${haloAlpha * 0.28})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -2960,14 +2962,18 @@
         ctx.fill();
       }
 
-      // 2. Concentric Liquid Waves (Extending past square cover corners: flats at 242px, corners at ~335px)
+      // 2. Concentric Liquid Waves (Tighter baseline in all states, expansive headroom for loud sounds)
       const rings = 4;
       for (let k = 0; k < rings; k++) {
-        // Base ring positions spaced outside the album cover:
-        const ringBase = coverRadius + 14 + k * 28 + amp * (22 + k * 16) + smoothBass * 16;
-        const ringAlpha = (0.08 + amp * 0.58) * (1 - k * 0.18);
+        // Base ring positions: starts compact (+6px to +48px from coverRadius)
+        // Expands smoothly with amp and punchy sub-bass on louder sounds
+        const baseOffset = 6 + k * 14;
+        const dynamicExpand = amp * (12 + k * 14) + smoothBass * (10 + k * 6);
+        const ringBase = coverRadius + baseOffset + dynamicExpand;
+
+        const ringAlpha = (0.07 + amp * 0.55) * (1 - k * 0.16);
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
-        ctx.lineWidth = 1.8 + amp * 1.2 - k * 0.25;
+        ctx.lineWidth = 1.6 + amp * 1.1 - k * 0.22;
         ctx.beginPath();
 
         const points = 72;
@@ -2975,8 +2981,8 @@
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k * 0.9) * (2.2 + amp * 7.5) +
-                       Math.cos(theta * 6 - waveTime * 0.8) * (1.2 + smoothBass * 5.5);
+          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k * 0.9) * (1.6 + amp * 5.2) +
+                       Math.cos(theta * 6 - waveTime * 0.8) * (1.0 + smoothBass * 3.8);
           const rad = ringBase + wave;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
@@ -2987,7 +2993,6 @@
         ctx.closePath();
         ctx.stroke();
       }
-
       ctx.restore();
     }
     render();

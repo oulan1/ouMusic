@@ -186,10 +186,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 165% !important;
-  height: 165% !important;
-  max-width: 680px;
-  max-height: 680px;
+  width: 146% !important;
+  height: 146% !important;
+  max-width: min(88vw, 560px) !important;
+  max-height: min(88vw, 560px) !important;
   pointer-events: none;
   z-index: 1;
 }
@@ -673,11 +673,18 @@
   }
 
   .player-cover-container {
-    max-width: min(66vw, 260px) !important;
+    max-width: min(58vw, 224px) !important;
     aspect-ratio: 1 !important;
-    margin: 4px auto !important;
+    margin: 6px auto !important;
     flex-shrink: 0 !important;
     position: relative !important;
+  }
+
+  .cover-spectrum-canvas {
+    width: 146% !important;
+    height: 146% !important;
+    max-width: 328px !important;
+    max-height: 328px !important;
   }
 
   .player-meta-row {
