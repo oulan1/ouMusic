@@ -167,7 +167,7 @@
 
 @media (min-width: 900px) {
   .player-cover-container {
-    max-width: min(520px, 46vh);
+    max-width: min(440px, 42vh) !important;
   }
   .lyrics-left-col {
     width: 500px !important;
@@ -186,10 +186,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 146% !important;
-  height: 146% !important;
-  max-width: min(88vw, 560px) !important;
-  max-height: min(88vw, 560px) !important;
+  width: 154% !important;
+  height: 154% !important;
   pointer-events: none;
   z-index: 1;
 }
@@ -317,8 +315,48 @@
 .player-bottom-utils {
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  margin-top: 8px;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.player-tool-pill {
+  width: 76px;
+  height: 48px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #FFFFFF;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding: 0;
+}
+
+[data-theme="light"] .player-tool-pill {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #111116;
+}
+
+.player-tool-pill:hover,
+.player-tool-pill:active {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.05);
+}
+
+.player-tool-pill.active {
+  background: var(--md-sys-color-primary) !important;
+  color: #FFFFFF !important;
+  border-color: var(--md-sys-color-primary) !important;
+}
+
+.player-tool-pill .svg-icon {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
 /* Modern Fullscreen Karaoke / Lyrics Overlay (Yandex Music / Spotify Split View) */
@@ -673,7 +711,7 @@
   }
 
   .player-cover-container {
-    max-width: min(58vw, 224px) !important;
+    max-width: min(58vw, 220px) !important;
     aspect-ratio: 1 !important;
     margin: 6px auto !important;
     flex-shrink: 0 !important;
@@ -681,10 +719,10 @@
   }
 
   .cover-spectrum-canvas {
-    width: 146% !important;
-    height: 146% !important;
-    max-width: 328px !important;
-    max-height: 328px !important;
+    width: 152% !important;
+    height: 152% !important;
+    max-width: 334px !important;
+    max-height: 334px !important;
   }
 
   .player-meta-row {
@@ -727,9 +765,51 @@
   }
 
   .player-bottom-utils {
-    flex-shrink: 0 !important;
-    margin-top: 2px !important;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.player-tool-pill {
+  width: 76px;
+  height: 48px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #FFFFFF;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding: 0;
+}
+
+[data-theme="light"] .player-tool-pill {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #111116;
+}
+
+.player-tool-pill:hover,
+.player-tool-pill:active {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.05);
+}
+
+.player-tool-pill.active {
+  background: var(--md-sys-color-primary) !important;
+  color: #FFFFFF !important;
+  border-color: var(--md-sys-color-primary) !important;
+}
+
+.player-tool-pill .svg-icon {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
 
   /* Dynamic Lyrics & Karaoke Overlay Mobile Rules */
   .lyrics-overlay {

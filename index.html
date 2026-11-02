@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.6.7">
-  <link rel="stylesheet" href="css/main.css?v=2.6.7">
-  <link rel="stylesheet" href="css/components.css?v=2.6.7">
-  <link rel="stylesheet" href="css/player.css?v=2.6.7">
+  <link rel="stylesheet" href="css/tokens.css?v=2.6.8">
+  <link rel="stylesheet" href="css/main.css?v=2.6.8">
+  <link rel="stylesheet" href="css/components.css?v=2.6.8">
+  <link rel="stylesheet" href="css/player.css?v=2.6.8">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -329,9 +329,12 @@
               <p class="wave-display-subtitle" data-i18n="wave_subtitle">Музыкальная сфера адаптируется под ритм музыки</p>
             </div>
 
-            <!-- Majestic 400x400 Pulsating Wave Sphere Canvas -->
-            <div class="wave-visualizer-container" id="wave-visualizer-container">
-              <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="540" height="540"></canvas>
+            <!-- Majestic Dynamic Wave Sphere Canvas & Center Morph Play/Pause Button -->
+            <div class="wave-visualizer-container" id="wave-visualizer-container" title="Нажмите для пуска/паузы · Свайп влево: далее · Свайп вправо: дизлайк">
+              <canvas id="wave-sphere-canvas" class="wave-sphere-canvas" width="600" height="600"></canvas>
+              <button class="wave-center-fab" id="wave-center-fab" title="Пуск / Пауза">
+                <svg class="svg-icon" id="wave-center-icon"><use href="#icon-play"></use></svg>
+              </button>
             </div>
 
             <!-- Centered Track Metadata -->
@@ -1241,6 +1244,48 @@
             <!-- Dynamic artist tracks -->
           </div>
         </section>
+
+        <!-- SCREEN: PLAYLIST VIEW -->
+        <section class="screen" id="screen-playlist">
+          <div class="playlist-view-header">
+            <button class="icon-btn" id="playlist-view-back-btn" title="Назад" style="margin-bottom: 14px; width: 44px; height: 44px;">
+              <svg class="svg-icon" style="transform: rotate(90deg);"><use href="#icon-chevron-down"></use></svg>
+            </button>
+            <div class="playlist-view-hero">
+              <div class="playlist-view-cover-box">
+                <img id="pl-view-cover-img" src="assets/oumusic.png" alt="Cover" class="playlist-view-cover">
+              </div>
+              <div class="playlist-view-info">
+                <div class="playlist-badge">ПЛЕЙЛИСТ</div>
+                <h1 class="playlist-view-title" id="pl-view-title">Плейлист</h1>
+                <div class="playlist-view-meta" id="pl-view-meta">0 треков</div>
+                <div class="playlist-actions-row">
+                  <button class="btn btn-primary" id="pl-view-play-all-btn">
+                    <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-play"></use></svg>
+                    <span>Слушать</span>
+                  </button>
+                  <button class="btn btn-tonal" id="pl-view-shuffle-btn">
+                    <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-shuffle"></use></svg>
+                    <span>Перемешать</span>
+                  </button>
+                  <button class="btn btn-outlined" id="pl-view-download-oulist-btn" title="Экспорт в файл .oulist">
+                    <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-download"></use></svg>
+                    <span>Скачать .oulist</span>
+                  </button>
+                  <button class="icon-btn" id="pl-view-edit-btn" title="Переименовать" style="width: 42px; height: 42px;">
+                    <svg class="svg-icon"><use href="#icon-edit"></use></svg>
+                  </button>
+                  <button class="icon-btn" id="pl-view-delete-btn" title="Удалить плейлист" style="width: 42px; height: 42px; color: #EF4444;">
+                    <svg class="svg-icon"><use href="#icon-delete"></use></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tracks-list" id="pl-view-tracks-list" style="margin-top: 20px;">
+            <!-- Playlist tracks -->
+          </div>
+        </section>
       </div>
 
       <!-- Mini Player Capsule / Dock -->
@@ -1305,9 +1350,14 @@
           <div class="player-top-caption">СЕЙЧАС ИГРАЕТ</div>
           <div class="player-top-album" id="fs-album-title">ouMusic</div>
         </div>
-        <button class="icon-btn" id="fs-top-queue-btn" title="Очередь">
-          <svg class="svg-icon"><use href="#icon-queue"></use></svg>
-        </button>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button class="icon-btn" id="fs-top-sleep-btn" title="Таймер сна">
+            <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
+          </button>
+          <button class="icon-btn" id="fs-top-queue-btn" title="Очередь">
+            <svg class="svg-icon"><use href="#icon-queue"></use></svg>
+          </button>
+        </div>
       </div>
 
       <!-- Cover & 60 FPS Spectrum Area -->
@@ -1368,15 +1418,15 @@
         </button>
       </div>
 
-      <!-- Bottom Secondary Row (Repeat, Lyrics, Queue) -->
+      <!-- Bottom Secondary Row (Screenshot 2: 3 Modern Pill/Oval Tool Buttons) -->
       <div class="player-bottom-utils">
-        <button class="icon-btn" id="fs-repeat-btn" title="Повтор">
+        <button class="player-tool-pill" id="fs-repeat-btn" title="Повтор">
           <svg class="svg-icon"><use href="#icon-repeat"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-open-lyrics-btn" title="Текст песни (Караоке)" style="width: 44px; height: 44px;">
-          <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-mic"></use></svg>
+        <button class="player-tool-pill" id="fs-open-lyrics-btn" title="Текст песни (Караоке)">
+          <svg class="svg-icon" style="width: 24px; height: 24px;"><use href="#icon-mic"></use></svg>
         </button>
-        <button class="icon-btn" id="fs-open-queue-btn" title="Очередь воспроизведения">
+        <button class="player-tool-pill" id="fs-open-queue-btn" title="Очередь воспроизведения">
           <svg class="svg-icon"><use href="#icon-queue"></use></svg>
         </button>
         <button class="icon-btn" id="fs-dislike-btn" title="Не предлагать" style="display: none;">
@@ -1559,9 +1609,13 @@
           <svg class="svg-icon"><use href="#icon-trash"></use></svg>
           <span>Удалить с устройства</span>
         </button>
+        <button class="sheet-action-item" id="sheet-act-sleep-timer">
+          <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
+          <span>Таймер сна</span>
+        </button>
         <button class="sheet-action-item" id="sheet-act-about-track">
           <svg class="svg-icon"><use href="#icon-equalizer"></use></svg>
-          <span>О треке / M-Core FX</span>
+          <span>О треке и настройки звука</span>
         </button>
         <button class="sheet-action-item danger" id="sheet-act-dislike">
           <svg class="svg-icon"><use href="#icon-dislike"></use></svg>
@@ -1964,8 +2018,94 @@
     </div>
   </div>
 
+
+  <!-- MODAL: CREATE PLAYLIST (Replaces prompt()) -->
+  <div class="modal-backdrop" id="create-playlist-modal-backdrop" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div class="dialog-card" id="create-playlist-modal" style="width: 100%; max-width: 420px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Новый плейлист</h3>
+      <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 18px;">Придумайте название для вашей персональной подборки треков.</p>
+      <input type="text" id="create-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-tonal" id="create-playlist-cancel-btn">Отмена</button>
+        <button class="btn btn-primary" id="create-playlist-submit-btn">Создать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM SHEET: ADD TO PLAYLIST (Screenshot 4 Design) -->
+  <div class="bottom-sheet-backdrop" id="add-to-playlist-backdrop">
+    <div class="bottom-sheet modern-track-sheet" id="add-to-playlist-sheet" style="max-height: 80vh; overflow-y: auto;">
+      <div class="bottom-sheet-handle"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div style="font-size: 1.25rem; font-weight: 750; color: #FFFFFF;">Добавить в плейлист</div>
+        <button class="btn btn-tonal" id="add-to-playlist-new-btn" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 9999px;">+ Новый плейлист</button>
+      </div>
+      <div id="add-to-playlist-items-list" style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Dynamic playlists with covers, names, counts and checkmarks -->
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM SHEET: TRACK INFO & M-CORE FX (Dedicated, No Mobile Touch Conflict) -->
+  <div class="bottom-sheet-backdrop" id="track-info-backdrop">
+    <div class="bottom-sheet modern-track-sheet" id="track-info-sheet" style="max-height: 85vh; overflow-y: auto;">
+      <div class="bottom-sheet-handle"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div style="font-size: 1.2rem; font-weight: 750; color: #FFFFFF;">О треке и настройки звука</div>
+        <button class="icon-btn" id="close-track-info-btn"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+      
+      <!-- Audio Fidelity Badge Row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px;">
+        <div style="background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+          <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5); text-transform: uppercase;">Качество звука</div>
+          <div style="font-weight: 700; font-size: 0.95rem; color: #10B981; margin-top: 2px;">FLAC / 320 kbps</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
+          <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5); text-transform: uppercase;">Частота дискретизации</div>
+          <div style="font-weight: 700; font-size: 0.95rem; color: #FFFFFF; margin-top: 2px;">44.1 kHz · 16-bit</div>
+        </div>
+      </div>
+
+      <!-- Real-Time M-Core FX Controls -->
+      <div style="background: rgba(255,255,255,0.04); border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <span style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-primary);">Аудиоэффекты M-Core FX</span>
+          <button class="btn btn-outlined" id="fx-reset-all-btn" style="padding: 4px 10px; font-size: 0.72rem;">Сброс</button>
+        </div>
+
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>Скорость и Тон (Slowed / Speed)</span>
+            <span id="fx-speed-val" class="m3-slider-value">1.00x</span>
+          </div>
+          <input type="range" id="fx-speed-slider" class="m3-range-input" min="0.70" max="1.35" step="0.01" value="1.00">
+        </div>
+
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>Пространство (Reverb)</span>
+            <span id="fx-reverb-val" class="m3-slider-value">0%</span>
+          </div>
+          <input type="range" id="fx-reverb-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+        </div>
+
+        <div class="m3-slider-group">
+          <div class="m3-slider-header">
+            <span>8D Аудио (Вращение)</span>
+            <span id="fx-spatial-val" class="m3-slider-value">0%</span>
+          </div>
+          <input type="range" id="fx-spatial-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file input for .oulist Import -->
+  <input type="file" id="oulist-file-input" accept=".oulist,.json" style="display: none;">
+
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.6.7"></script>
-  <script src="js/app.standalone.js?v=2.6.7"></script>
+  <script src="tracks/catalog.js?v=2.6.8"></script>
+  <script src="js/app.standalone.js?v=2.6.8"></script>
 </body>
 </html>
