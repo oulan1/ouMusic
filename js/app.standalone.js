@@ -2600,10 +2600,13 @@
 
     let smoothVol = 0;
     let smoothBass = 0;
+    let kickImpulse = 0;
+    let runningBassAvg = 0.22;
+    let lastBeatTime = 0;
     let waveTime = 0;
     let cachedFreqData = null;
 
-    // Cache accent color RGB outside 60fps render loop
+    // Cache accent color RGB outside 120 FPS render loop
     let targetR = 139, targetG = 92, targetB = 246;
     function syncSpectrumColors() {
       try {
@@ -2628,10 +2631,17 @@
     syncSpectrumColors();
     window.syncSpectrumColors = syncSpectrumColors;
 
+    // Expose state for automated verification
+    window._coverWaveState = {
+      get kickImpulse() { return kickImpulse; },
+      get smoothBass() { return smoothBass; },
+      get smoothVol() { return smoothVol; }
+    };
+
     function render() {
       requestAnimationFrame(render);
 
-      // Only draw when fullscreen player is active and lyrics are not covering it to save mobile CPU/GPU
+      // Throttling: only draw when fullscreen player is active and lyrics overlay is closed
       if (!fsPlayer || !fsPlayer.classList.contains('active')) {
         return;
       }
@@ -2646,11 +2656,11 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      // Proportional cover radius in 580x580 canvas (cover box occupies ~100/140 = 414px, radius = 207)
-      const coverRadius = Math.round(canvas.width / 2.8); // ~207px
+      // Precision cover radius: in 640x640 canvas (at 128% CSS ratio), cover box occupies 250px radius
+      const coverRadius = Math.round(canvas.width / 2.56); // 250px
 
-      let curVol = 0;
-      let curBass = 0;
+      let rawKick = 0;
+      let rawVol = 0;
 
       if (engine.analyserNode && engine.isPlaying) {
         if (!cachedFreqData || cachedFreqData.length !== engine.analyserNode.frequencyBinCount) {
@@ -2658,61 +2668,94 @@
         }
         engine.analyserNode.getByteFrequencyData(cachedFreqData);
 
-        let bassSum = 0;
-        for (let i = 1; i < 8; i++) bassSum += cachedFreqData[i];
-        curBass = bassSum / 7 / 255;
+        // Sub-bass & Kick drum onset frequency bands (bins 1 to 5, ~30Hz - 150Hz)
+        let kickSum = 0;
+        for (let i = 1; i <= 5; i++) kickSum += cachedFreqData[i];
+        rawKick = kickSum / 5 / 255;
 
-        let totalSum = 0;
-        for (let i = 0; i < 40; i++) totalSum += cachedFreqData[i];
-        curVol = totalSum / 40 / 255;
+        // Overall musical volume/energy (bins 1 to 45)
+        let volSum = 0;
+        for (let i = 1; i <= 45; i++) volSum += cachedFreqData[i];
+        rawVol = volSum / 45 / 255;
       }
 
-      // Fast attack & smooth decay for authentic kick & snare rhythm response
-      if (curBass > smoothBass) {
-        smoothBass += (curBass - smoothBass) * 0.34;
+      // Dynamic Beat Detection: Track running baseline & detect instantaneous kick strikes
+      runningBassAvg += (rawKick - runningBassAvg) * 0.04;
+      const bassDelta = rawKick - runningBassAvg;
+      const now = performance.now();
+
+      // Physical kick impulse shockwave: triggers when drum kick strikes
+      if (bassDelta > 0.075 && rawKick > 0.24 && (now - lastBeatTime) > 160) {
+        const strike = Math.min(1.0, bassDelta * 3.8 + rawKick * 0.4);
+        if (strike > kickImpulse) {
+          kickImpulse = strike;
+        }
+        lastBeatTime = now;
       } else {
-        smoothBass += (curBass - smoothBass) * 0.09;
+        // Rapid damped spring release: pushes out fast, bounces back in rhythm
+        kickImpulse *= 0.84;
       }
-      smoothVol += (curVol - smoothVol) * 0.16;
-      waveTime += 0.022 + smoothBass * 0.016;
 
-      const beatImpulse = Math.max(0, curBass - smoothBass);
-      const intensity = Math.min(1.0, Math.max(0, smoothVol * 1.8 + smoothBass * 0.4));
-      const r = Math.round(255 + (targetR - 255) * intensity);
-      const g = Math.round(255 + (targetG - 255) * intensity);
-      const b = Math.round(255 + (targetB - 255) * intensity);
+      // Smooth envelope tracking
+      if (rawKick > smoothBass) {
+        smoothBass += (rawKick - smoothBass) * 0.32;
+      } else {
+        smoothBass += (rawKick - smoothBass) * 0.06;
+      }
+      smoothVol += (rawVol - smoothVol) * (rawVol > smoothVol ? 0.22 : 0.05);
+
+      waveTime += 0.018 + smoothBass * 0.015;
+
+      // Nonlinear volume sensitivity:
+      // When quiet: energy drops drastically towards 0 (rings pale, hug cover tightly)
+      // When loud: energy reaches 1.0 (rings expand, glow brightly)
+      const energy = Math.min(1.0, Math.pow(Math.max(0, smoothVol * 1.5 + smoothBass * 0.35), 1.35));
+
+      // Color intensity: muted and pale on quiet sounds, vibrant on loud beats
+      const r = Math.round(targetR * 0.65 + (targetR * 0.35 + 255 * 0.2) * energy);
+      const g = Math.round(targetG * 0.65 + (targetG * 0.35 + 255 * 0.2) * energy);
+      const b = Math.round(targetB * 0.65 + (targetB * 0.35 + 255 * 0.2) * energy);
 
       ctx.save();
 
-      // 1. Soft Breathing Bloom with rhythmic expansion on beats
-      const bloomRadius = coverRadius + 14 + smoothBass * 38 + beatImpulse * 14;
-      const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.9, cx, cy, bloomRadius);
-      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.16 + smoothVol * 0.28})`);
-      grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${0.06 + smoothVol * 0.14})`);
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
-      ctx.fill();
+      // 1. Soft Breathing Ambient Bloom (Naturally disappears when sound is weak/quiet)
+      if (energy > 0.04 || kickImpulse > 0.06) {
+        const bloomRadius = coverRadius + 6 + energy * 26 + kickImpulse * 22;
+        const bloomAlpha = Math.min(0.32, energy * 0.26 + kickImpulse * 0.16);
+        const grad = ctx.createRadialGradient(cx, cy, coverRadius * 0.94, cx, cy, bloomRadius);
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${bloomAlpha})`);
+        grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${bloomAlpha * 0.35})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, bloomRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
-      // 2. Concentric Undulating Fluid Waves with tangible beat pulsation
+      // 2. Concentric Undulating Fluid Waves with tangible Bass Kick Punch
       const rings = 3;
-      const beatPulse = smoothBass * 14 + beatImpulse * 12;
       for (let k = 0; k < rings; k++) {
-        const ringBase = coverRadius + 8 + k * 18 + smoothBass * (12 + k * 9);
-        const ringAlpha = (0.38 + intensity * 0.45) * (1 - k * 0.24);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.06, ringAlpha)})`;
-        ctx.lineWidth = 2.0 - k * 0.3;
+        // Physical Kick Push: When quiet, rings sit at +3px, +9px, +15px.
+        // When drum kicks in, kickImpulse immediately pushes rings outward by up to +32px!
+        const basePush = energy * (8 + k * 6);
+        const punchPush = kickImpulse * (14 + k * 8);
+        const ringBase = coverRadius + 3 + k * 6 + basePush + punchPush;
+
+        // Opacity: Pale & faint (0.04-0.08) on quiet sound, intense on beat
+        const ringAlpha = Math.max(0.04, (0.05 + energy * 0.52 + kickImpulse * 0.38) * (1 - k * 0.22));
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ringAlpha})`;
+        ctx.lineWidth = 1.6 + kickImpulse * 0.9 - k * 0.2;
         ctx.beginPath();
 
-        const points = 84;
+        const points = 88;
         const step = (Math.PI * 2) / points;
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k) * (3.5 + beatPulse) +
-                       Math.cos(theta * 6 - waveTime * 0.7) * (1.8 + smoothVol * 6);
-          const rad = ringBase + wave;
+          // Harmonic micro-ripples (no longer a fixed 3-lobe rotating orbit)
+          const ripple = Math.sin(theta * 6 + waveTime * 0.5) * (0.8 + energy * 3.2) +
+                         Math.cos(theta * 10 - waveTime * 0.4 + k) * (0.5 + smoothBass * 2.0);
+          const rad = ringBase + ripple;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
 

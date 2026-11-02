@@ -186,10 +186,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 140% !important;
-  height: 140% !important;
-  max-width: 660px;
-  max-height: 660px;
+  width: 128% !important;
+  height: 128% !important;
+  max-width: 520px;
+  max-height: 520px;
   pointer-events: none;
   z-index: 1;
 }
@@ -673,9 +673,9 @@
   }
 
   .player-cover-container {
-    max-width: min(72vw, 310px) !important;
+    max-width: min(66vw, 260px) !important;
     aspect-ratio: 1 !important;
-    margin: 6px auto !important;
+    margin: 4px auto !important;
     flex-shrink: 0 !important;
     position: relative !important;
   }
