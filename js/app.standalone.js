@@ -766,6 +766,10 @@
       }
     }
 
+    resume() {
+      return this.softPlay();
+    }
+
     softPause() {
       this.isPlaying = false;
       if (this.onPlayStateChange) this.onPlayStateChange(false);
@@ -1047,42 +1051,8 @@
 
     /* Universal Floating Toast Notification (Auto-Dismissing, High Z-Index) */
   function showToast(message, duration = 3000) {
-    if (!message) return;
-    let toast = document.getElementById('ou-toast-notification');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'ou-toast-notification';
-      toast.style.cssText = `
-        position: fixed;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%) translateY(20px);
-        background: rgba(20, 22, 30, 0.96);
-        color: #FFFFFF;
-        padding: 10px 22px;
-        border-radius: 9999px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15);
-        z-index: 99999;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.25s ease, transform 0.25s ease;
-        white-space: nowrap;
-        max-width: 90vw;
-        text-overflow: ellipsis;
-        overflow: hidden;
-      `;
-      document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(-50%) translateY(0)';
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(-50%) translateY(20px)';
-    }, duration);
+    // Suppressed: User requested no action notifications at bottom of screen
+    return;
   }
   window.showToast = showToast;
 
@@ -2703,22 +2673,28 @@
     if (!track) return;
     const existing = await getOfflineTrack(track.id);
     if (existing && existing.audioBlob) {
-      showToast(`Трек "${track.title}" уже сохранен в оффлайн-кэш!`);
       return;
     }
 
-    const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
-    let spinner = null;
-    if (row) {
+    // 1. Show grey spinning loading ring where checkmark lives
+    const rows = document.querySelectorAll(`.track-row[data-track-id="${track.id}"]`);
+    rows.forEach((row) => {
       const titleEl = row.querySelector('.track-title');
-      if (titleEl && !titleEl.querySelector('.download-spinner')) {
-        spinner = document.createElement('span');
-        spinner.className = 'download-spinner';
-        spinner.innerHTML = `<svg class="svg-icon rotating" style="fill: var(--md-sys-color-primary);"><use href="#icon-sync"></use></svg>`;
+      if (titleEl) {
+        titleEl.querySelectorAll('.badge-downloaded, .download-spinner-badge').forEach((b) => b.remove());
+        const spinner = document.createElement('span');
+        spinner.className = 'download-spinner-badge';
+        spinner.innerHTML = '<span class="download-spinner-ring"></span>';
         titleEl.appendChild(spinner);
       }
+    });
+
+    const chipCircle = document.getElementById('sheet-chip-download-circle');
+    const chipLabel = document.getElementById('sheet-chip-download-label');
+    if (chipCircle) {
+      chipCircle.innerHTML = '<span class="download-spinner-ring"></span>';
+      if (chipLabel) chipLabel.textContent = 'Загрузка...';
     }
-    showToast(`Загрузка трека "${track.title}" в оффлайн-кэш...`);
 
     try {
       const encName = encodeURIComponent(track.filename || `${track.artist} - ${track.title}.oump3`);
@@ -2736,7 +2712,7 @@
           if (r && r.ok) { resp = r; break; }
         } catch (e) {}
       }
-      if (!resp) throw new Error('Файл недоступен на сервере');
+      if (!resp) throw new Error('Файл не найден');
       const blob = await resp.blob();
       const unpacked = await unpackOump3Full(blob);
 
@@ -2751,21 +2727,27 @@
       await saveTrackMetadata(track);
       if (window.downloadedTrackIds) window.downloadedTrackIds.add(track.id);
 
-      if (spinner) spinner.remove();
-      if (row) {
+      // 2. Morph grey spinning loading ring into green checkmark
+      rows.forEach((row) => {
         const titleEl = row.querySelector('.track-title');
-        if (titleEl && !titleEl.querySelector('.badge-downloaded')) {
-          const badge = document.createElement('span');
-          badge.className = 'badge-downloaded';
-          badge.title = 'Скачан в оффлайн-кэш';
-          badge.innerHTML = `<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>`;
-          titleEl.appendChild(badge);
+        if (titleEl) {
+          titleEl.querySelectorAll('.download-spinner-badge').forEach((b) => b.remove());
+          if (!titleEl.querySelector('.badge-downloaded')) {
+            const badge = document.createElement('span');
+            badge.className = 'badge-downloaded';
+            badge.title = 'Скачан на устройство';
+            badge.innerHTML = '<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>';
+            titleEl.appendChild(badge);
+          }
         }
-      }
-      showToast(`✓ Трек "${track.title}" скачан! Доступен без интернета.`);
+      });
+
+      updateSheetDownloadChip(track);
     } catch (err) {
-      if (spinner) spinner.remove();
-      showToast(`Ошибка загрузки: ${err.message}`);
+      rows.forEach((row) => {
+        row.querySelectorAll('.download-spinner-badge').forEach((b) => b.remove());
+      });
+      updateSheetDownloadChip(track);
     }
   }
   window.downloadTrackToOffline = downloadTrackToOffline;
@@ -4231,7 +4213,11 @@
         if (activeLyricIndex >= 0) {
           const lines = container.children;
           if (lines && lines[activeLyricIndex]) {
-            const targetY = Math.max(0, lines[activeLyricIndex].offsetTop - 30);
+            const lineEl = lines[activeLyricIndex];
+            const isMobile = window.innerWidth <= 860;
+            const targetY = isMobile
+              ? Math.max(0, lineEl.offsetTop - 36)
+              : Math.max(0, lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2));
             container.scrollTo({ top: targetY, behavior: 'smooth' });
           }
         }
@@ -4241,7 +4227,8 @@
     container.addEventListener('touchstart', onUserInteraction, { passive: true });
     container.addEventListener('touchmove', onUserInteraction, { passive: true });
     container.addEventListener('wheel', onUserInteraction, { passive: true });
-    container.addEventListener('scroll', onUserInteraction, { passive: true });
+    container.addEventListener('mousedown', onUserInteraction);
+    // Note: Do NOT listen to 'scroll' here because container.scrollTo triggers it and blocks smooth animation!
   }
 
   function loadLyrics(lrcText, track) {
@@ -4313,39 +4300,41 @@
     }
 
     if (newIdx !== activeLyricIndex && newIdx >= 0) {
-      const prevIdx = activeLyricIndex;
       activeLyricIndex = newIdx;
       const container = document.getElementById('lyrics-scroll-container');
       if (!container) return;
       const lines = container.children;
       if (!lines || lines.length === 0) return;
 
-      // Unset previous active and neighborhood (O(1) instead of O(N) full DOM traversal)
-      if (prevIdx >= 0) {
-        for (let off = -2; off <= 2; off++) {
-          const idx = prevIdx + off;
-          if (idx >= 0 && idx < lines.length && lines[idx]) {
-            lines[idx].classList.remove('active', 'near-1', 'near-2', 'distant');
-          }
-        }
-      }
+      // Cleanly remove active and near classes from previous lines
+      container.querySelectorAll('.active, .near-1, .near-2, .distant').forEach((el) => {
+        el.classList.remove('active', 'near-1', 'near-2', 'distant');
+      });
 
-      // Apply new active and neighborhood classes
-      for (let off = -2; off <= 2; off++) {
-        const idx = newIdx + off;
-        if (idx >= 0 && idx < lines.length && lines[idx]) {
-          const dist = Math.abs(off);
-          if (dist === 0) lines[idx].classList.add('active');
-          else if (dist === 1) lines[idx].classList.add('near-1');
-          else if (dist === 2) lines[idx].classList.add('near-2');
-        }
-      }
+      const isMobile = window.innerWidth <= 860;
 
-      if (lines[newIdx]) {
-        const lineEl = lines[newIdx];
-        // On mobile: active line is at the top/upper third so user reads down seamlessly
-        if (!window.isLyricsUserScrolling) {
-          const targetY = Math.max(0, lineEl.offsetTop - 30);
+      if (isMobile) {
+        // Mobile: Active line at top/upper third
+        if (lines[newIdx]) lines[newIdx].classList.add('active');
+        // Single line below is moderately brighter
+        if (lines[newIdx + 1]) lines[newIdx + 1].classList.add('near-1');
+        // All other lines remain dark by default!
+
+        if (!window.isLyricsUserScrolling && lines[newIdx]) {
+          const targetY = Math.max(0, lines[newIdx].offsetTop - 36);
+          container.scrollTo({ top: targetY, behavior: 'smooth' });
+        }
+      } else {
+        // Desktop: Active line in the CENTER
+        if (lines[newIdx]) lines[newIdx].classList.add('active');
+        // Lines immediately above and below are moderately brighter
+        if (lines[newIdx - 1]) lines[newIdx - 1].classList.add('near-1');
+        if (lines[newIdx + 1]) lines[newIdx + 1].classList.add('near-1');
+        // All other lines remain dark by default!
+
+        if (!window.isLyricsUserScrolling && lines[newIdx]) {
+          const lineEl = lines[newIdx];
+          const targetY = Math.max(0, lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2));
           container.scrollTo({ top: targetY, behavior: 'smooth' });
         }
       }
@@ -6607,91 +6596,133 @@
     const centerFab = document.getElementById('wave-center-fab');
     if (!waveCont) return;
 
-    // Toggle play/pause on center fab click
-    centerFab?.addEventListener('click', (e) => {
-      e.stopPropagation();
+    // Toggle play/pause on wave center or container click
+    const toggleWavePlay = async (e) => {
+      if (e) e.stopPropagation();
       if (engine.isPlaying) {
         engine.softPause();
       } else {
-        if (playbackQueue.length > 0) {
-          engine.resume();
+        if (currentTrack && engine.audioElement && engine.audioElement.src) {
+          await engine.softPlay();
+        } else if (playbackQueue.length > 0) {
+          playTrack(playbackQueue[queueIndex || 0]);
+        } else if (catalogTracks.length > 0) {
+          playTrack(catalogTracks[0]);
         } else {
           document.getElementById('hero-start-wave-btn')?.click();
         }
       }
-    });
+    };
 
-    // Touch and pointer gestures on wave container
-    let startX = 0, startY = 0, isDragging = false, currentX = 0, didMove = false;
+    centerFab?.addEventListener('click', toggleWavePlay);
 
-    const onPointerDown = (e) => {
+    // Touch and pointer gestures: Pan-Y allows vertical scrolling without interference!
+    let startX = 0, startY = 0, isDragging = false, currentX = 0, isVerticalScroll = false, didHorizontalMove = false;
+
+    const onTouchStart = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
       isDragging = true;
-      didMove = false;
-      startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-      startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      isVerticalScroll = false;
+      didHorizontalMove = false;
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
       currentX = startX;
       waveCont.style.transition = 'none';
     };
 
-    const onPointerMove = (e) => {
-      if (!isDragging) return;
-      const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-      const y = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-      const dx = x - startX;
-      const dy = y - startY;
+    const onTouchMove = (e) => {
+      if (!isDragging || !e.touches || e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
 
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        didMove = true;
+      // If vertical movement dominates, yield to native page scroll!
+      if (Math.abs(dy) > Math.abs(dx) && !didHorizontalMove) {
+        isVerticalScroll = true;
+        waveCont.style.transform = 'translateX(0px)';
+        return;
       }
 
-      if (Math.abs(dx) > Math.abs(dy)) {
-        currentX = x;
-        const clamped = Math.max(-70, Math.min(70, dx * 0.35));
+      if (isVerticalScroll) return;
+
+      if (Math.abs(dx) > 12) {
+        didHorizontalMove = true;
+        currentX = touch.clientX;
+        const clamped = Math.max(-65, Math.min(65, dx * 0.35));
         waveCont.style.transform = `translateX(${clamped}px)`;
       }
     };
 
-    const onPointerUp = (e) => {
+    const onTouchEnd = (e) => {
       if (!isDragging) return;
       isDragging = false;
-      const dx = currentX - startX;
       waveCont.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
       waveCont.style.transform = 'translateX(0px)';
 
-      if (!didMove) {
-        // Simple tap on wave sphere toggles play/pause smoothly
-        if (engine.isPlaying) {
-          engine.softPause();
-        } else {
-          if (playbackQueue.length > 0) engine.resume();
-          else document.getElementById('hero-start-wave-btn')?.click();
-        }
+      if (isVerticalScroll) return;
+
+      const dx = currentX - startX;
+      if (!didHorizontalMove) {
+        // Clean tap toggles play/pause
+        toggleWavePlay();
         return;
       }
 
-      // Gesture release: Swipe Left -> Next Track; Swipe Right -> Dislike
-      if (dx < -45) {
+      if (dx < -40) {
         if (typeof window.playNextTrack === 'function') {
           window.playNextTrack();
-          showToast('Следующий трек');
         }
-      } else if (dx > 45) {
+      } else if (dx > 40) {
         if (typeof window.flashWaveDislike === 'function') window.flashWaveDislike();
         if (typeof window.triggerDislikeCurrentTrack === 'function') {
           window.triggerDislikeCurrentTrack();
         }
-        showToast('Не нравится');
       }
     };
 
-    waveCont.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('mouseup', onPointerUp);
+    waveCont.addEventListener('touchstart', onTouchStart, { passive: true });
+    waveCont.addEventListener('touchmove', onTouchMove, { passive: true });
+    waveCont.addEventListener('touchend', onTouchEnd, { passive: true });
+    waveCont.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
-    waveCont.addEventListener('touchstart', onPointerDown, { passive: true });
-    waveCont.addEventListener('touchmove', onPointerMove, { passive: true });
-    waveCont.addEventListener('touchend', onPointerUp, { passive: true });
-    waveCont.addEventListener('touchcancel', onPointerUp, { passive: true });
+    // Mouse drag on desktop
+    let isMouseDown = false, mouseStartX = 0, mouseCurrentX = 0, mouseMoved = false;
+    waveCont.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      mouseMoved = false;
+      mouseStartX = e.clientX;
+      mouseCurrentX = mouseStartX;
+      waveCont.style.transition = 'none';
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      const dx = e.clientX - mouseStartX;
+      if (Math.abs(dx) > 10) {
+        mouseMoved = true;
+        mouseCurrentX = e.clientX;
+        const clamped = Math.max(-65, Math.min(65, dx * 0.35));
+        waveCont.style.transform = `translateX(${clamped}px)`;
+      }
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      waveCont.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
+      waveCont.style.transform = 'translateX(0px)';
+
+      if (!mouseMoved) {
+        toggleWavePlay();
+        return;
+      }
+      const dx = mouseCurrentX - mouseStartX;
+      if (dx < -40) {
+        if (typeof window.playNextTrack === 'function') window.playNextTrack();
+      } else if (dx > 40) {
+        if (typeof window.flashWaveDislike === 'function') window.flashWaveDislike();
+        if (typeof window.triggerDislikeCurrentTrack === 'function') window.triggerDislikeCurrentTrack();
+      }
+    });
 
     // Sync play/pause morphing
     const syncFab = (playing) => {

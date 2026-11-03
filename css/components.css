@@ -673,8 +673,8 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 32px 20px 28px 20px;
-  margin-bottom: 32px;
+  padding: 18px 16px 14px 16px;
+  margin-bottom: 20px;
   background: radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.18) 0%, rgba(236, 72, 153, 0.08) 45%, rgba(18, 18, 24, 0) 75%);
   border-radius: var(--md-shape-corner-extra-large);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -766,8 +766,9 @@
 .wave-track-meta {
   position: relative;
   z-index: 2;
-  margin-bottom: 16px;
-  min-height: 48px;
+  margin-top: -6px;
+  margin-bottom: 10px;
+  min-height: 0;
 }
 
 .wave-track-title {
@@ -785,13 +786,7 @@
 
 /* Controls */
 .wave-controls-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  margin-bottom: 22px;
-  position: relative;
-  z-index: 2;
+  display: none !important; /* Removed 3 bottom buttons as requested; controlled by wave center fab & swipes */
 }
 
 .wave-action-btn {
@@ -1360,29 +1355,30 @@
 /* Modern Wave Visualizer Center Morph Play & Gestures */
 .wave-visualizer-container {
   position: relative;
-  width: 440px;
-  height: 440px;
-  max-width: 86vw;
-  max-height: 86vw;
+  width: 320px;
+  height: 320px;
+  max-width: 85vw;
+  max-height: 85vw;
   aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 6px auto;
+  margin: 4px auto;
   z-index: 2;
   cursor: pointer;
-  touch-action: none;
+  touch-action: pan-y !important; /* Allows vertical scrolling freely! */
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   user-select: none;
 }
 
 @media (max-width: 860px) {
   .wave-visualizer-container {
-    width: 290px;
-    height: 290px;
-    max-width: 82vw;
-    max-height: 82vw;
-    margin: 4px auto;
+    width: 235px;
+    height: 235px;
+    max-width: 80vw;
+    max-height: 80vw;
+    margin: 2px auto;
+    touch-action: pan-y !important;
   }
 }
 
@@ -1421,4 +1417,82 @@
 .wave-dislike-flash {
   box-shadow: 0 0 60px rgba(239, 68, 68, 0.85) !important;
   transition: box-shadow 0.2s ease;
+}
+
+/* ==========================================================================
+   DOWNLOAD SPINNER BADGE & EQUALIZER ALIGNMENT (v2.6.9)
+   ========================================================================== */
+.download-spinner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.download-spinner-ring {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #9CA3AF; /* Sleek neutral grey */
+  border-radius: 50%;
+  animation: ou-spin 0.8s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes ou-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.badge-downloaded {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  animation: badge-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 5-Band Equalizer: Clean vertical sliders without horizontal distortion */
+#eq-sliders-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 16px 12px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 18px !important;
+  margin-top: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.eq-band-col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex: 1 !important;
+  gap: 8px !important;
+}
+
+input[type="range"].eq-band {
+  -webkit-appearance: slider-vertical !important;
+  writing-mode: bt-lr !important;
+  width: 24px !important;
+  height: 110px !important;
+  cursor: pointer !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  outline: none !important;
 }

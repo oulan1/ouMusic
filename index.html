@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.6.8">
-  <link rel="stylesheet" href="css/main.css?v=2.6.8">
-  <link rel="stylesheet" href="css/components.css?v=2.6.8">
-  <link rel="stylesheet" href="css/player.css?v=2.6.8">
+  <link rel="stylesheet" href="css/tokens.css?v=2.6.9">
+  <link rel="stylesheet" href="css/main.css?v=2.6.9">
+  <link rel="stylesheet" href="css/components.css?v=2.6.9">
+  <link rel="stylesheet" href="css/player.css?v=2.6.9">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -728,27 +728,27 @@
                   <button class="btn btn-outlined" id="eq-reset-btn" style="padding: 4px 10px; font-size: 0.75rem;">Сбросить по умолчанию</button>
                 </div>
               </div>
-              <div style="display: flex; justify-content: space-between; gap: 8px; margin-top: 12px;" id="eq-sliders-row">
+              <div id="eq-sliders-row">
                 <!-- 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz -->
-                <div style="text-align: center; flex: 1;">
-                  <input type="range" class="m3-range-input eq-band" data-band="0" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
-                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">60Hz</div>
+                <div class="eq-band-col">
+                  <input type="range" class="eq-band" data-band="0" min="-12" max="12" step="1" value="0">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">60Hz</div>
                 </div>
-                <div style="text-align: center; flex: 1;">
-                  <input type="range" class="m3-range-input eq-band" data-band="1" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
-                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">230Hz</div>
+                <div class="eq-band-col">
+                  <input type="range" class="eq-band" data-band="1" min="-12" max="12" step="1" value="0">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">230Hz</div>
                 </div>
-                <div style="text-align: center; flex: 1;">
-                  <input type="range" class="m3-range-input eq-band" data-band="2" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
-                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">910Hz</div>
+                <div class="eq-band-col">
+                  <input type="range" class="eq-band" data-band="2" min="-12" max="12" step="1" value="0">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">910Hz</div>
                 </div>
-                <div style="text-align: center; flex: 1;">
-                  <input type="range" class="m3-range-input eq-band" data-band="3" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
-                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">3.6k</div>
+                <div class="eq-band-col">
+                  <input type="range" class="eq-band" data-band="3" min="-12" max="12" step="1" value="0">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">3.6k</div>
                 </div>
-                <div style="text-align: center; flex: 1;">
-                  <input type="range" class="m3-range-input eq-band" data-band="4" min="-12" max="12" step="1" value="0" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 8px; height: 90px;">
-                  <div style="font-size: 0.65rem; color: var(--md-sys-color-outline); margin-top: 4px;">14k</div>
+                <div class="eq-band-col">
+                  <input type="range" class="eq-band" data-band="4" min="-12" max="12" step="1" value="0">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">14k</div>
                 </div>
               </div>
             </div>
@@ -2105,7 +2105,7 @@
   <input type="file" id="oulist-file-input" accept=".oulist,.json" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.6.8"></script>
-  <script src="js/app.standalone.js?v=2.6.8"></script>
+  <script src="tracks/catalog.js?v=2.6.9"></script>
+  <script src="js/app.standalone.js?v=2.6.9"></script>
 </body>
 </html>
