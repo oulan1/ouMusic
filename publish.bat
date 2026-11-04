@@ -1,2 +1,2 @@
 @echo off
-call "%~dp0sync_to_github.bat"
+call "%~dp0ouMusic.bat"

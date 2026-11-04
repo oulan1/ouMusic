@@ -4615,6 +4615,51 @@
       if (savedName) syncUserName(savedName);
     } catch (e) {}
 
+    
+  function openEditUsernameModal(currentName) {
+    const backdrop = document.getElementById('edit-username-modal-backdrop');
+    const modal = document.getElementById('edit-username-modal');
+    const input = document.getElementById('edit-username-input');
+    const cancelBtn = document.getElementById('edit-username-cancel-btn');
+    const saveBtn = document.getElementById('edit-username-save-btn');
+    if (!backdrop || !input) return;
+
+    input.value = currentName || '';
+    backdrop.classList.add('active');
+    modal?.classList.add('active');
+    setTimeout(() => input.focus(), 120);
+
+    const closeModal = () => {
+      backdrop.classList.remove('active');
+      modal?.classList.remove('active');
+    };
+
+    const doSave = () => {
+      const val = (input.value || '').trim();
+      if (!val) {
+        showToast('Введите имя пользователя');
+        return;
+      }
+      syncUserName(val);
+      try { localStorage.setItem('oumusic_user_name', val); } catch (e) {}
+      closeModal();
+      showToast(`Имя сохранено: "${val}"`);
+      syncRecapVisibility();
+      if (val.toLowerCase() === 'oulan') {
+        showToast('🎉 Итоги года ouMusic разблокированы для oulan!');
+      }
+    };
+
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
+    if (saveBtn) saveBtn.onclick = doSave;
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') doSave();
+      if (e.key === 'Escape') closeModal();
+    };
+  }
+  window.openEditUsernameModal = openEditUsernameModal;
+
     avatarContainer?.addEventListener('click', () => avatarInput?.click());
     editBtn?.addEventListener('click', () => {
       const currentName = nameDisplay?.textContent?.trim() || 'Пользователь';
@@ -5634,7 +5679,42 @@
     recapDialog?.addEventListener('click', (e) => {
       if (e.target === recapDialog) recapDialog.classList.remove('active');
     });
-    let recapSlide = 0;
+    
+  /* ==========================================================================
+     YEAR RECAP GATE (DECEMBER 14 OR 'oulan' NICKNAME EXCEPTION)
+     ========================================================================== */
+  function isRecapAvailable() {
+    let nick = '';
+    try {
+      nick = (localStorage.getItem('oumusic_user_name') || localStorage.getItem('oumusic_username') || '').trim().toLowerCase();
+    } catch (e) {}
+    if (nick === 'oulan') return true;
+
+    const now = new Date();
+    // Month is 0-indexed: 11 is December. Date must be 14 or later.
+    return (now.getMonth() === 11 && now.getDate() >= 14);
+  }
+  window.isRecapAvailable = isRecapAvailable;
+
+  function syncRecapVisibility() {
+    const available = isRecapAvailable();
+    const recapBtn = document.getElementById('open-year-recap-btn');
+    const recapBtnBadge = document.getElementById('recap-btn-badge');
+    const mobileRecapBadge = document.getElementById('mobile-recap-badge');
+
+    if (recapBtn) {
+      recapBtn.style.setProperty('display', available ? 'flex' : 'none', 'important');
+    }
+    if (recapBtnBadge) {
+      recapBtnBadge.style.setProperty('display', available ? 'inline-block' : 'none', 'important');
+    }
+    if (mobileRecapBadge) {
+      mobileRecapBadge.style.setProperty('display', available ? 'inline-block' : 'none', 'important');
+    }
+  }
+  window.syncRecapVisibility = syncRecapVisibility;
+
+  let recapSlide = 0;
     document.getElementById('recap-close-x-btn')?.addEventListener('click', () => {
       recapDialog?.classList.remove('active');
     });
@@ -6515,6 +6595,120 @@
     showToast(`Файл ${safeName}.oulist скачан!`);
   }
   window.exportPlaylistOulist = exportPlaylistOulist;
+
+  
+  /* Modern In-App Playlist Edit Modal */
+  function openEditPlaylistModal(playlist) {
+    if (!playlist) return;
+    const backdrop = document.getElementById('edit-playlist-modal-backdrop');
+    const modal = document.getElementById('edit-playlist-modal');
+    const input = document.getElementById('edit-playlist-input');
+    const imgPreview = document.getElementById('edit-playlist-cover-img');
+    const pickCoverBtn = document.getElementById('edit-playlist-pick-cover-btn');
+    const coverFileInput = document.getElementById('edit-playlist-cover-file');
+    const cancelBtn = document.getElementById('edit-playlist-cancel-btn');
+    const saveBtn = document.getElementById('edit-playlist-save-btn');
+    if (!backdrop || !input) return;
+
+    input.value = playlist.name || '';
+    let updatedCoverBase64 = playlist.coverBase64 || null;
+    if (imgPreview) {
+      imgPreview.src = playlist.coverBase64 || 'assets/oumusic.png';
+    }
+
+    if (pickCoverBtn && coverFileInput) {
+      pickCoverBtn.onclick = () => coverFileInput.click();
+      coverFileInput.onchange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            updatedCoverBase64 = ev.target.result;
+            if (imgPreview) imgPreview.src = updatedCoverBase64;
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+    }
+
+    backdrop.classList.add('active');
+    modal?.classList.add('active');
+    setTimeout(() => input.focus(), 120);
+
+    const closeModal = () => {
+      backdrop.classList.remove('active');
+      modal?.classList.remove('active');
+    };
+
+    const doSave = () => {
+      const newName = (input.value || '').trim();
+      if (!newName) {
+        showToast('Введите название плейлиста');
+        return;
+      }
+      playlist.name = newName;
+      if (updatedCoverBase64) {
+        playlist.coverBase64 = updatedCoverBase64;
+      }
+      const store = getStore('playlists', 'readwrite');
+      if (store) store.put(playlist);
+
+      const titleEl = document.getElementById('pl-view-title');
+      if (titleEl) titleEl.textContent = playlist.name;
+      const coverEl = document.getElementById('pl-view-cover-img');
+      if (coverEl && playlist.coverBase64) coverEl.src = playlist.coverBase64;
+
+      renderPlaylistsGrid();
+      closeModal();
+      showToast('Плейлист успешно обновлен');
+    };
+
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
+    if (saveBtn) saveBtn.onclick = doSave;
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') doSave();
+      if (e.key === 'Escape') closeModal();
+    };
+  }
+  window.openEditPlaylistModal = openEditPlaylistModal;
+
+  /* Modern In-App Playlist Delete Confirmation Modal */
+  function openDeletePlaylistModal(playlist) {
+    if (!playlist) return;
+    const backdrop = document.getElementById('delete-playlist-modal-backdrop');
+    const modal = document.getElementById('delete-playlist-modal');
+    const msg = document.getElementById('delete-playlist-dialog-msg');
+    const cancelBtn = document.getElementById('cancel-delete-playlist-btn');
+    const confirmBtn = document.getElementById('confirm-delete-playlist-btn');
+    if (!backdrop) return;
+
+    if (msg) {
+      msg.textContent = `Вы действительно хотите удалить плейлист «${playlist.name}»? Треки останутся в вашей медиатеке.`;
+    }
+
+    backdrop.classList.add('active');
+    modal?.classList.add('active');
+
+    const closeModal = () => {
+      backdrop.classList.remove('active');
+      modal?.classList.remove('active');
+    };
+
+    const doDelete = () => {
+      const store = getStore('playlists', 'readwrite');
+      if (store) store.delete(playlist.id);
+      closeModal();
+      showToast(`Плейлист «${playlist.name}» удален`);
+      navigateTo('library');
+      renderPlaylistsGrid();
+    };
+
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
+    if (confirmBtn) confirmBtn.onclick = doDelete;
+  }
+  window.openDeletePlaylistModal = openDeletePlaylistModal;
 
   function initPlaylistViewHandlers() {
     document.getElementById('playlist-view-back-btn')?.addEventListener('click', () => {

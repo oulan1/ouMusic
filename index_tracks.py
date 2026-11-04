@@ -13,6 +13,31 @@ import json
 import zipfile
 from datetime import datetime, timezone
 
+
+# Known Artist Genre Database for intelligent inference
+ARTIST_GENRES = {
+    'sqwore': ['Hyperpop', 'Glitchcore', 'Emo Rap'],
+    'серега пират': ['Phonk', 'Meme Rap', 'Indie'],
+    'serega pirat': ['Phonk', 'Meme Rap', 'Indie'],
+    'imagine dragons': ['Alt Rock', 'Pop Rock', 'Indie'],
+    'shadowraze': ['Phonk', 'Dota Rap', 'Underground'],
+    'три дня дождя': ['Rock', 'Post-Punk', 'Indie'],
+    'kizaru': ['Trap', 'Hip-Hop', 'Cloud Rap'],
+    'big baby tape': ['Trap', 'Hip-Hop', 'Rap'],
+    'og buda': ['Trap', 'Hip-Hop', 'Detroit Rap'],
+    'pharaoh': ['Cloud Rap', 'Hip-Hop', 'Emo Rap'],
+    'macan': ['Hip-Hop', 'Pop Rap', 'Lyric'],
+    'miyagi': ['Reggae', 'Hip-Hop', 'Soul'],
+    'saluki': ['Hip-Hop', 'Indie Rap', 'Alternative']
+}
+
+def infer_genres(artist_name, title):
+    name = (artist_name or '').lower()
+    for key, genres in ARTIST_GENRES.items():
+        if key in name:
+            return genres
+    return ['Pop', 'Electronic', 'Indie']
+
 def index_tracks():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     tracks_dir = os.path.join(base_dir, 'tracks')
@@ -65,7 +90,7 @@ def index_tracks():
             "filename": filename,
             "title": meta.get('title', default_title),
             "artist": meta.get('artist', default_artist),
-            "genres": meta.get('genres', []),
+            "genres": meta.get('genres') if (meta.get('genres') and len(meta.get('genres')) > 0) else infer_genres(meta.get('artist', default_artist), meta.get('title', default_title)),
             "duration": meta.get('duration', 0),
             "hasLyrics": meta.get('hasLyrics', True),
             "isExplicit": bool(is_explicit),

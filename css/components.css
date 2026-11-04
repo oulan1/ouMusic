@@ -1497,3 +1497,5 @@ input[type="range"].eq-band {
   background: transparent !important;
   outline: none !important;
 }
+
+.modal-backdrop.active .dialog-card { transform: scale(1) !important; }

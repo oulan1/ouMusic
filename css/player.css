@@ -671,10 +671,11 @@
 
 /* Tier 1: Immediately Adjacent Lines (Above & Below active - moderately bright) */
 .lyric-line.near-1 {
-  color: rgba(255, 255, 255, 0.58) !important;
-  opacity: 0.78 !important;
-  font-size: 1.85rem !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  opacity: 0.82 !important;
+  font-size: 1.82rem !important;
   font-weight: 750 !important;
+  line-height: 1.4 !important;
   transform: scale(1.0) !important;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
@@ -689,8 +690,9 @@
   color: #FFFFFF !important;
   font-weight: 850 !important;
   font-size: 2.25rem !important;
+  line-height: 1.4 !important;
   opacity: 1.0 !important;
-  transform: scale(1.03) translateY(-1px) !important;
+  transform: scale(1.02) !important;
   text-shadow: 0 0 28px rgba(255, 255, 255, 0.55), 0 2px 12px rgba(0, 0, 0, 0.8) !important;
 }
 
