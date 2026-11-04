@@ -293,7 +293,8 @@
       if (window.downloadedTrackIds) window.downloadedTrackIds.delete(track.id);
 
       // If user-uploaded local track without cloud audioUrl, delete fully
-      if (track.isUploadedLocal && !track.audioUrl) {
+      track.isLocal = false;
+      if (track.isUploadedLocal && !track.filename && !track.audioUrl) {
         return await deleteTrack(track.id);
       } else {
         track.isLocal = false;
@@ -745,7 +746,16 @@
     }
 
     async softPlay() {
+      if (!this.audioElement.src) {
+        if (typeof window.startOrResumeWave === 'function') {
+          window.startOrResumeWave();
+        }
+        return;
+      }
       this.ensureContext();
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        try { await this.audioCtx.resume(); } catch (e) {}
+      }
       this.isPlaying = true;
       if (this.onPlayStateChange) this.onPlayStateChange(true);
       if (typeof updateMediaSessionPlaybackState === 'function') {
@@ -755,12 +765,9 @@
         if (this.softGainNode && this.audioCtx) {
           const ctx = this.audioCtx;
           this.softGainNode.gain.cancelScheduledValues(ctx.currentTime);
-          this.softGainNode.gain.setValueAtTime(0.001, ctx.currentTime);
-          await this.audioElement.play();
-          this.softGainNode.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.12);
-        } else {
-          await this.audioElement.play();
+          this.softGainNode.gain.setValueAtTime(1.0, ctx.currentTime);
         }
+        await this.audioElement.play();
       } catch (e) {
         console.warn('[Engine] Play failed or needs gesture:', e);
       }
@@ -1987,7 +1994,7 @@
         if (offlineRecord.meta.instrumentalConfig) track.instrumentalConfig = offlineRecord.meta.instrumentalConfig;
         if (offlineRecord.meta.isExplicit !== undefined) track.isExplicit = offlineRecord.meta.isExplicit;
       }
-    } else if (!track.isLocal && track.filename) {
+    } else if (track.filename) {
       try {
         const encName = encodeURIComponent(track.filename);
         const candidates = [
@@ -2248,8 +2255,11 @@
     const miniProgress = document.getElementById('mini-progress-bar');
     let isScrubberDragging = false;
 
-    function smoothScrubberTick() {
+    let lastScrubberTickTime = 0;
+    function smoothScrubberTick(now) {
       requestAnimationFrame(smoothScrubberTick);
+      if (now && now - lastScrubberTickTime < 14) return;
+      lastScrubberTickTime = now || 0;
       if (!engine.isPlaying || isScrubberDragging) return;
       const cur = engine.audioElement.currentTime || 0;
       const dur = engine.audioElement.duration || 1;
@@ -2257,11 +2267,13 @@
         const pct = (cur / dur) * 100;
         if (scrubber) {
           scrubber.value = pct;
-          scrubber.style.setProperty('--range-progress', `${pct}%`);
+          scrubber.style.setProperty('--range-progress', pct + '%');
         }
-        if (miniProgress) miniProgress.style.width = `${pct}%`;
-        if (curTimeEl) curTimeEl.textContent = formatSec(cur);
-        if (durTimeEl) durTimeEl.textContent = formatSec(dur);
+        if (miniProgress) miniProgress.style.width = pct + '%';
+        const fCur = formatSec(cur);
+        const fDur = formatSec(dur);
+        if (curTimeEl && curTimeEl.textContent !== fCur) curTimeEl.textContent = fCur;
+        if (durTimeEl && durTimeEl.textContent !== fDur) durTimeEl.textContent = fDur;
       }
     }
     requestAnimationFrame(smoothScrubberTick);
@@ -2517,7 +2529,7 @@
     document.getElementById('sheet-act-about-track')?.addEventListener('click', () => {
       const t = selectedSheetTrack || currentTrack;
       closeSheet();
-      openTrackInfoSheet(t);
+      setTimeout(() => openTrackInfoSheet(t), 140);
     });
 
     // Open lyrics from sheet
@@ -2722,7 +2734,6 @@
         track.instrumentalConfig = unpacked.meta.instrumentalConfig ?? track.instrumentalConfig;
       }
       if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
-      track.isLocal = true;
       track.isDownloaded = true;
       await saveTrackMetadata(track);
       if (window.downloadedTrackIds) window.downloadedTrackIds.add(track.id);
@@ -2910,7 +2921,7 @@
       // Proportional cover radius: in 800x800 canvas (at 165% CSS ratio), cover box occupies ~242px radius
       // Proportional cover radius in 800x800 canvas:
       // Base coverRadius sits snugly at 236px (slightly smaller in all states, with expansive headroom for loud sounds)
-      const coverRadius = 265;
+      const coverRadius = 248;
 
       let rawBass = 0;
       let rawVol = 0;
@@ -2977,12 +2988,12 @@
       for (let k = 0; k < rings; k++) {
         // Base ring positions: starts compact (+6px to +48px from coverRadius)
         // Expands smoothly with amp and punchy sub-bass on louder sounds
-        const baseOffset = 6 + k * 14;
-        const dynamicExpand = amp * (12 + k * 14) + smoothBass * (10 + k * 6);
+        const baseOffset = 4 + k * 10;
+        const dynamicExpand = amp * (10 + k * 10) + smoothBass * (8 + k * 5);
         const ringBase = coverRadius + baseOffset + dynamicExpand;
 
-        const ringAlpha = (0.07 + amp * 0.55) * (1 - k * 0.16);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.04, ringAlpha)})`;
+        const ringAlpha = (0.26 + amp * 0.55) * (1 - k * 0.16);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.18, ringAlpha)})`;
         ctx.lineWidth = 1.6 + amp * 1.1 - k * 0.22;
         ctx.beginPath();
 
@@ -3241,6 +3252,25 @@
       }
     }
     window.updateWaveCardInfo = updateWaveCardInfo;
+    window.getFilteredWaveTracks = getFilteredWaveTracks;
+
+    function startOrResumeWave() {
+      if (currentTrack && engine.audioElement && engine.audioElement.src && !engine.audioElement.ended) {
+        return engine.softPlay();
+      }
+      const stream = getFilteredWaveTracks();
+      if (stream.length > 0) {
+        playbackQueue = stream;
+        queueIndex = 0;
+        playTrack(stream[0]);
+        updateWaveCardInfo(stream[0]);
+      } else if (catalogTracks.length > 0) {
+        playbackQueue = [...catalogTracks];
+        queueIndex = 0;
+        playTrack(catalogTracks[0]);
+      }
+    }
+    window.startOrResumeWave = startOrResumeWave;
 
     // Start / Pause Wave
     startBtn?.addEventListener('click', () => {
@@ -4409,6 +4439,22 @@
     });
     document.getElementById('lyrics-mini-open-player')?.addEventListener('click', () => {
       overlay?.classList.remove('active');
+    });
+    document.getElementById('lyrics-bottom-artist')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentTrack && currentTrack.artist) {
+        overlay?.classList.remove('active');
+        document.getElementById('fullscreen-player')?.classList.remove('active');
+        openArtistProfile(currentTrack.artist);
+      }
+    });
+    document.getElementById('lyrics-track-artist')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentTrack && currentTrack.artist) {
+        overlay?.classList.remove('active');
+        document.getElementById('fullscreen-player')?.classList.remove('active');
+        openArtistProfile(currentTrack.artist);
+      }
     });
 
     // Seeking on minimalist progress track under cover info
@@ -6596,28 +6642,37 @@
     const centerFab = document.getElementById('wave-center-fab');
     if (!waveCont) return;
 
-    // Toggle play/pause on wave center or container click
+    // Bulletproof Debounced Toggle Play/Pause: checks actual audio playback state
+    let lastWaveToggleTime = 0;
     const toggleWavePlay = async (e) => {
-      if (e) e.stopPropagation();
-      if (engine.isPlaying) {
+      if (e) {
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      const now = Date.now();
+      if (now - lastWaveToggleTime < 320) {
+        return; // Ignore duplicate synthetic events within 320ms
+      }
+      lastWaveToggleTime = now;
+
+      const isActuallyPlaying = engine.isPlaying && engine.audioElement && !engine.audioElement.paused;
+      if (isActuallyPlaying) {
         engine.softPause();
       } else {
-        if (currentTrack && engine.audioElement && engine.audioElement.src) {
+        if (currentTrack && engine.audioElement && engine.audioElement.src && !engine.audioElement.ended) {
           await engine.softPlay();
+        } else if (typeof window.startOrResumeWave === 'function') {
+          await window.startOrResumeWave();
         } else if (playbackQueue.length > 0) {
           playTrack(playbackQueue[queueIndex || 0]);
         } else if (catalogTracks.length > 0) {
           playTrack(catalogTracks[0]);
-        } else {
-          document.getElementById('hero-start-wave-btn')?.click();
         }
       }
     };
 
-    centerFab?.addEventListener('click', toggleWavePlay);
-
     // Touch and pointer gestures: Pan-Y allows vertical scrolling without interference!
-    let startX = 0, startY = 0, isDragging = false, currentX = 0, isVerticalScroll = false, didHorizontalMove = false;
+    let startX = 0, startY = 0, isDragging = false, currentX = 0;
+    let isVerticalScroll = false, didHorizontalMove = false;
 
     const onTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
@@ -6637,8 +6692,8 @@
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
 
-      // If vertical movement dominates, yield to native page scroll!
-      if (Math.abs(dy) > Math.abs(dx) && !didHorizontalMove) {
+      // Only determine vertical scroll if movement exceeds minimum touch slop (10px)!
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) && !didHorizontalMove) {
         isVerticalScroll = true;
         waveCont.style.transform = 'translateX(0px)';
         return;
@@ -6646,7 +6701,7 @@
 
       if (isVerticalScroll) return;
 
-      if (Math.abs(dx) > 12) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
         didHorizontalMove = true;
         currentX = touch.clientX;
         const clamped = Math.max(-65, Math.min(65, dx * 0.35));
@@ -6664,29 +6719,26 @@
 
       const dx = currentX - startX;
       if (!didHorizontalMove) {
-        // Clean tap toggles play/pause
-        toggleWavePlay();
+        // Clean tap on wave: cancel synthetic click and toggle play/pause immediately!
+        if (e.cancelable) e.preventDefault();
+        toggleWavePlay(e);
         return;
       }
 
-      if (dx < -40) {
-        if (typeof window.playNextTrack === 'function') {
-          window.playNextTrack();
-        }
-      } else if (dx > 40) {
+      if (dx < -35) {
+        if (typeof window.playNextTrack === 'function') window.playNextTrack();
+      } else if (dx > 35) {
         if (typeof window.flashWaveDislike === 'function') window.flashWaveDislike();
-        if (typeof window.triggerDislikeCurrentTrack === 'function') {
-          window.triggerDislikeCurrentTrack();
-        }
+        if (typeof window.triggerDislikeCurrentTrack === 'function') window.triggerDislikeCurrentTrack();
       }
     };
 
-    waveCont.addEventListener('touchstart', onTouchStart, { passive: true });
+    waveCont.addEventListener('touchstart', onTouchStart, { passive: false });
     waveCont.addEventListener('touchmove', onTouchMove, { passive: true });
-    waveCont.addEventListener('touchend', onTouchEnd, { passive: true });
+    waveCont.addEventListener('touchend', onTouchEnd, { passive: false });
     waveCont.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
-    // Mouse drag on desktop
+    // Desktop mouse gestures
     let isMouseDown = false, mouseStartX = 0, mouseCurrentX = 0, mouseMoved = false;
     waveCont.addEventListener('mousedown', (e) => {
       isMouseDown = true;
@@ -6712,13 +6764,13 @@
       waveCont.style.transform = 'translateX(0px)';
 
       if (!mouseMoved) {
-        toggleWavePlay();
+        toggleWavePlay(e);
         return;
       }
       const dx = mouseCurrentX - mouseStartX;
-      if (dx < -40) {
+      if (dx < -35) {
         if (typeof window.playNextTrack === 'function') window.playNextTrack();
-      } else if (dx > 40) {
+      } else if (dx > 35) {
         if (typeof window.flashWaveDislike === 'function') window.flashWaveDislike();
         if (typeof window.triggerDislikeCurrentTrack === 'function') window.triggerDislikeCurrentTrack();
       }

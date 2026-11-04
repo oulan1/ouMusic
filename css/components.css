@@ -1383,6 +1383,7 @@
 }
 
 .wave-center-fab {
+  pointer-events: none !important;
   position: absolute;
   top: 50%;
   left: 50%;
