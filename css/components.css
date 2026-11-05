@@ -468,7 +468,7 @@
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   z-index: 10000 !important;
-  display: flex !important;
+  display: none !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 16px !important;
@@ -481,6 +481,7 @@
 
 .dialog-backdrop.active,
 .modal-backdrop.active {
+  display: flex !important;
   opacity: 1 !important;
   pointer-events: auto !important;
   visibility: visible !important;
@@ -488,6 +489,7 @@
 
 .dialog-backdrop:not(.active),
 .modal-backdrop:not(.active) {
+  display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;

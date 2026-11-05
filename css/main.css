@@ -158,7 +158,7 @@ html, body {
   transform: translateY(-50%);
   width: 36px;
   height: 36px;
-  margin-left: 8px; /* Clean gap: zero collision with apex edge in liquid glass */
+  margin-left: 20px; /* Clean gap: zero collision with apex edge in liquid glass */
   border-radius: 50%;
   background: var(--md-sys-color-surface-container-highest);
   border: 1.5px solid var(--md-sys-color-primary);
@@ -179,7 +179,7 @@ html, body {
 }
 
 .arc-sidebar.collapsed .arc-toggle-btn {
-  margin-left: 6px;
+  margin-left: 14px;
 }
 
 .arc-toggle-btn svg {
@@ -1568,4 +1568,19 @@ html, body {
   width: 44%;
   height: 44%;
   fill: currentColor;
+}
+
+
+/* Liquid Glass Player Play/Pause Button: Solid White with Dark Icon */
+[data-liquid-glass="true"] .play-pause-fab,
+[data-liquid-glass="true"] #fs-play-btn {
+  background: #FFFFFF !important;
+  color: #111116 !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.45), 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-liquid-glass="true"] .play-pause-fab .svg-icon,
+[data-liquid-glass="true"] #fs-play-btn .svg-icon {
+  fill: #111116 !important;
 }

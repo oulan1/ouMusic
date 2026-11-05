@@ -101,6 +101,10 @@
   transform: translateY(0);
 }
 
+.fullscreen-player:not(.active) {
+  pointer-events: none !important;
+}
+
 /* Disabled gaudy purple muddy glow in standard player mode */
 .player-glow-bg {
   display: none !important;
@@ -626,16 +630,17 @@
   display: none;
 }
 
+/* Level 3: Inactive Lines (Upcoming) - Base size, subtle and dark */
 .lyric-line {
   font-family: var(--font-family-ys), -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif !important;
-  font-size: 2.15rem !important; /* Uniform font size across all levels to prevent word jumping! */
-  font-weight: 850 !important;
-  color: rgba(255, 255, 255, 0.24) !important; /* Level 3: Inactive */
-  opacity: 0.35 !important;
+  font-size: 1.85rem !important;
+  font-weight: 750 !important;
+  color: rgba(255, 255, 255, 0.22) !important;
+  opacity: 0.32 !important;
   cursor: pointer;
   padding: 10px 18px;
   border-radius: 16px;
-  transition: color 0.35s ease, opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.35s ease, opacity 0.35s ease, font-size 0.3s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
   line-height: 1.34 !important;
   letter-spacing: -0.4px;
   user-select: text;
@@ -652,45 +657,47 @@
 }
 
 [data-theme="light"] .lyric-line {
-  color: rgba(0, 0, 0, 0.24) !important;
+  color: rgba(0, 0, 0, 0.22) !important;
   opacity: 0.35 !important;
 }
 
-/* Past lines: smooth fade out & shrink upwards as they exit into the past */
+/* Past lines: smooth fade out & shrink upwards towards center, hidden until user scrolls */
 .lyric-line.past {
   opacity: 0 !important;
-  transform: scale(0.92) translateY(-16px) !important;
+  transform: scale(0.92) translateY(-18px) !important;
   pointer-events: none;
 }
 
-/* When user is actively scrolling manually, past lines gently reappear for reading */
+/* When user is actively scrolling manually with mousewheel or touch, past lines smoothly reappear */
 .lyrics-scroll-container.user-scrolling .lyric-line.past {
   opacity: 0.35 !important;
   transform: scale(1.0) translateY(0) !important;
   pointer-events: auto;
 }
 
-/* Tier 2: Immediately Adjacent Upcoming Line (Level 2: brighter and clearly distinct) */
+/* Level 2: Line immediately below active - slightly larger and brighter */
 .lyric-line.near-1 {
-  color: rgba(255, 255, 255, 0.68) !important;
-  opacity: 0.78 !important;
-  font-weight: 850 !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  opacity: 0.72 !important;
+  font-size: 2.15rem !important;
+  font-weight: 800 !important;
   transform: scale(1.0) !important;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+  text-shadow: none !important;
 }
 
 [data-theme="light"] .lyric-line.near-1 {
-  color: rgba(0, 0, 0, 0.68) !important;
-  opacity: 0.78 !important;
+  color: rgba(0, 0, 0, 0.62) !important;
+  opacity: 0.72 !important;
 }
 
-/* Active Line: Level 1 - Pure White, Highest Contrast, Crisp Drop Shadow (No Neon) */
+/* Level 1: Main Active Line - Pure White, largest, crisp drop shadow (NO NEON GLOW) */
 .lyric-line.active {
   color: #FFFFFF !important;
-  font-weight: 900 !important;
+  font-weight: 850 !important;
+  font-size: 2.5rem !important;
   opacity: 1.0 !important;
   transform: scale(1.0) translateY(0) !important;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55) !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75) !important;
 }
 
 [data-theme="light"] .lyric-line.active {
@@ -716,38 +723,6 @@
   border: 1px solid var(--md-sys-color-primary) !important;
   color: #FFFFFF !important;
   box-shadow: 0 0 16px var(--md-sys-color-primary);
-}
-
-/* Tier 1: Immediately Adjacent Lines (Above & Below active - moderately bright) */
-.lyric-line.near-1 {
-  color: rgba(255, 255, 255, 0.65) !important;
-  opacity: 0.82 !important;
-  font-size: 1.82rem !important;
-  font-weight: 750 !important;
-  line-height: 1.4 !important;
-  transform: scale(1.0) !important;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-}
-
-[data-theme="light"] .lyric-line.near-1 {
-  color: rgba(0, 0, 0, 0.58) !important;
-  opacity: 0.8 !important;
-}
-
-/* Active Line: Prominent, Pure White, Centered, Elegant Scale Elevation */
-.lyric-line.active {
-  color: #FFFFFF !important;
-  font-weight: 850 !important;
-  font-size: 2.25rem !important;
-  line-height: 1.4 !important;
-  opacity: 1.0 !important;
-  transform: scale(1.02) !important;
-  text-shadow: 0 0 28px rgba(255, 255, 255, 0.55), 0 2px 12px rgba(0, 0, 0, 0.8) !important;
-}
-
-[data-theme="light"] .lyric-line.active {
-  color: #111116 !important;
-  text-shadow: none !important;
 }
 
 /* Mobile & Tablet Responsiveness - Rock-solid 60 FPS, No Clipping, Full Width */
@@ -1001,42 +976,7 @@
     transform: translateZ(0) !important;
   }
 
-  .lyric-line {
-    font-size: 1.25rem !important;
-    font-weight: 700 !important;
-    line-height: 1.36 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    padding: 8px 14px !important;
-    text-align: center !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: break-word !important;
-    color: rgba(255, 255, 255, 0.22) !important;
-    opacity: 0.38 !important;
-    transform: none !important;
-    transition: font-size 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.32s ease, opacity 0.32s ease, transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85) !important;
-    will-change: opacity, color, font-size !important;
-  }
-
-  .lyric-line.near-1 {
-    font-size: 1.45rem !important;
-    font-weight: 750 !important;
-    color: rgba(255, 255, 255, 0.58) !important;
-    opacity: 0.75 !important;
-    transform: scale(1.0) !important;
-  }
-
-  .lyric-line.active {
-    font-size: 1.85rem !important;
-    font-weight: 850 !important;
-    color: #FFFFFF !important;
-    opacity: 1.0 !important;
-    transform: scale(1.02) !important;
-    text-shadow: 0 0 24px rgba(255, 255, 255, 0.5), 0 2px 10px rgba(0, 0, 0, 0.8) !important;
-  }
+  /* Cleaned duplicate mobile rules */
 
   /* Quote Card Dialog Mobile Responsiveness - No button overflow */
   #quote-card-dialog .dialog-card {
@@ -1428,46 +1368,45 @@
     -webkit-mask-image: none !important;
   }
 
+  /* Mobile Lyrics Hierarchy: Level 3 base, Level 2 slightly bigger, Active largest - NO NEON */
   .lyric-line {
     text-align: center !important;
-    font-size: 1.65rem !important;
+    font-size: 1.35rem !important;
     font-weight: 750 !important;
-    color: rgba(255, 255, 255, 0.22) !important; /* All other lines are dark */
-    opacity: 0.35 !important;
+    color: rgba(255, 255, 255, 0.22) !important;
+    opacity: 0.32 !important;
     padding: 8px 14px !important;
     line-height: 1.36 !important;
     border-radius: 16px !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    transition: color 0.35s ease, opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+    transition: color 0.35s ease, opacity 0.35s ease, font-size 0.3s ease, transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
     transform-origin: center center !important;
+    text-shadow: none !important;
   }
 
   [data-theme="light"] .lyric-line {
     color: rgba(0, 0, 0, 0.22) !important;
-    opacity: 0.38 !important;
+    opacity: 0.35 !important;
   }
 
-  /* Active Line: Prominent, Pure White at top */
-  .lyric-line.active {
-    font-size: 1.65rem !important; /* Uniform size prevents word jumping! */
-    font-weight: 850 !important;
-    color: #FFFFFF !important;
-    opacity: 1.0 !important;
-    transform: scale(1.0) !important;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+  .lyric-line.past {
+    opacity: 0 !important;
+    transform: scale(0.92) translateY(-14px) !important;
+    pointer-events: none;
   }
 
-  [data-theme="light"] .lyric-line.active {
-    color: #111116 !important;
-    text-shadow: none !important;
+  .lyrics-scroll-container.user-scrolling .lyric-line.past {
+    opacity: 0.35 !important;
+    transform: scale(1.0) translateY(0) !important;
+    pointer-events: auto;
   }
 
-  /* Near-1: The single line immediately below active is moderately brighter */
+  /* Near-1: Line below active - tier 2 size and brightness */
   .lyric-line.near-1 {
-    font-size: 1.65rem !important; /* Uniform size prevents word jumping! */
+    font-size: 1.55rem !important;
     font-weight: 800 !important;
-    color: rgba(255, 255, 255, 0.6) !important;
+    color: rgba(255, 255, 255, 0.62) !important;
     opacity: 0.72 !important;
     transform: scale(1.0) !important;
     text-shadow: none !important;
@@ -1476,6 +1415,21 @@
   [data-theme="light"] .lyric-line.near-1 {
     color: rgba(0, 0, 0, 0.6) !important;
     opacity: 0.72 !important;
+  }
+
+  /* Active Line: Main line - largest and crispest, pure white, no neon */
+  .lyric-line.active {
+    font-size: 1.82rem !important;
+    font-weight: 850 !important;
+    color: #FFFFFF !important;
+    opacity: 1.0 !important;
+    transform: scale(1.0) !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75) !important;
+  }
+
+  [data-theme="light"] .lyric-line.active {
+    color: #111116 !important;
+    text-shadow: none !important;
   }
 }
 

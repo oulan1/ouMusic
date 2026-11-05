@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.0">
-  <link rel="stylesheet" href="css/main.css?v=2.7.1">
-  <link rel="stylesheet" href="css/components.css?v=2.7.1">
-  <link rel="stylesheet" href="css/player.css?v=2.7.1">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.4">
+  <link rel="stylesheet" href="css/main.css?v=2.7.4">
+  <link rel="stylesheet" href="css/components.css?v=2.7.4">
+  <link rel="stylesheet" href="css/player.css?v=2.7.4">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -289,7 +289,24 @@
   </g>
 
 </defs>
-  </svg>
+  
+    <symbol id="icon-music" viewBox="0 0 24 24">
+      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+    </symbol>
+    <symbol id="icon-playlist" viewBox="0 0 24 24">
+      <path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h11v-2H2v2zm14 0v6l5-3-5-3z"/>
+    </symbol>
+    <symbol id="icon-telegram" viewBox="0 0 24 24">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+    </symbol>
+    <symbol id="icon-gauge" viewBox="0 0 24 24">
+      <path d="M12 4a8 8 0 0 0-8 8c0 2.21.89 4.21 2.34 5.66l1.41-1.41A5.98 5.98 0 0 1 6 12a6 6 0 1 1 12 0c0 1.66-.67 3.16-1.75 4.25l1.41 1.41A7.96 7.96 0 0 0 20 12a8 8 0 0 0-8-8zm-1 4v5.18l3.41 2-1 1.73L10 14.5V8h1z"/>
+    </symbol>
+    <symbol id="icon-shield-check" viewBox="0 0 24 24">
+      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+    </symbol>
+
+</svg>
 
   <div id="app">
     <!-- Semicircular Convex Arc Navigation Wheel (Protruding Left-to-Right) -->
@@ -326,7 +343,7 @@
             <svg class="svg-icon"><use href="#icon-studio"></use></svg>
           </button>
           <button class="icon-btn profile-avatar-btn" id="top-profile-btn" data-nav="profile" title="Профиль" style="padding: 0; overflow: hidden; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;">
-            <img id="top-profile-avatar-img" src="assets/oumusic.png" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
+            <img id="top-profile-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%2322232B'/><circle cx='50' cy='38' r='17' fill='%2371717A'/><path d='M22 84c0-15.5 12.5-28 28-28s28 12.5 28 28H22z' fill='%2371717A'/></svg>" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
           </button>
           <button class="icon-btn" id="top-settings-btn" title="Настройки">
             <svg class="svg-icon"><use href="#icon-settings"></use></svg>
@@ -550,7 +567,7 @@
           <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-extra-large); padding: 24px; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.05);">
             <div style="display: flex; align-items: center; gap: 16px;">
               <div id="profile-avatar-container" style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: #222; border: 2px solid var(--md-sys-color-primary); flex-shrink: 0; cursor: pointer;" title="Нажмите, чтобы сменить фото профиля">
-                <img id="profile-avatar-img" src="assets/oumusic.png" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                <img id="profile-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%2322232B'/><circle cx='50' cy='38' r='17' fill='%2371717A'/><path d='M22 84c0-15.5 12.5-28 28-28s28 12.5 28 28H22z' fill='%2371717A'/></svg>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
               </div>
               <input type="file" id="profile-avatar-file-input" accept="image/*" style="display: none;">
               <div style="flex: 1;">
@@ -621,6 +638,56 @@
         <!-- SCREEN 5: SETTINGS -->
         <section class="screen" id="screen-settings">
           <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 20px;" data-i18n="nav_settings">Настройки</h2>
+
+    <!-- Official Telegram Channel Card -->
+    <a href="https://t.me/ouMusicCore" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, rgba(0, 136, 204, 0.22), rgba(0, 136, 204, 0.08)); border: 1px solid rgba(0, 136, 204, 0.35); border-radius: var(--md-shape-corner-large); margin-bottom: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: #0088cc; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);">
+          <svg class="svg-icon" style="width: 22px; height: 22px; fill: #FFFFFF;"><use href="#icon-telegram"></use></svg>
+        </div>
+        <div>
+          <div style="font-weight: 750; font-size: 1.05rem; color: #FFFFFF;">Официальный Telegram-канал</div>
+          <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); margin-top: 2px;">@ouMusicCore — анонсы обновлений, новости и фидбек</div>
+        </div>
+      </div>
+      <div style="padding: 8px 16px; background: #0088cc; color: #FFFFFF; font-weight: 700; font-size: 0.85rem; border-radius: 9999px; flex-shrink: 0;">
+        Перейти →
+      </div>
+    </a>
+
+    <!-- Performance & Eco Mode Block -->
+    <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+          <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-gauge"></use></svg>
+          <span>Режим оптимизации (Эко / 240Hz)</span>
+        </div>
+        <span class="badge-beta" style="background: #10B981; color: #FFF; font-weight: 700; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">240 FPS</span>
+      </div>
+
+      <label class="m3-switch" style="margin-bottom: 14px;">
+        <div>
+          <div class="switch-label">Включить режим оптимизации</div>
+          <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">
+            Отключает тяжелые фоновые шейдеры и волну за обложкой, переводит визуализатор в экономичный цикл для плавных 240 FPS без лагов на слабых смартфонах.
+          </div>
+        </div>
+        <input type="checkbox" id="perf-mode-toggle" class="switch-input">
+        <div class="switch-track"><div class="switch-thumb"></div></div>
+      </label>
+
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+          <div style="font-weight: 600; font-size: 0.9rem;">Тест совместимости (Антуту)</div>
+          <div style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Замерить реальный FPS, задержку DSP звука и стабильность</div>
+        </div>
+        <button class="btn btn-primary" id="open-benchmark-btn" type="button" style="padding: 8px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 12px; display: flex; align-items: center; gap: 6px;">
+          <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-speed"></use></svg>
+          <span>Проверить совместимость</span>
+        </button>
+      </div>
+    </div>
+
 
           <!-- Theme -->
           <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
@@ -1251,29 +1318,48 @@
 
         <!-- SCREEN 7: ARTIST PROFILE -->
         <section class="screen" id="screen-artist">
-          <div id="artist-banner-box" style="width: 100%; height: 180px; border-radius: var(--md-shape-corner-large); overflow: hidden; background: linear-gradient(135deg, rgba(30, 27, 45, 0.95) 0%, rgba(18, 18, 28, 0.95) 100%); position: relative; border: 1px solid rgba(255, 255, 255, 0.08);">
+          <!-- Artist Banner Container -->
+          <div id="artist-banner-box" style="width: 100%; height: 210px; border-radius: 24px; overflow: hidden; position: relative; background: linear-gradient(135deg, #1e1b4b, #311042, #111116); border: 1px solid rgba(255, 255, 255, 0.1);">
             <img id="artist-banner-img" src="" alt="Banner" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-            <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);"></div>
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(17, 17, 22, 0.95) 0%, rgba(17, 17, 22, 0.4) 60%, transparent 100%);"></div>
           </div>
 
-          <div style="display: flex; align-items: flex-end; gap: 16px; padding: 0 16px; margin-top: -40px; position: relative; z-index: 2;">
-            <div id="artist-avatar-wrap" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; border: 3px solid var(--md-sys-color-surface); background: linear-gradient(135deg, var(--md-sys-color-primary) 0%, #1e1b2d 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
+          <!-- Artist Hero: Avatar + Info (Responsive & aligned) -->
+          <div class="artist-hero-row" style="display: flex; align-items: flex-end; gap: 20px; padding: 0 16px; margin-top: -46px; position: relative; z-index: 2; flex-wrap: wrap;">
+            <div id="artist-avatar-wrap" style="width: 92px; height: 92px; border-radius: 50%; overflow: hidden; border: 4px solid var(--md-sys-color-surface); background: #22232B; flex-shrink: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65); display: flex; align-items: center; justify-content: center;">
               <img id="artist-avatar-img" src="" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-              <span id="artist-avatar-initials" style="font-size: 1.8rem; font-weight: 800; color: #FFFFFF;"></span>
+              <span id="artist-avatar-initials" style="font-size: 2rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">AR</span>
             </div>
-            <div style="flex: 1; padding-bottom: 8px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <h2 id="artist-name-title" style="font-size: 1.4rem; font-weight: 700;">Артист</h2>
-                <div id="artist-verified-badge" class="badge-verified" style="display: none;" title="Официально подтвержденный артист">
-                  <svg class="svg-icon"><use href="#icon-verified"></use></svg>
-                  <div class="tooltip-box">Данный музыкант официально подтвердил свою страницу на ouMusic</div>
+            <div style="flex: 1; min-width: 200px; padding-bottom: 6px;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <h2 id="artist-name-title" style="font-size: 1.6rem; font-weight: 850; font-family: var(--font-family-ys), sans-serif; color: #FFFFFF; margin: 0;">Артист</h2>
+                <div id="artist-verified-badge" class="badge-verified" style="display: none;" title="Официально подтверждённый артист на ouMusic">
+                  <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-verified"></use></svg>
+                  <div class="tooltip-box">Данный профиль официально верифицирован как артист на ouMusic</div>
                 </div>
               </div>
-              <div id="artist-month-wins-container"></div>
-              <div id="artist-tracks-counter" style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 4px;">0 треков на платформе</div>
+              <div id="artist-tracks-counter" style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: 4px;">0 треков в медиатеке</div>
             </div>
           </div>
 
+          <!-- Awards & Showcase Card -->
+          <div id="artist-awards-card" style="margin-top: 18px; padding: 16px 20px; border-radius: 20px; background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 255, 255, 0.03)); border: 1px solid rgba(255, 215, 0, 0.25); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, #F59E0B, #D97706); display: flex; align-items: center; justify-content: center; color: #FFFFFF; box-shadow: 0 6px 18px rgba(245, 158, 11, 0.4); flex-shrink: 0;">
+                <svg class="svg-icon" style="width: 24px; height: 24px; fill: currentColor;"><use href="#icon-trophy"></use></svg>
+              </div>
+              <div>
+                <div style="font-weight: 750; font-size: 1rem; color: #FFFFFF;">Награды и достижения</div>
+                <div id="artist-month-wins-container" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;"></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <span style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.78rem; font-weight: 700; color: #FBBF24;">
+                <svg class="svg-icon" style="width: 14px; height: 14px; fill: currentColor;"><use href="#icon-shield-check"></use></svg>
+                M-Core Artist
+              </span>
+            </div>
+          </div>
           <!-- Actions -->
           <div style="display: flex; gap: 10px; margin: 20px 0;">
             <button class="btn btn-primary" id="artist-play-all-btn">
@@ -1303,7 +1389,7 @@
             </button>
             <div class="playlist-view-hero">
               <div class="playlist-view-cover-box">
-                <img id="pl-view-cover-img" src="assets/oumusic.png" alt="Cover" class="playlist-view-cover">
+                <img id="pl-view-cover-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%231E1F27'/><path d='M26 30h48v6H26zm0 14h48v6H26zm0 14h28v6H26zm34 6v-18l14 4v14c0 3.3-2.7 6-6 6s-6-2.7-6-6z' fill='%2371717A'/></svg>" alt="Cover" class="playlist-view-cover">
               </div>
               <div class="playlist-view-info">
                 <div class="playlist-badge">ПЛЕЙЛИСТ</div>
@@ -1421,7 +1507,7 @@
       <!-- Modern Player Meta Row (Screenshot 2) -->
       <div class="player-meta-row modern-player-meta">
         <div class="player-artist-pill" id="player-artist-pill" title="Открыть страницу артиста">
-          <img id="fs-artist-avatar-img" class="player-artist-avatar" src="assets/oumusic.png" alt="Artist">
+          <img id="fs-artist-avatar-img" class="player-artist-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231E1F27'/><path d='M50 26a8 8 0 0 0-8 8v16a8 8 0 0 0 16 0V34a8 8 0 0 0-8-8zm-14 20a2 2 0 1 0-4 0 18 18 0 0 0 16 17.9V72h-6a2 2 0 1 0 0 4h16a2 2 0 1 0 0-4h-6v-8.1A18 18 0 0 0 68 46a2 2 0 1 0-4 0 14 14 0 0 1-28 0z' fill='%2371717A'/></svg>" alt="Artist">
           <div class="player-meta-text">
             <div class="player-title">
               <span id="fs-title">Название трека</span>
@@ -1486,7 +1572,7 @@
           <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
         </button>
         <button class="icon-btn" id="fs-profile-btn" title="Мой профиль" style="display: none;">
-          <img id="fs-profile-avatar-img" src="assets/oumusic.png" alt="Профиль">
+          <img id="fs-profile-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%2322232B'/><circle cx='50' cy='38' r='17' fill='%2371717A'/><path d='M22 84c0-15.5 12.5-28 28-28s28 12.5 28 28H22z' fill='%2371717A'/></svg>" alt="Профиль">
         </button>
       </div>
     </div>
@@ -1608,7 +1694,7 @@
 
       <!-- Artist Row (Screenshot 3) -->
       <div class="sheet-artist-row" id="sheet-artist-row" title="Перейти к артисту">
-        <img id="sheet-artist-avatar" src="assets/oumusic.png" alt="Artist" class="sheet-artist-avatar">
+        <img id="sheet-artist-avatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231E1F27'/><path d='M50 26a8 8 0 0 0-8 8v16a8 8 0 0 0 16 0V34a8 8 0 0 0-8-8zm-14 20a2 2 0 1 0-4 0 18 18 0 0 0 16 17.9V72h-6a2 2 0 1 0 0 4h16a2 2 0 1 0 0-4h-6v-8.1A18 18 0 0 0 68 46a2 2 0 1 0-4 0 14 14 0 0 1-28 0z' fill='%2371717A'/></svg>" alt="Artist" class="sheet-artist-avatar">
         <span id="sheet-artist-name" class="sheet-artist-name">Исполнитель</span>
       </div>
       <div id="sheet-age-badge" class="sheet-age-badge" style="display: none;">Возрастное ограничение 18+</div>
@@ -1744,7 +1830,7 @@
   </div>
 
   <!-- MODAL: TUNEMYMUSIC IMPORTER -->
-  <div class="dialog-backdrop" id="tunemymusic-dialog">
+  <div class="dialog-backdrop" id="tunemymusic-dialog" style="display: none;">
     <div class="dialog-card">
       <div class="dialog-title">Импорт из TuneMyMusic</div>
       <div class="dialog-content">
@@ -1770,7 +1856,7 @@
   </div>
 
   <!-- MODAL: CANVAS QUOTE CARD GENERATOR (Spotify 1:1 Aesthetic) -->
-  <div class="dialog-backdrop" id="quote-card-dialog">
+  <div class="dialog-backdrop" id="quote-card-dialog" style="display: none;">
     <div class="dialog-card quote-modal-card" style="max-width: 500px; padding: 22px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div class="dialog-title" style="margin: 0; font-size: 1.1rem; font-weight: 700;">Цитата с трека</div>
@@ -1801,7 +1887,7 @@
   </div>
 
   <!-- MODAL: YEAR RECAP STORIES (Spotify Wrapped & Apple Replay Style) -->
-  <div class="dialog-backdrop" id="recap-stories-dialog">
+  <div class="dialog-backdrop" id="recap-stories-dialog" style="display: none;">
     <div class="dialog-card recap-card" id="recap-card-container" style="background: linear-gradient(150deg, #18122B 0%, #0F0A1C 50%, #08060E 100%); border: 1px solid rgba(139, 92, 246, 0.45); max-width: 440px; width: 100%; padding: 22px 20px 18px 20px; text-align: center; border-radius: 28px; box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 40px rgba(139,92,246,0.3); position: relative; overflow: hidden;">
       
       <!-- Ambient light effect -->
@@ -1862,7 +1948,7 @@
   </div>
 
   <!-- MODAL: APP UPDATE ANNOUNCEMENT -->
-  <div class="dialog-backdrop" id="app-update-dialog">
+  <div class="dialog-backdrop" id="app-update-dialog" style="display: none;">
     <div class="dialog-card">
       <div class="dialog-title" style="display: flex; align-items: center; gap: 8px;">
         <svg class="svg-icon" style="width: 24px; height: 24px; fill: var(--md-sys-color-primary);"><use href="#icon-sparkles"></use></svg>
@@ -1878,7 +1964,7 @@
   </div>
 
   <!-- MODAL: M-CORE ARCHITECTURE DOCS -->
-  <div class="dialog-backdrop" id="mcore-docs-dialog">
+  <div class="dialog-backdrop" id="mcore-docs-dialog" style="display: none;">
     <div class="dialog-card" style="max-width: 600px;">
       <div class="dialog-title">Архитектура движка M-Core</div>
       <div class="dialog-content" style="font-size: 0.88rem; line-height: 1.6; max-height: 60vh; overflow-y: auto;">
@@ -1897,7 +1983,7 @@
   </div>
 
   <!-- MODAL: CONFIRM CLEAR CACHE (10 CLICKS CONFIRMATION) -->
-  <div class="dialog-backdrop" id="clear-cache-confirm-dialog">
+  <div class="dialog-backdrop" id="clear-cache-confirm-dialog" style="display: none;">
     <div class="dialog-card" style="max-width: 440px;">
       <div class="dialog-title" style="color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
         <svg class="svg-icon" style="width: 24px; height: 24px; fill: currentColor;"><use href="#icon-trash"></use></svg>
@@ -1914,7 +2000,7 @@
   </div>
 
   <!-- MODAL: CONFIRM DELETE TRACK -->
-  <div class="dialog-backdrop" id="delete-track-confirm-dialog">
+  <div class="dialog-backdrop" id="delete-track-confirm-dialog" style="display: none;">
     <div class="dialog-card" style="max-width: 420px;">
       <div class="dialog-title" style="color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
         <svg class="svg-icon" style="width: 22px; height: 22px; fill: currentColor;"><use href="#icon-trash"></use></svg>
@@ -1932,7 +2018,7 @@
 
 
   <!-- FULLSCREEN COVER LIGHTBOX MODAL -->
-  <div class="cover-lightbox-modal" id="cover-lightbox-modal">
+  <div class="cover-lightbox-modal" id="cover-lightbox-modal" style="display: none;">
     <button class="cover-lightbox-close-fab" id="cover-lightbox-close-btn" title="Закрыть">
       <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-close"></use></svg>
     </button>
@@ -1942,7 +2028,7 @@
   </div>
 
   <!-- SECRET MODERATION ROOM MODAL (20 Rapid Taps on Studio) -->
-  <div class="dialog-backdrop" id="moderation-modal">
+  <div class="dialog-backdrop" id="moderation-modal" style="display: none;">
     <div class="dialog-card" style="max-width: 780px; width: 95vw; background: #0F0F17; border: 1px solid rgba(139, 92, 246, 0.4);">
       <div class="dialog-title" style="display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -2011,7 +2097,7 @@
   </div>
 
   <!-- MODAL: SUBMIT TRACK TO RELEASE VIA TELEGRAM BOT -->
-  <div class="dialog-backdrop" id="release-apply-modal">
+  <div class="dialog-backdrop" id="release-apply-modal" style="display: none;">
     <div class="dialog-card" style="max-width: 520px;">
       <div class="dialog-title" style="display: flex; align-items: center; gap: 10px;">
         <svg class="svg-icon" style="width: 24px; height: 24px; fill: var(--md-sys-color-primary);"><use href="#icon-upload"></use></svg>
@@ -2071,7 +2157,7 @@
 
   
   <!-- MODAL: EDIT PLAYLIST (Screenshot / Modern In-App) -->
-  <div class="dialog-backdrop modal-backdrop" id="edit-playlist-modal-backdrop">
+  <div class="dialog-backdrop modal-backdrop" id="edit-playlist-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="edit-playlist-modal" style="width: 100%; max-width: 520px; max-height: 88vh; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3 style="font-size: 1.3rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">Редактировать плейлист</h3>
@@ -2082,7 +2168,7 @@
         <!-- Cover and Meta Row -->
         <div style="display: flex; align-items: center; gap: 16px;">
           <div id="edit-playlist-cover-preview" style="width: 72px; height: 72px; border-radius: 16px; overflow: hidden; background: #222; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.18);">
-            <img id="edit-playlist-cover-img" src="assets/oumusic.png" style="width: 100%; height: 100%; object-fit: cover;">
+            <img id="edit-playlist-cover-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%231E1F27'/><path d='M26 30h48v6H26zm0 14h48v6H26zm0 14h28v6H26zm34 6v-18l14 4v14c0 3.3-2.7 6-6 6s-6-2.7-6-6z' fill='%2371717A'/></svg>" style="width: 100%; height: 100%; object-fit: cover;">
           </div>
           <div style="flex: 1;">
             <button class="btn btn-tonal" id="edit-playlist-pick-cover-btn" type="button" style="padding: 8px 14px; font-size: 0.85rem; border-radius: 12px; margin-bottom: 6px;">Сменить обложку</button>
@@ -2123,7 +2209,7 @@
 
   
   <!-- MODAL: BENCHMARK / ANTUTU FPS & COMPATIBILITY TEST -->
-  <div class="dialog-backdrop modal-backdrop" id="benchmark-modal-backdrop">
+  <div class="dialog-backdrop modal-backdrop" id="benchmark-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="benchmark-modal" style="width: 100%; max-width: 440px; background: #16171D; border: 1px solid rgba(255,255,255,0.15); border-radius: 26px; padding: 26px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
         <h3 style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-family: var(--font-family-ys), sans-serif;">
@@ -2188,7 +2274,7 @@
   </div>
 
   <!-- MODAL: DELETE PLAYLIST CONFIRMATION (Replaces confirm()) -->
-  <div class="dialog-backdrop modal-backdrop" id="delete-playlist-modal-backdrop">
+  <div class="dialog-backdrop modal-backdrop" id="delete-playlist-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="delete-playlist-modal" style="width: 100%; max-width: 400px; background: #16171D; border: 1px solid rgba(239,68,68,0.3); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.85); text-align: center;">
       <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(239,68,68,0.15); color: #EF4444; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
         <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-trash"></use></svg>
@@ -2203,7 +2289,7 @@
   </div>
 
   <!-- MODAL: EDIT USERNAME (Replaces prompt()) -->
-  <div class="dialog-backdrop modal-backdrop" id="edit-username-modal-backdrop">
+  <div class="dialog-backdrop modal-backdrop" id="edit-username-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="edit-username-modal" style="width: 100%; max-width: 400px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
       <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Имя пользователя</h3>
       <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 16px;">Введите никнейм для профиля и персональной аналитики ouMusic.</p>
@@ -2216,7 +2302,7 @@
   </div>
 
   <!-- MODAL: CREATE PLAYLIST (Replaces prompt()) -->
-  <div class="dialog-backdrop modal-backdrop" id="create-playlist-modal-backdrop">
+  <div class="dialog-backdrop modal-backdrop" id="create-playlist-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="create-playlist-modal" style="width: 100%; max-width: 420px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
       <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Новый плейлист</h3>
       <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 18px;">Придумайте название для вашей персональной подборки треков.</p>
@@ -2301,8 +2387,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist,.json" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.3"></script>
-  <script src="playlists/playlists.js?v=2.7.3"></script>
-  <script src="js/app.standalone.js?v=2.7.3"></script>
+  <script src="tracks/catalog.js?v=2.7.4"></script>
+  <script src="playlists/playlists.js?v=2.7.4"></script>
+  <script src="js/app.standalone.js?v=2.7.4"></script>
 </body>
 </html>

@@ -5,6 +5,14 @@
 
 (function () {
   'use strict';
+  /* Universal Minimalist Modern SVG Placeholders (No project logo on user/playlist/artist) */
+  const SVG_USER_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%2322232B'/><circle cx='50' cy='38' r='17' fill='%2371717A'/><path d='M22 84c0-15.5 12.5-28 28-28s28 12.5 28 28H22z' fill='%2371717A'/></svg>";
+  const SVG_PLAYLIST_COVER = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%231E1F27'/><path d='M26 30h48v6H26zm0 14h48v6H26zm0 14h28v6H26zm34 6v-18l14 4v14c0 3.3-2.7 6-6 6s-6-2.7-6-6z' fill='%2371717A'/></svg>";
+  const SVG_ARTIST_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%231E1F27'/><path d='M50 26a8 8 0 0 0-8 8v16a8 8 0 0 0 16 0V34a8 8 0 0 0-8-8zm-14 20a2 2 0 1 0-4 0 18 18 0 0 0 16 17.9V72h-6a2 2 0 1 0 0 4h16a2 2 0 1 0 0-4h-6v-8.1A18 18 0 0 0 68 46a2 2 0 1 0-4 0 14 14 0 0 1-28 0z' fill='%2371717A'/></svg>";
+  window.SVG_USER_AVATAR = SVG_USER_AVATAR;
+  window.SVG_PLAYLIST_COVER = SVG_PLAYLIST_COVER;
+  window.SVG_ARTIST_AVATAR = SVG_ARTIST_AVATAR;
+
 
   /* ==========================================================================
      1. DICTIONARY & I18N
@@ -1191,8 +1199,9 @@
      6. ARTISTS & VERIFICATION
      ========================================================================== */
   const verifiedArtists = new Map();
-  verifiedArtists.set('oulan1', { avatar: 'assets/oumusic.png', banner: 'assets/oumusic.png', verified: true });
-  verifiedArtists.set('m-core', { avatar: 'assets/oumusic.png', banner: 'assets/oumusic.png', verified: true });
+  verifiedArtists.set('oulan1', { avatar: null, banner: null, verified: true, monthlyWins: 3 });
+  verifiedArtists.set('m-core', { avatar: null, banner: null, verified: true, monthlyWins: 5 });
+  verifiedArtists.set('sqwore', { avatar: null, banner: null, verified: true, monthlyWins: 1 });
 
   async function loadArtistsVerification() {
     try {
@@ -1204,9 +1213,11 @@
           if (!l || l.startsWith('#')) return;
           const [name, av, ban, ver, wins] = l.split(' - ').map((s) => s.trim());
           if (name) {
+            const cleanAv = (av && av.toLowerCase() !== 'none' && !av.includes('oumusic.png')) ? av : null;
+            const cleanBan = (ban && ban.toLowerCase() !== 'none' && !ban.includes('oumusic.png')) ? ban : null;
             verifiedArtists.set(name.toLowerCase(), {
-              avatar: av || 'assets/oumusic.png',
-              banner: ban || 'assets/oumusic.png',
+              avatar: cleanAv,
+              banner: cleanBan,
               verified: ver === '1',
               monthlyWins: parseInt(wins, 10) || 0
             });
@@ -1324,7 +1335,7 @@
       btn.className = 'arc-nav-item';
       btn.setAttribute('data-nav', item.id);
       btn.setAttribute('title', item.label);
-      const savedAv = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_user_avatar') || 'assets/oumusic.png') : 'assets/oumusic.png';
+      const savedAv = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_user_avatar') || SVG_USER_AVATAR) : SVG_USER_AVATAR;
       if (item.id === 'profile') {
         btn.innerHTML = `
           <div class="item-icon-box" style="overflow: hidden; padding: 1px;">
@@ -1554,6 +1565,8 @@
     } else if (rawHash.startsWith('artist=')) {
       const name = decodeURIComponent(rawHash.slice(7));
       renderArtistScreen(name);
+      navigateTo('artist', false);
+    } else if (rawHash === 'artist') {
       navigateTo('artist', false);
     } else if (['home', 'library', 'studio', 'profile', 'settings'].includes(rawHash)) {
       navigateTo(rawHash, false);
@@ -2073,12 +2086,22 @@
   window.updatePlayerMeta = updatePlayerMeta;
   
   async function syncAdaptiveColor(track) {
+    if (!track) return;
     if (localStorage.getItem('oumusic_accent_adaptive') !== 'true') return;
-    const cover = track?.thumbBase64 || track?.coverUrl || document.getElementById('fs-cover-img')?.src;
-    if (!cover) return;
-    const dom = await extractCoverDominantColor(cover);
-    if (dom && window.applyAccentColor) {
-      window.applyAccentColor(dom, true);
+    const coverSrc = track.thumbBase64 || track.coverBase64 || track.coverUrl || document.getElementById('fs-cover-img')?.src;
+    if (!coverSrc) return;
+    try {
+      const dom = await extractCoverDominantColor(coverSrc);
+      if (dom && typeof window.applyAccentColor === 'function') {
+        window.applyAccentColor(dom, true);
+        const adaptiveBtn = document.getElementById('adaptive-accent-btn');
+        if (adaptiveBtn) {
+          adaptiveBtn.classList.add('active');
+          adaptiveBtn.style.borderColor = '#FFFFFF';
+        }
+      }
+    } catch (e) {
+      console.warn('[Adaptive] Sync error:', e);
     }
   }
   window.syncAdaptiveColor = syncAdaptiveColor;
@@ -2119,7 +2142,7 @@
     const artistRecord = verifiedArtists.get((track.artist || '').trim().toLowerCase());
     const fsArtistAvatar = document.getElementById('fs-artist-avatar-img');
     if (fsArtistAvatar) {
-      fsArtistAvatar.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
+      fsArtistAvatar.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || SVG_ARTIST_AVATAR;
     }
 
     // Modern Karaoke Bottom Floating Mini Bar (Screenshot 1)
@@ -2518,6 +2541,14 @@
       }
     };
     document.getElementById('sheet-artist-row')?.addEventListener('click', handleArtistNavigation);
+    document.getElementById('sheet-artist-name')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleArtistNavigation();
+    });
+    document.getElementById('sheet-artist-avatar')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleArtistNavigation();
+    });
     document.getElementById('sheet-track-header-row')?.addEventListener('click', (e) => {
       if (e.target.closest('#close-track-options-btn')) return;
       handleArtistNavigation();
@@ -2842,7 +2873,7 @@
     const avatarEl = document.getElementById('sheet-artist-avatar');
     const artistNameEl = document.getElementById('sheet-artist-name');
     const ageBadge = document.getElementById('sheet-age-badge');
-    if (avatarEl) avatarEl.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || track.coverUrl || 'assets/oumusic.png';
+    if (avatarEl) avatarEl.src = (artistRecord && (artistRecord.avatar || artistRecord.avatarUrl)) || SVG_ARTIST_AVATAR;
     if (artistNameEl) artistNameEl.textContent = track.artist || 'Исполнитель';
     if (ageBadge) ageBadge.style.display = (track.isExplicit || track.explicit) ? 'block' : 'none';
 
@@ -3004,13 +3035,14 @@
       for (let k = 0; k < rings; k++) {
         // Base ring positions: starts compact (+6px to +48px from coverRadius)
         // Expands smoothly with amp and punchy sub-bass on louder sounds
-        const baseOffset = 4 + k * 10;
-        const dynamicExpand = amp * (10 + k * 10) + smoothBass * (8 + k * 5);
+        // Point 5: Compact subtle baseline in quiet states, explosive headroom on loud drops
+        const baseOffset = 2 + k * 6;
+        const dynamicExpand = amp * (14 + k * 14) + smoothBass * (12 + k * 8);
         const ringBase = coverRadius + baseOffset + dynamicExpand;
 
-        const ringAlpha = (0.26 + amp * 0.55) * (1 - k * 0.16);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.18, ringAlpha)})`;
-        ctx.lineWidth = 1.6 + amp * 1.1 - k * 0.22;
+        const ringAlpha = (0.12 + amp * 0.65) * (1 - k * 0.16);
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.08, ringAlpha)})`;
+        ctx.lineWidth = 1.3 + amp * 1.5 - k * 0.18;
         ctx.beginPath();
 
         const points = 72;
@@ -3018,8 +3050,8 @@
 
         for (let p = 0; p <= points; p++) {
           const theta = p * step;
-          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k * 0.9) * (1.6 + amp * 5.2) +
-                       Math.cos(theta * 6 - waveTime * 0.8) * (1.0 + smoothBass * 3.8);
+          const wave = Math.sin(theta * 3 + waveTime * 1.2 + k * 0.9) * (0.8 + amp * 6.5) +
+                       Math.cos(theta * 6 - waveTime * 0.8) * (0.5 + smoothBass * 5.2);
           const rad = ringBase + wave;
           const x = cx + Math.cos(theta) * rad;
           const y = cy + Math.sin(theta) * rad;
@@ -4536,6 +4568,7 @@
     const closeBenchmark = () => {
       backdrop.classList.remove('active');
       modal?.classList.remove('active');
+      backdrop.style.display = 'none';
     };
 
     closeBtn?.addEventListener('click', closeBenchmark);
@@ -4633,6 +4666,7 @@
     };
 
     openBtn.addEventListener('click', () => {
+      backdrop.style.display = 'flex';
       backdrop.classList.add('active');
       modal?.classList.add('active');
       runBenchmark();
@@ -4903,6 +4937,7 @@
     if (!backdrop || !input) return;
 
     input.value = currentName || '';
+    backdrop.style.display = 'flex';
     backdrop.classList.add('active');
     modal?.classList.add('active');
     setTimeout(() => input.focus(), 120);
@@ -4910,6 +4945,7 @@
     const closeModal = () => {
       backdrop.classList.remove('active');
       modal?.classList.remove('active');
+      backdrop.style.display = 'none';
     };
 
     const doSave = () => {
@@ -5478,17 +5514,19 @@
     const artistRecord = verifiedArtists.get(clean.toLowerCase());
 
     if (bannerImg) {
-      if (artistRecord && artistRecord.bannerUrl) {
-        bannerImg.src = artistRecord.bannerUrl;
+      const ban = artistRecord && (artistRecord.banner || artistRecord.bannerUrl);
+      if (ban) {
+        bannerImg.src = ban;
         bannerImg.style.display = 'block';
       } else {
-        bannerImg.style.display = 'none'; // Sleek dark gradient banner shines
+        bannerImg.style.display = 'none';
       }
     }
 
     if (avatarImg) {
-      if (artistRecord && artistRecord.avatarUrl) {
-        avatarImg.src = artistRecord.avatarUrl;
+      const av = artistRecord && (artistRecord.avatar || artistRecord.avatarUrl);
+      if (av) {
+        avatarImg.src = av;
         avatarImg.style.display = 'block';
         if (initialsEl) initialsEl.style.display = 'none';
       } else {
@@ -5497,15 +5535,15 @@
       }
     }
 
-    // Artist of the month wins display
+    // Artist awards & showcase display (Point 13)
     const winsCont = document.getElementById('artist-month-wins-container');
     if (winsCont) {
       if (artistRecord && artistRecord.monthlyWins > 0) {
         const w = artistRecord.monthlyWins;
         const word = w === 1 ? 'раз' : (w >= 2 && w <= 4 ? 'раза' : 'раз');
-        winsCont.innerHTML = `<div class="artist-wins-badge">🏆 Победитель «Артист месяца»: <strong>${w} ${word}</strong></div>`;
+        winsCont.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.82rem; font-weight: 750; color: #FBBF24;">🏆 Победитель треков месяца: ${w} ${word}</span>`;
       } else {
-        winsCont.innerHTML = '';
+        winsCont.innerHTML = `<span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.65);">Дебютный артист медиатеки ouMusic</span>`;
       }
     }
 
@@ -5531,12 +5569,15 @@
       }
     });
 
-    // Close fullscreen player and sheets, navigate to artist screen
+    // Close fullscreen player, overlays and sheets, navigate to artist screen
     const fsPlayer = document.getElementById('fullscreen-player');
     if (fsPlayer) fsPlayer.classList.remove('active');
     document.getElementById('track-options-backdrop')?.classList.remove('active');
     document.getElementById('track-options-sheet')?.classList.remove('active');
-    navigateTo('artist');
+    document.getElementById('lyrics-overlay')?.classList.remove('active');
+    navigateTo('artist', false);
+    const sc = document.getElementById('screens-container');
+    if (sc) sc.scrollTop = 0;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   window.renderArtistScreen = renderArtistScreen;
@@ -5544,6 +5585,11 @@
   function openArtistProfile(artistName) {
     if (!artistName) return;
     renderArtistScreen(artistName);
+    navigateTo('artist', false);
+    const clean = artistName.trim();
+    if (window.location.hash !== `#artist=${encodeURIComponent(clean)}`) {
+      window.location.hash = `artist=${encodeURIComponent(clean)}`;
+    }
   }
   window.openArtistProfile = openArtistProfile;
 
@@ -6630,6 +6676,7 @@
     if (!modal || !backdrop) return;
 
     if (input) input.value = '';
+    backdrop.style.display = 'flex';
     backdrop.classList.add('active');
     modal.classList.add('active');
     setTimeout(() => input?.focus(), 120);
@@ -6637,6 +6684,7 @@
     const closeModal = () => {
       backdrop.classList.remove('active');
       modal.classList.remove('active');
+      backdrop.style.display = 'none';
     };
 
     const doSubmit = async () => {
@@ -6701,7 +6749,7 @@
         row.style.cursor = 'pointer';
         row.style.transition = 'all 0.2s ease';
 
-        let coverSrc = pl.coverBase64 || 'assets/oumusic.png';
+        let coverSrc = pl.coverBase64 || SVG_PLAYLIST_COVER;
         const count = (pl.trackIds || []).length;
         if (!pl.coverBase64 && count > 0 && Array.isArray(catalogTracks)) {
           const firstTrack = catalogTracks.find(item => item.id === pl.trackIds[0]);
@@ -6798,7 +6846,7 @@
       } else if (plTracks.length > 0 && (plTracks[0].thumbBase64 || plTracks[0].coverUrl)) {
         coverImg.src = plTracks[0].thumbBase64 || plTracks[0].coverUrl;
       } else {
-        coverImg.src = 'assets/oumusic.png';
+        coverImg.src = SVG_PLAYLIST_COVER;
       }
     }
 
@@ -6899,7 +6947,7 @@
     if (descInput) descInput.value = playlist.description || '';
     let updatedCoverBase64 = playlist.coverBase64 || null;
     if (imgPreview) {
-      imgPreview.src = playlist.coverBase64 || 'assets/oumusic.png';
+      imgPreview.src = playlist.coverBase64 || SVG_PLAYLIST_COVER;
     }
 
     if (pickCoverBtn && coverFileInput) {
@@ -7038,6 +7086,7 @@
 
     renderEditTracksList();
 
+    backdrop.style.display = 'flex';
     backdrop.classList.add('active');
     modal?.classList.add('active');
     setTimeout(() => input.focus(), 120);
@@ -7045,6 +7094,7 @@
     const closeModal = () => {
       backdrop.classList.remove('active');
       modal?.classList.remove('active');
+      backdrop.style.display = 'none';
     };
 
     const doSave = () => {
@@ -7097,12 +7147,14 @@
       msg.textContent = `Вы действительно хотите удалить плейлист «${playlist.name}»? Треки останутся в вашей медиатеке.`;
     }
 
+    backdrop.style.display = 'flex';
     backdrop.classList.add('active');
     modal?.classList.add('active');
 
     const closeModal = () => {
       backdrop.classList.remove('active');
       modal?.classList.remove('active');
+      backdrop.style.display = 'none';
     };
 
     const doDelete = () => {
@@ -7414,7 +7466,7 @@
         card.style.cursor = 'pointer';
         card.style.transition = 'transform 0.2s ease, background 0.2s ease';
 
-        let coverSrc = pl.coverBase64 || 'assets/oumusic.png';
+        let coverSrc = pl.coverBase64 || SVG_PLAYLIST_COVER;
         if (!pl.coverBase64 && count > 0 && Array.isArray(catalogTracks)) {
           const firstTrack = catalogTracks.find(t => t.id === pl.trackIds[0]);
           if (firstTrack && (firstTrack.thumbBase64 || firstTrack.coverUrl)) {
