@@ -627,17 +627,17 @@
 }
 
 .lyric-line {
-  font-family: -apple-system, BlinkMacSystemFont, "Montserrat", "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, sans-serif;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.22); /* All other lines dark by default */
-  opacity: 0.38;
+  font-family: var(--font-family-ys), -apple-system, BlinkMacSystemFont, "Montserrat", sans-serif !important;
+  font-size: 2.15rem !important; /* Uniform font size across all levels to prevent word jumping! */
+  font-weight: 850 !important;
+  color: rgba(255, 255, 255, 0.24) !important; /* Level 3: Inactive */
+  opacity: 0.35 !important;
   cursor: pointer;
-  padding: 8px 14px;
-  border-radius: 14px;
-  transition: font-size 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.32s ease, opacity 0.32s ease, transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-  line-height: 1.34;
-  letter-spacing: -0.2px;
+  padding: 10px 18px;
+  border-radius: 16px;
+  transition: color 0.35s ease, opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  line-height: 1.34 !important;
+  letter-spacing: -0.4px;
   user-select: text;
   -webkit-user-select: text;
   text-align: left;
@@ -646,12 +646,61 @@
   border: 1px solid transparent;
   word-break: break-word;
   overflow-wrap: break-word;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
+  text-shadow: none !important;
+  contain: layout;
+  box-sizing: border-box;
+}
+
+[data-theme="light"] .lyric-line {
+  color: rgba(0, 0, 0, 0.24) !important;
+  opacity: 0.35 !important;
+}
+
+/* Past lines: smooth fade out & shrink upwards as they exit into the past */
+.lyric-line.past {
+  opacity: 0 !important;
+  transform: scale(0.92) translateY(-16px) !important;
+  pointer-events: none;
+}
+
+/* When user is actively scrolling manually, past lines gently reappear for reading */
+.lyrics-scroll-container.user-scrolling .lyric-line.past {
+  opacity: 0.35 !important;
+  transform: scale(1.0) translateY(0) !important;
+  pointer-events: auto;
+}
+
+/* Tier 2: Immediately Adjacent Upcoming Line (Level 2: brighter and clearly distinct) */
+.lyric-line.near-1 {
+  color: rgba(255, 255, 255, 0.68) !important;
+  opacity: 0.78 !important;
+  font-weight: 850 !important;
+  transform: scale(1.0) !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="light"] .lyric-line.near-1 {
+  color: rgba(0, 0, 0, 0.68) !important;
+  opacity: 0.78 !important;
+}
+
+/* Active Line: Level 1 - Pure White, Highest Contrast, Crisp Drop Shadow (No Neon) */
+.lyric-line.active {
+  color: #FFFFFF !important;
+  font-weight: 900 !important;
+  opacity: 1.0 !important;
+  transform: scale(1.0) translateY(0) !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55) !important;
+}
+
+[data-theme="light"] .lyric-line.active {
+  color: #111116 !important;
+  text-shadow: none !important;
 }
 
 .lyric-line:hover {
-  color: #FFFFFF;
-  opacity: 1.0;
+  color: #FFFFFF !important;
+  opacity: 0.9 !important;
 }
 
 /* Quote Selection Mode */

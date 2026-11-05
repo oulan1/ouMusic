@@ -8,10 +8,10 @@ echo ===========================================================================
 echo                         ouMusic — 1-Click Master
 echo ==============================================================================
 echo.
-echo [1/3] Индексация треков из папки tracks/*.oump3...
+echo [1/3] Индексация треков (tracks/*.oump3) и плейлистов (playlists/*.oulist)...
 python "%~dp0index_tracks.py"
 if %ERRORLEVEL% NEQ 0 (
-    echo [ОШИБКА] Не удалось выполнить индексацию треков через Python!
+    echo [ОШИБКА] Не удалось выполнить индексацию через Python!
     echo Убедитесь, что Python установлен и доступен в системе.
     pause
     exit /b %ERRORLEVEL%
@@ -19,12 +19,12 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [2/3] Синхронизация с GitHub (автоматическая публикация)...
-git add -A "%~dp0tracks" "%~dp0artists.txt" "%~dp0index.html" "%~dp0css" "%~dp0js" "%~dp0sw.js" "%~dp0manifest.json" "%~dp0index_tracks.py" "%~dp0ouMusic.bat" "%~dp0index_tracks.bat" "%~dp0start_server.bat" "%~dp0sync_to_github.bat" "%~dp0publish.bat" "%~dp0.github" "%~dp0.nojekyll"
+git add -A "%~dp0tracks" "%~dp0playlists" "%~dp0assets" "%~dp0artists.txt" "%~dp0index.html" "%~dp0css" "%~dp0js" "%~dp0sw.js" "%~dp0manifest.json" "%~dp0index_tracks.py" "%~dp0ouMusic.bat" "%~dp0index_tracks.bat" "%~dp0start_server.bat" "%~dp0sync_to_github.bat" "%~dp0publish.bat" "%~dp0.github" "%~dp0.nojekyll"
 
 git diff --staged --quiet
 if %ERRORLEVEL% NEQ 0 (
-    echo [INFO] Обнаружены изменения в треках/каталоге. Создаем коммит...
-    git commit -m "sync: 1-click auto update tracks & catalog"
+    echo [INFO] Обнаружены изменения в треках/плейлистах. Создаем коммит...
+    git commit -m "sync: 1-click auto update tracks & community playlists"
     echo [INFO] Отправляем обновления на GitHub Pages...
     git push origin main
     if %ERRORLEVEL% EQU 0 (

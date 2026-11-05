@@ -1,0 +1,20 @@
+{
+  "app": "ouMusic",
+  "type": "playlist",
+  "version": "2.7.2",
+  "playlist": {
+    "id": "pl_community_hits",
+    "name": "Главные хиты ouMusic",
+    "description": "Лучшие треки сообщества и официальные релизы ouMusic",
+    "author": "ouMusic Core",
+    "coverBase64": ""
+  },
+  "tracks": [
+    {
+      "id": "sqwore_barry_dylan",
+      "title": "Barry Dylan",
+      "artist": "Sqwore",
+      "duration": 92
+    }
+  ]
+}

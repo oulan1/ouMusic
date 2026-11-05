@@ -266,7 +266,29 @@
       <symbol id="icon-volume-mute" viewBox="0 0 24 24">
         <path fill="currentColor" d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
       </symbol>
-    </defs>
+    
+  <g id="icon-drag-dots">
+    <circle cx="8" cy="6" r="1.6" fill="currentColor"/>
+    <circle cx="16" cy="6" r="1.6" fill="currentColor"/>
+    <circle cx="8" cy="12" r="1.6" fill="currentColor"/>
+    <circle cx="16" cy="12" r="1.6" fill="currentColor"/>
+    <circle cx="8" cy="18" r="1.6" fill="currentColor"/>
+    <circle cx="16" cy="18" r="1.6" fill="currentColor"/>
+  </g>
+  <g id="icon-telegram">
+    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.77-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .34z"/>
+  </g>
+  <g id="icon-gauge">
+    <path fill="currentColor" d="M12 4a8 8 0 00-7.85 9.42A7.95 7.95 0 0012 20a7.95 7.95 0 007.85-6.58A8 8 0 0012 4zm0 2a6 6 0 015.89 4.89 5.96 5.96 0 01-1.74 5.25l-4.15-4.15a2 2 0 10-2.83 2.83l4.15 4.15A5.96 5.96 0 016.11 17 6 6 0 0112 6zm-1 5a1 1 0 111 1 1 1 0 01-1-1z"/>
+  </g>
+  <g id="icon-trophy">
+    <path fill="currentColor" d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V19H7v2h10v-2h-4v-3.1c1.8-.4 3.25-1.7 3.61-3.46C19.08 12.13 21 10.05 21 7.5V7c0-1.1-.9-2-2-2zM5 7h2v3.08C5.45 9.77 5 8.7 5 7.5V7zm14 .5c0 1.2-.45 2.27-2 2.58V7h2v.5z"/>
+  </g>
+  <g id="icon-shield-check">
+    <path fill="currentColor" d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1.06 13.54L6.7 11.3l1.41-1.41 2.83 2.83 5.66-5.66 1.41 1.41-7.07 7.1z"/>
+  </g>
+
+</defs>
   </svg>
 
   <div id="app">
@@ -318,6 +340,34 @@
         <section class="screen active" id="screen-home">
           <!-- SECTION: МОЯ ВОЛНА (Authentic Captivating Style on Home) -->
           <div class="wave-home-section" id="wave-home-section">
+            <!-- Home Switch: Музыка / Плейлисты -->
+            <div class="home-tab-capsule-row" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 22px;">
+              <button class="chip active home-tab-pill" id="home-tab-music-btn" style="padding: 10px 22px; font-weight: 750; font-size: 0.95rem; border-radius: 9999px; display: flex; align-items: center; gap: 8px;">
+                <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-music"></use></svg>
+                <span>Музыка</span>
+              </button>
+              <button class="chip home-tab-pill" id="home-tab-playlists-btn" style="padding: 10px 22px; font-weight: 750; font-size: 0.95rem; border-radius: 9999px; display: flex; align-items: center; gap: 8px;">
+                <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-playlist"></use></svg>
+                <span>Плейлисты</span>
+              </button>
+            </div>
+
+            <!-- Community Shared Playlists Grid Container (Shown when Плейлисты tab active) -->
+            <div id="home-shared-playlists-view" style="display: none; width: 100%; margin-bottom: 30px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <div>
+                  <h3 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">Общие плейлисты</h3>
+                  <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-top: 2px;">Подборки пользователей из каталога .oulist</div>
+                </div>
+                <button class="btn btn-tonal" id="home-import-oulist-btn" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 9999px;">
+                  <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-download"></use></svg>
+                  <span>Импорт .oulist</span>
+                </button>
+              </div>
+              <div id="home-shared-playlists-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+                <!-- Dynamically loaded community playlists -->
+              </div>
+            </div>
             <div class="wave-ambient-glow" id="wave-ambient-glow"></div>
 
             <div class="wave-header-center">
@@ -880,12 +930,12 @@
                 <div style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 14px;">
                   <div>
                     <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--md-sys-color-outline); margin-bottom: 6px;">Название трека *</label>
-                    <input type="text" id="studio-title-input" placeholder="Например: Мой новый сингл" style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 12px 14px; color: var(--md-sys-color-on-surface); font-size: 0.95rem; outline: none;">
+                    <input type="text" id="studio-title-input" placeholder="Название трека..." style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 12px 14px; color: var(--md-sys-color-on-surface); font-size: 0.95rem; outline: none;">
                   </div>
 
                   <div style="position: relative;">
                     <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--md-sys-color-outline); margin-bottom: 6px;">Исполнитель (артист) *</label>
-                    <input type="text" id="studio-artist-input" placeholder="Например: Sqwore или Имя артиста" style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 12px 14px; color: var(--md-sys-color-on-surface); font-size: 0.95rem; outline: none;">
+                    <input type="text" id="studio-artist-input" placeholder="Имя исполнителя..." style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 12px 14px; color: var(--md-sys-color-on-surface); font-size: 0.95rem; outline: none;">
                     <div id="studio-artist-suggestions" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--md-sys-color-surface-container-highest); border-radius: var(--md-shape-corner-small); max-height: 120px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);"></div>
                   </div>
                 </div>
@@ -2022,24 +2072,117 @@
   
   <!-- MODAL: EDIT PLAYLIST (Screenshot / Modern In-App) -->
   <div class="modal-backdrop" id="edit-playlist-modal-backdrop">
-    <div class="dialog-card" id="edit-playlist-modal" style="width: 100%; max-width: 420px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
-      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 6px; color: #FFFFFF;">Редактировать плейлист</h3>
-      <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 16px;">Измените название или загрузите собственную обложку.</p>
-      
-      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 18px;">
-        <div id="edit-playlist-cover-preview" style="width: 68px; height: 68px; border-radius: 14px; overflow: hidden; background: #222; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.18);">
-          <img id="edit-playlist-cover-img" src="assets/oumusic.png" style="width: 100%; height: 100%; object-fit: cover;">
+    <div class="dialog-card" id="edit-playlist-modal" style="width: 100%; max-width: 520px; max-height: 88vh; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">Редактировать плейлист</h3>
+        <button class="icon-btn" id="edit-playlist-x-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 14px;">
+        <!-- Cover and Meta Row -->
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div id="edit-playlist-cover-preview" style="width: 72px; height: 72px; border-radius: 16px; overflow: hidden; background: #222; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.18);">
+            <img id="edit-playlist-cover-img" src="assets/oumusic.png" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div style="flex: 1;">
+            <button class="btn btn-tonal" id="edit-playlist-pick-cover-btn" type="button" style="padding: 8px 14px; font-size: 0.85rem; border-radius: 12px; margin-bottom: 6px;">Сменить обложку</button>
+            <input type="file" id="edit-playlist-cover-file" accept="image/*" style="display: none;">
+            <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">PNG, JPG или WEBP до 5 МБ</div>
+          </div>
         </div>
+
         <div>
-          <button class="btn btn-tonal" id="edit-playlist-pick-cover-btn" type="button" style="padding: 8px 14px; font-size: 0.85rem; border-radius: 12px;">Сменить обложку</button>
-          <input type="file" id="edit-playlist-cover-file" accept="image/*" style="display: none;">
+          <label style="font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.7); margin-bottom: 4px; display: block;">Название:</label>
+          <input type="text" id="edit-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 0.98rem; outline: none; box-sizing: border-box;">
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.7); margin-bottom: 4px; display: block;">Описание:</label>
+          <textarea id="edit-playlist-desc-input" rows="2" placeholder="Добавьте краткое описание плейлиста..." style="width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 0.92rem; outline: none; box-sizing: border-box; resize: none;"></textarea>
+        </div>
+
+        <!-- Track list reordering section -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: rgba(255,255,255,0.8);">Порядок треков (удерживайте за точки для перемещения):</label>
+            <span id="edit-playlist-track-count-badge" style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">0 треков</span>
+          </div>
+
+          <div id="edit-playlist-tracks-scroll" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 6px; display: flex; flex-direction: column; gap: 6px; position: relative;">
+            <!-- Dynamically populated reorderable track rows -->
+          </div>
         </div>
       </div>
 
-      <input type="text" id="edit-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
-      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
         <button class="btn btn-tonal" id="edit-playlist-cancel-btn" type="button">Отмена</button>
-        <button class="btn btn-primary" id="edit-playlist-save-btn" type="button">Сохранить</button>
+        <button class="btn btn-primary" id="edit-playlist-save-btn" type="button" style="padding: 10px 22px;">Сохранить изменения</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- MODAL: BENCHMARK / ANTUTU FPS & COMPATIBILITY TEST -->
+  <div class="modal-backdrop" id="benchmark-modal-backdrop">
+    <div class="dialog-card" id="benchmark-modal" style="width: 100%; max-width: 440px; background: #16171D; border: 1px solid rgba(255,255,255,0.15); border-radius: 26px; padding: 26px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); text-align: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-family: var(--font-family-ys), sans-serif;">
+          <svg class="svg-icon" style="width: 22px; height: 22px; color: var(--md-sys-color-primary);"><use href="#icon-gauge"></use></svg>
+          <span>Тест производительности</span>
+        </h3>
+        <button class="icon-btn" id="benchmark-close-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+
+      <!-- Live Benchmark Progress & Gauge -->
+      <div id="benchmark-running-view" style="padding: 16px 0;">
+        <div style="position: relative; width: 130px; height: 130px; margin: 0 auto 16px auto;">
+          <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"></circle>
+            <circle id="benchmark-circle-fill" cx="50" cy="50" r="42" fill="none" stroke="var(--md-sys-color-primary)" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" style="transition: stroke-dashoffset 0.15s ease;"></circle>
+          </svg>
+          <div id="benchmark-live-fps" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.9rem; font-weight: 900; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">
+            <span id="benchmark-live-fps-val">--</span>
+            <span style="font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: -4px;">FPS</span>
+          </div>
+        </div>
+        <div id="benchmark-stage-text" style="font-size: 0.95rem; font-weight: 700; color: #FFFFFF; min-height: 24px;">Инициализация теста...</div>
+        <div id="benchmark-sub-text" style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 6px;">Тестирование графических шейдеров и плавности 240Hz...</div>
+      </div>
+
+      <!-- Benchmark Result View (Shown upon test completion) -->
+      <div id="benchmark-result-view" style="display: none; padding: 10px 0;">
+        <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 2px solid #10B981; color: #10B981; display: flex; align-items: center; justify-content: center; font-size: 2.1rem; font-weight: 900; margin: 0 auto 12px auto; font-family: var(--font-family-ys), sans-serif;" id="benchmark-score-circle">
+          100
+        </div>
+        <div style="font-size: 1.35rem; font-weight: 850; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;" id="benchmark-score-title">Отличная совместимость!</div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0; text-align: left;">
+          <div style="background: rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">Частота кадров</div>
+            <div style="font-weight: 800; font-size: 1.1rem; color: #10B981;" id="benchmark-stat-fps">-- FPS</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">Стабильность</div>
+            <div style="font-weight: 800; font-size: 1.1rem; color: #FFFFFF;" id="benchmark-stat-stability">100% (0)</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">Задержка аудио DSP</div>
+            <div style="font-weight: 800; font-size: 1.1rem; color: #FFFFFF;" id="benchmark-stat-latency">&lt; 5 мс</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-size: 0.72rem; color: rgba(255,255,255,0.5);">Потоки процессора</div>
+            <div style="font-weight: 800; font-size: 1.1rem; color: #FFFFFF;" id="benchmark-stat-threads">-- ядер</div>
+          </div>
+        </div>
+
+        <p id="benchmark-verdict-msg" style="font-size: 0.88rem; color: rgba(255,255,255,0.75); line-height: 1.45; margin-bottom: 20px;">
+          100/100, лагов и фризов не обнаружено, приложение работает идеально.
+        </p>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-tonal" id="benchmark-retry-btn" style="flex: 1;">Повторить</button>
+          <button class="btn btn-primary" id="benchmark-perf-toggle-btn" style="flex: 1;">Режим оптимизации</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2158,7 +2301,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist,.json" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.0"></script>
-  <script src="js/app.standalone.js?v=2.7.1"></script>
+  <script src="tracks/catalog.js?v=2.7.2"></script>
+  <script src="playlists/playlists.js?v=2.7.2"></script>
+  <script src="js/app.standalone.js?v=2.7.2"></script>
 </body>
 </html>

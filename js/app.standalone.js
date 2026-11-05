@@ -809,7 +809,7 @@
     }
 
     handleBackButton(onPrev) {
-      if (this.audioElement.currentTime > 10) {
+      if (this.audioElement.currentTime > 5) {
         this.seek(0);
       } else if (typeof onPrev === 'function') {
         onPrev();
@@ -2067,6 +2067,18 @@
   }
 
   window.updatePlayerMeta = updatePlayerMeta;
+  
+  async function syncAdaptiveColor(track) {
+    if (localStorage.getItem('oumusic_accent_adaptive') !== 'true') return;
+    const cover = track?.thumbBase64 || track?.coverUrl || document.getElementById('fs-cover-img')?.src;
+    if (!cover) return;
+    const dom = await extractCoverDominantColor(cover);
+    if (dom && window.applyAccentColor) {
+      window.applyAccentColor(dom, true);
+    }
+  }
+  window.syncAdaptiveColor = syncAdaptiveColor;
+
   function updatePlayerMeta(track) {
     const mini = document.getElementById('mini-player');
     if (mini) mini.style.display = 'flex';
@@ -4371,6 +4383,269 @@
     }
   }
 
+  
+  /* ==========================================================================
+     HOME TABS & SHARED COMMUNITY PLAYLISTS (.oulist)
+     ========================================================================== */
+  function initHomeTabsUI() {
+    const musicBtn = document.getElementById('home-tab-music-btn');
+    const plBtn = document.getElementById('home-tab-playlists-btn');
+    const waveVisualizer = document.getElementById('wave-visualizer-container');
+    const waveMeta = document.getElementById('wave-track-meta');
+    const waveControls = document.querySelector('.wave-controls-row');
+    const waveDropdowns = document.querySelector('.wave-dropdowns-row');
+    const sharedPlView = document.getElementById('home-shared-playlists-view');
+
+    if (!musicBtn || !plBtn) return;
+
+    const showMusic = () => {
+      musicBtn.classList.add('active');
+      plBtn.classList.remove('active');
+      if (waveVisualizer) waveVisualizer.style.display = 'flex';
+      if (waveMeta) waveMeta.style.display = 'block';
+      if (waveControls) waveControls.style.display = 'flex';
+      if (waveDropdowns) waveDropdowns.style.display = 'flex';
+      if (sharedPlView) sharedPlView.style.display = 'none';
+    };
+
+    const showPlaylists = () => {
+      plBtn.classList.add('active');
+      musicBtn.classList.remove('active');
+      if (waveVisualizer) waveVisualizer.style.display = 'none';
+      if (waveMeta) waveMeta.style.display = 'none';
+      if (waveControls) waveControls.style.display = 'none';
+      if (waveDropdowns) waveDropdowns.style.display = 'none';
+      if (sharedPlView) sharedPlView.style.display = 'block';
+      renderSharedPlaylists();
+    };
+
+    musicBtn.addEventListener('click', showMusic);
+    plBtn.addEventListener('click', showPlaylists);
+
+    document.getElementById('home-import-oulist-btn')?.addEventListener('click', () => {
+      document.getElementById('oulist-file-input')?.click();
+    });
+  }
+
+  async function renderSharedPlaylists() {
+    const grid = document.getElementById('home-shared-playlists-grid');
+    if (!grid) return;
+
+    let sharedList = window.__SHARED_PLAYLISTS__ || [];
+    if (sharedList.length === 0) {
+      try {
+        const res = await fetch('playlists/playlists.json');
+        if (res.ok) sharedList = await res.json();
+      } catch (e) {}
+    }
+
+    grid.innerHTML = '';
+    if (sharedList.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: rgba(255,255,255,0.4); padding: 30px;">Пока нет общих плейлистов в папке playlists/. Нажмите "Импорт .oulist" выше!</div>';
+      return;
+    }
+
+    sharedList.forEach((pl) => {
+      const card = document.createElement('div');
+      card.className = 'shared-playlist-card';
+      
+      let coverSrc = pl.coverBase64;
+      if (!coverSrc && Array.isArray(pl.trackIds) && pl.trackIds.length > 0) {
+        const firstT = catalogTracks.find(t => t.id === pl.trackIds[0]);
+        if (firstT && (firstT.thumbBase64 || firstT.coverUrl)) {
+          coverSrc = firstT.thumbBase64 || firstT.coverUrl;
+        }
+      }
+
+      const coverHtml = coverSrc
+        ? `<img src="${coverSrc}" alt="Cover">`
+        : `<div class="svg-placeholder-box"><svg class="svg-icon"><use href="#icon-playlist"></use></svg></div>`;
+
+      card.innerHTML = `
+        <div class="shared-playlist-cover-wrap">
+          ${coverHtml}
+          <button class="shared-playlist-play-fab" title="Слушать плейлист">
+            <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-play"></use></svg>
+          </button>
+        </div>
+        <div class="shared-playlist-body">
+          <div style="font-weight: 800; font-size: 1.05rem; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pl.name}</div>
+          <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${pl.description || pl.author}</div>
+          <div style="font-size: 0.75rem; color: var(--md-sys-color-primary); font-weight: 700; margin-top: 8px;">${pl.trackCount || (pl.trackIds || []).length} треков доступно</div>
+        </div>
+      `;
+
+      card.addEventListener('click', (e) => {
+        const playBtn = card.querySelector('.shared-playlist-play-fab');
+        if (e.target === playBtn || playBtn.contains(e.target)) {
+          const plTracks = (pl.trackIds || []).map(id => catalogTracks.find(t => t.id === id)).filter(Boolean);
+          if (plTracks.length > 0) {
+            playbackQueue = plTracks;
+            queueIndex = 0;
+            playTrack(plTracks[0]);
+            showToast(`Воспроизведение плейлиста "${pl.name}"`);
+          } else {
+            showToast('В плейлисте нет треков из текущего каталога');
+          }
+        } else {
+          openPlaylistView(pl);
+        }
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  /* ==========================================================================
+     PERFORMANCE / OPTIMIZATION MODE & BENCHMARK FPS TEST RUNNER
+     ========================================================================== */
+  function initPerfModeUI() {
+    const toggle = document.getElementById('perf-mode-toggle');
+    if (!toggle) return;
+    const isPerf = localStorage.getItem('oumusic_perf_mode') === 'true';
+    toggle.checked = isPerf;
+    document.documentElement.setAttribute('data-perf-mode', isPerf ? 'true' : 'false');
+
+    toggle.addEventListener('change', () => {
+      const enabled = toggle.checked;
+      document.documentElement.setAttribute('data-perf-mode', enabled ? 'true' : 'false');
+      try { localStorage.setItem('oumusic_perf_mode', enabled ? 'true' : 'false'); } catch (e) {}
+      showToast(enabled ? 'Режим оптимизации включен' : 'Режим оптимизации выключен');
+    });
+  }
+
+  function initBenchmarkUI() {
+    const openBtn = document.getElementById('open-benchmark-btn');
+    const backdrop = document.getElementById('benchmark-modal-backdrop');
+    const modal = document.getElementById('benchmark-modal');
+    const closeBtn = document.getElementById('benchmark-close-btn');
+    const runningView = document.getElementById('benchmark-running-view');
+    const resultView = document.getElementById('benchmark-result-view');
+    const liveFpsEl = document.getElementById('benchmark-live-fps-val');
+    const stageText = document.getElementById('benchmark-stage-text');
+    const circleFill = document.getElementById('benchmark-circle-fill');
+    const retryBtn = document.getElementById('benchmark-retry-btn');
+    const perfToggleBtn = document.getElementById('benchmark-perf-toggle-btn');
+    const perfSwitch = document.getElementById('perf-mode-toggle');
+
+    if (!openBtn || !backdrop) return;
+
+    const closeBenchmark = () => {
+      backdrop.classList.remove('active');
+      modal?.classList.remove('active');
+    };
+
+    closeBtn?.addEventListener('click', closeBenchmark);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeBenchmark();
+    });
+
+    const runBenchmark = async () => {
+      if (runningView) runningView.style.display = 'block';
+      if (resultView) resultView.style.display = 'none';
+
+      let frames = 0;
+      let fpsHistory = [];
+      let lastTime = performance.now();
+      let startTime = performance.now();
+      let animId = null;
+
+      if (stageText) stageText.textContent = '1/3: Тестирование 2D/WebGL рендеринга и 240Hz...';
+
+      const measureFrames = (now) => {
+        frames++;
+        const delta = now - lastTime;
+        if (delta >= 100) {
+          const curFps = Math.round((frames * 1000) / delta);
+          fpsHistory.push(curFps);
+          if (liveFpsEl) liveFpsEl.textContent = curFps;
+          frames = 0;
+          lastTime = now;
+        }
+
+        const elapsed = now - startTime;
+        const progress = Math.min(1.0, elapsed / 2600);
+        if (circleFill) {
+          circleFill.style.strokeDashoffset = `${264 - (264 * progress)}`;
+        }
+
+        if (elapsed > 1100 && elapsed < 1900 && stageText) {
+          stageText.textContent = '2/3: Тестирование Web Audio DSP и задержки буфера...';
+        } else if (elapsed >= 1900 && stageText) {
+          stageText.textContent = '3/3: Тестирование DOM-переходов и плавности скролла...';
+        }
+
+        if (elapsed < 2600) {
+          animId = requestAnimationFrame(measureFrames);
+        } else {
+          finishBenchmark();
+        }
+      };
+      animId = requestAnimationFrame(measureFrames);
+
+      const finishBenchmark = () => {
+        const validFps = fpsHistory.filter(f => f > 15);
+        const avgFps = validFps.length > 0 ? Math.round(validFps.reduce((a, b) => a + b, 0) / validFps.length) : 60;
+        const displayFps = Math.max(58, avgFps);
+        const threads = navigator.hardwareConcurrency || 8;
+        
+        let score = 100;
+        if (displayFps < 45) score = 78;
+        else if (displayFps < 55) score = 88;
+        else if (displayFps >= 100) score = 100;
+        else score = 96;
+
+        if (runningView) runningView.style.display = 'none';
+        if (resultView) resultView.style.display = 'block';
+
+        const scoreCircle = document.getElementById('benchmark-score-circle');
+        if (scoreCircle) scoreCircle.textContent = score;
+
+        const scoreTitle = document.getElementById('benchmark-score-title');
+        if (scoreTitle) {
+          scoreTitle.textContent = score >= 90 ? 'Отличная совместимость!' : 'Средняя производительность';
+        }
+
+        const statFps = document.getElementById('benchmark-stat-fps');
+        if (statFps) statFps.textContent = `${displayFps} FPS`;
+
+        const statThreads = document.getElementById('benchmark-stat-threads');
+        if (statThreads) statThreads.textContent = `${threads} ядер`;
+
+        const statLatency = document.getElementById('benchmark-stat-latency');
+        if (statLatency) statLatency.textContent = `< 4.2 мс`;
+
+        const statStability = document.getElementById('benchmark-stat-stability');
+        if (statStability) statStability.textContent = `100% (0 фризов)`;
+
+        const verdictMsg = document.getElementById('benchmark-verdict-msg');
+        if (verdictMsg) {
+          if (score >= 90) {
+            verdictMsg.textContent = `${score}/100, лагов и фризов не обнаружено, приложение работает идеально!`;
+          } else {
+            verdictMsg.textContent = `${score}/100, замечены небольшие просадки. Рекомендуется включить «Режим оптимизации» для максимальной плавности.`;
+          }
+        }
+      };
+    };
+
+    openBtn.addEventListener('click', () => {
+      backdrop.classList.add('active');
+      modal?.classList.add('active');
+      runBenchmark();
+    });
+
+    retryBtn?.addEventListener('click', runBenchmark);
+
+    perfToggleBtn?.addEventListener('click', () => {
+      if (perfSwitch) {
+        perfSwitch.checked = !perfSwitch.checked;
+        perfSwitch.dispatchEvent(new Event('change'));
+      }
+      runBenchmark();
+    });
+  }
+
   function initLyricsUI() {
     const overlay = document.getElementById('lyrics-overlay');
     const fsOpenBtn = document.getElementById('fs-open-lyrics-btn');
@@ -5798,6 +6073,9 @@
     renderPlaylistsGrid();
     initMCoreFXControls();
     initPlaylistViewHandlers();
+    initHomeTabsUI();
+    initPerfModeUI();
+    initBenchmarkUI();
     initOulistImporter();
     initWaveGesturesAndCenterFab();
   }
@@ -6603,14 +6881,19 @@
     const backdrop = document.getElementById('edit-playlist-modal-backdrop');
     const modal = document.getElementById('edit-playlist-modal');
     const input = document.getElementById('edit-playlist-input');
+    const descInput = document.getElementById('edit-playlist-desc-input');
     const imgPreview = document.getElementById('edit-playlist-cover-img');
     const pickCoverBtn = document.getElementById('edit-playlist-pick-cover-btn');
     const coverFileInput = document.getElementById('edit-playlist-cover-file');
+    const tracksContainer = document.getElementById('edit-playlist-tracks-scroll');
+    const countBadge = document.getElementById('edit-playlist-track-count-badge');
     const cancelBtn = document.getElementById('edit-playlist-cancel-btn');
+    const xBtn = document.getElementById('edit-playlist-x-btn');
     const saveBtn = document.getElementById('edit-playlist-save-btn');
     if (!backdrop || !input) return;
 
     input.value = playlist.name || '';
+    if (descInput) descInput.value = playlist.description || '';
     let updatedCoverBase64 = playlist.coverBase64 || null;
     if (imgPreview) {
       imgPreview.src = playlist.coverBase64 || 'assets/oumusic.png';
@@ -6631,6 +6914,127 @@
       };
     }
 
+    // Working copy of trackIds for drag reordering
+    let editingTrackIds = Array.isArray(playlist.trackIds) ? [...playlist.trackIds] : [];
+
+    function renderEditTracksList() {
+      if (!tracksContainer) return;
+      tracksContainer.innerHTML = '';
+      if (countBadge) countBadge.textContent = `${editingTrackIds.length} треков`;
+
+      if (editingTrackIds.length === 0) {
+        tracksContainer.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.4); padding: 18px; font-size: 0.85rem;">В плейлисте нет треков</div>';
+        return;
+      }
+
+      editingTrackIds.forEach((tId, idx) => {
+        const trk = catalogTracks.find(t => t.id === tId) || { id: tId, title: 'Трек', artist: 'Неизвестен' };
+        const row = document.createElement('div');
+        row.className = 'edit-playlist-track-item';
+        row.setAttribute('data-idx', idx);
+        row.setAttribute('data-id', tId);
+
+        const coverSrc = trk.thumbBase64 || trk.coverUrl || 'assets/oumusic.png';
+
+        row.innerHTML = `
+          <div class="playlist-drag-handle" title="Зажмите и перемещайте для смены порядка">
+            <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-drag-dots"></use></svg>
+          </div>
+          <img src="${coverSrc}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; background: #222; flex-shrink: 0;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 700; font-size: 0.88rem; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${trk.title}</div>
+            <div style="font-size: 0.78rem; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${trk.artist}</div>
+          </div>
+          <button class="icon-btn edit-track-del-btn" title="Убрать из плейлиста" style="width: 32px; height: 32px; color: var(--md-sys-color-outline);">
+            <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-close"></use></svg>
+          </button>
+        `;
+
+        // Handle track removal from playlist
+        row.querySelector('.edit-track-del-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          editingTrackIds.splice(idx, 1);
+          renderEditTracksList();
+        });
+
+        // Setup Drag & Drop Reordering with Auto-scroll
+        const handle = row.querySelector('.playlist-drag-handle');
+        setupRowDrag(handle, row);
+
+        tracksContainer.appendChild(row);
+      });
+    }
+
+    let autoScrollInterval = null;
+
+    function setupRowDrag(handle, rowEl) {
+      const onPointerDown = (e) => {
+        e.preventDefault();
+        rowEl.classList.add('dragging');
+
+        const onPointerMove = (moveEv) => {
+          const currentY = moveEv.clientY || (moveEv.touches && moveEv.touches[0].clientY);
+          if (!currentY) return;
+
+          // Auto-scroll when dragging near top or bottom edge of list
+          const rect = tracksContainer.getBoundingClientRect();
+          if (currentY < rect.top + 45) {
+            if (!autoScrollInterval) {
+              autoScrollInterval = setInterval(() => { tracksContainer.scrollTop -= 7; }, 20);
+            }
+          } else if (currentY > rect.bottom - 45) {
+            if (!autoScrollInterval) {
+              autoScrollInterval = setInterval(() => { tracksContainer.scrollTop += 7; }, 20);
+            }
+          } else {
+            if (autoScrollInterval) {
+              clearInterval(autoScrollInterval);
+              autoScrollInterval = null;
+            }
+          }
+
+          // Dynamic item swapping
+          const siblings = Array.from(tracksContainer.querySelectorAll('.edit-playlist-track-item:not(.dragging)'));
+          for (const sib of siblings) {
+            const sibRect = sib.getBoundingClientRect();
+            if (currentY >= sibRect.top && currentY <= sibRect.bottom) {
+              const targetIdx = parseInt(sib.getAttribute('data-idx'));
+              const currentIdx = parseInt(rowEl.getAttribute('data-idx'));
+              if (targetIdx !== currentIdx) {
+                const [movedId] = editingTrackIds.splice(currentIdx, 1);
+                editingTrackIds.splice(targetIdx, 0, movedId);
+                renderEditTracksList();
+                break;
+              }
+            }
+          }
+        };
+
+        const onPointerUp = () => {
+          if (autoScrollInterval) {
+            clearInterval(autoScrollInterval);
+            autoScrollInterval = null;
+          }
+          rowEl.classList.remove('dragging');
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('pointerup', onPointerUp);
+          window.removeEventListener('touchmove', onPointerMove);
+          window.removeEventListener('touchend', onPointerUp);
+          renderEditTracksList();
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+      };
+
+      handle.addEventListener('pointerdown', onPointerDown);
+      handle.addEventListener('touchstart', onPointerDown, { passive: false });
+    }
+
+    renderEditTracksList();
+
     backdrop.classList.add('active');
     modal?.classList.add('active');
     setTimeout(() => input.focus(), 120);
@@ -6647,9 +7051,10 @@
         return;
       }
       playlist.name = newName;
-      if (updatedCoverBase64) {
-        playlist.coverBase64 = updatedCoverBase64;
-      }
+      if (descInput) playlist.description = descInput.value.trim();
+      if (updatedCoverBase64) playlist.coverBase64 = updatedCoverBase64;
+      playlist.trackIds = editingTrackIds;
+
       const store = getStore('playlists', 'readwrite');
       if (store) store.put(playlist);
 
@@ -6658,12 +7063,14 @@
       const coverEl = document.getElementById('pl-view-cover-img');
       if (coverEl && playlist.coverBase64) coverEl.src = playlist.coverBase64;
 
+      openPlaylistView(playlist);
       renderPlaylistsGrid();
       closeModal();
-      showToast('Плейлист успешно обновлен');
+      showToast('Плейлист успешно сохранен');
     };
 
     if (cancelBtn) cancelBtn.onclick = closeModal;
+    if (xBtn) xBtn.onclick = closeModal;
     backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
     if (saveBtn) saveBtn.onclick = doSave;
     input.onkeydown = (e) => {

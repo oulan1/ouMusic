@@ -114,6 +114,7 @@ html, body {
 
 /* Semicircular Convex Arc Navigation Menu (Left-to-Right Protruding Wheel) */
 .arc-sidebar {
+  font-family: var(--font-family-ys), sans-serif !important;
   display: none;
   position: fixed;
   left: 0;
@@ -157,7 +158,7 @@ html, body {
   transform: translateY(-50%);
   width: 36px;
   height: 36px;
-  margin-left: -6px; /* Sits snugly on the apex edge */
+  margin-left: 8px; /* Clean gap: zero collision with apex edge in liquid glass */
   border-radius: 50%;
   background: var(--md-sys-color-surface-container-highest);
   border: 1.5px solid var(--md-sys-color-primary);
@@ -209,6 +210,7 @@ html, body {
 }
 
 .arc-nav-item {
+  font-family: var(--font-family-ys), sans-serif !important;
   position: absolute;
   left: 0;
   top: 0;
@@ -1393,4 +1395,175 @@ html, body {
   width: 15px;
   height: 15px;
   fill: #10B981;
+}
+
+/* ==========================================================================
+   PERFORMANCE / OPTIMIZATION MODE (Zero GPU lag, maximized FPS)
+   ========================================================================== */
+[data-perf-mode="true"] #cover-wave-canvas {
+  display: none !important;
+}
+
+[data-perf-mode="true"] .wave-sphere-canvas {
+  filter: none !important;
+}
+
+[data-perf-mode="true"] .wave-ambient-glow,
+[data-perf-mode="true"] .player-glow-bg {
+  display: none !important;
+}
+
+[data-perf-mode="true"] * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+/* ==========================================================================
+   SHARED COMMUNITY PLAYLISTS & DRAG REORDERING
+   ========================================================================== */
+.home-tab-pill {
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.home-tab-pill.active {
+  background: var(--md-sys-color-primary) !important;
+  color: var(--md-sys-color-on-primary) !important;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  border-color: transparent !important;
+}
+
+.shared-playlist-card {
+  background: var(--md-sys-color-surface-container);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  position: relative;
+}
+
+.shared-playlist-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.shared-playlist-cover-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #181824;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shared-playlist-cover-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.shared-playlist-card:hover .shared-playlist-cover-wrap img {
+  transform: scale(1.05);
+}
+
+.shared-playlist-play-fab {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border: none;
+  cursor: pointer;
+}
+
+.shared-playlist-card:hover .shared-playlist-play-fab {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.shared-playlist-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Playlist Drag Reorder Items */
+.edit-playlist-track-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  user-select: none;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.15s;
+}
+
+.edit-playlist-track-item.dragging {
+  opacity: 0.92;
+  background: rgba(40, 36, 60, 0.95) !important;
+  border-color: var(--md-sys-color-primary) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+.playlist-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  padding: 6px;
+  color: var(--md-sys-color-outline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.playlist-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Neutral Minimalist SVG Placeholders */
+.svg-placeholder-box {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9CA3AF;
+}
+
+[data-theme="light"] .svg-placeholder-box {
+  background: rgba(0, 0, 0, 0.06);
+  color: #6B7280;
+}
+
+.svg-placeholder-box svg {
+  width: 44%;
+  height: 44%;
+  fill: currentColor;
 }
