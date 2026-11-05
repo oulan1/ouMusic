@@ -245,10 +245,12 @@ html, body {
 }
 
 .arc-nav-item .item-label {
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-family: var(--font-family-ys), sans-serif !important;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: inherit;
   transition: color 0.2s, font-weight 0.2s;
+  letter-spacing: -0.2px;
 }
 
 .arc-nav-item:hover .item-icon-box {

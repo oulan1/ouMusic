@@ -458,24 +458,39 @@
 }
 
 /* Modals / Center Dialogs */
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--motion-duration-medium);
+.dialog-backdrop,
+.modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: opacity var(--motion-duration-medium) ease, visibility var(--motion-duration-medium) ease !important;
 }
 
-.dialog-backdrop.active {
-  opacity: 1;
-  pointer-events: auto;
+.dialog-backdrop.active,
+.modal-backdrop.active {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+}
+
+.dialog-backdrop:not(.active),
+.modal-backdrop:not(.active) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .dialog-card {
@@ -492,8 +507,9 @@
   transition: transform var(--motion-duration-medium) var(--motion-easing-emphasized);
 }
 
-.dialog-backdrop.active .dialog-card {
-  transform: scale(1);
+.dialog-backdrop.active .dialog-card,
+.modal-backdrop.active .dialog-card {
+  transform: scale(1) !important;
 }
 
 .dialog-title {

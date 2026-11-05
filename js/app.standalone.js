@@ -236,15 +236,19 @@
       if (likesStore) likesStore.delete(id);
 
       // 4. Remove from playlists safely
-      const plStore = getStore('playlists', 'readwrite');
-      if (plStore) {
+      try {
         const allPl = await getAllPlaylistsAsync();
-        allPl.forEach((pl) => {
-          if (Array.isArray(pl.trackIds) && pl.trackIds.includes(id)) {
-            pl.trackIds = pl.trackIds.filter((tId) => tId !== id);
-            plStore.put(pl);
-          }
-        });
+        const plStore = getStore('playlists', 'readwrite');
+        if (plStore && Array.isArray(allPl)) {
+          allPl.forEach((pl) => {
+            if (Array.isArray(pl.trackIds) && pl.trackIds.includes(id)) {
+              pl.trackIds = pl.trackIds.filter((tId) => tId !== id);
+              try { plStore.put(pl); } catch (e) {}
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Could not update playlists during track delete:', err);
       }
 
       // 5. Instantly remove matching DOM rows and badges
@@ -4248,9 +4252,11 @@
 
     const onUserInteraction = () => {
       window.isLyricsUserScrolling = true;
+      container.classList.add('user-scrolling');
       if (lyricsInactivityTimer) clearTimeout(lyricsInactivityTimer);
       lyricsInactivityTimer = setTimeout(() => {
         window.isLyricsUserScrolling = false;
+        container.classList.remove('user-scrolling');
         // 3 seconds of inactivity smoothly springs back to active line
         if (activeLyricIndex >= 0) {
           const lines = container.children;
@@ -4258,8 +4264,8 @@
             const lineEl = lines[activeLyricIndex];
             const isMobile = window.innerWidth <= 860;
             const targetY = isMobile
-              ? Math.max(0, lineEl.offsetTop - 36)
-              : Math.max(0, lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2));
+              ? Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.28) + (lineEl.clientHeight / 2))
+              : Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.38) + (lineEl.clientHeight / 2));
             container.scrollTo({ top: targetY, behavior: 'smooth' });
           }
         }
@@ -4348,37 +4354,34 @@
       const lines = container.children;
       if (!lines || lines.length === 0) return;
 
-      // Cleanly remove active and near classes from previous lines
-      container.querySelectorAll('.active, .near-1, .near-2, .distant').forEach((el) => {
-        el.classList.remove('active', 'near-1', 'near-2', 'distant');
+      // Cleanly remove active, near, and past classes from all lines
+      container.querySelectorAll('.active, .near-1, .near-2, .distant, .past').forEach((el) => {
+        el.classList.remove('active', 'near-1', 'near-2', 'distant', 'past');
       });
 
       const isMobile = window.innerWidth <= 860;
 
-      if (isMobile) {
-        // Mobile: Active line at top/upper third
-        if (lines[newIdx]) lines[newIdx].classList.add('active');
-        // Single line below is moderately brighter
-        if (lines[newIdx + 1]) lines[newIdx + 1].classList.add('near-1');
-        // All other lines remain dark by default!
-
-        if (!window.isLyricsUserScrolling && lines[newIdx]) {
-          const targetY = Math.max(0, lines[newIdx].offsetTop - 36);
-          container.scrollTo({ top: targetY, behavior: 'smooth' });
+      // Consistent Yandex-Music style hierarchy on both Desktop & Mobile:
+      // Past lines (above active) get .past (smooth fade out & shrink upwards)
+      // Active line gets .active (bright white, headline font)
+      // Line immediately below gets .near-1 (tier 2 brightness)
+      // All subsequent lines remain dark (tier 3)
+      for (let i = 0; i < lines.length; i++) {
+        if (i < newIdx) {
+          lines[i].classList.add('past');
+        } else if (i === newIdx) {
+          lines[i].classList.add('active');
+        } else if (i === newIdx + 1) {
+          lines[i].classList.add('near-1');
         }
-      } else {
-        // Desktop: Active line in the CENTER
-        if (lines[newIdx]) lines[newIdx].classList.add('active');
-        // Lines immediately above and below are moderately brighter
-        if (lines[newIdx - 1]) lines[newIdx - 1].classList.add('near-1');
-        if (lines[newIdx + 1]) lines[newIdx + 1].classList.add('near-1');
-        // All other lines remain dark by default!
+      }
 
-        if (!window.isLyricsUserScrolling && lines[newIdx]) {
-          const lineEl = lines[newIdx];
-          const targetY = Math.max(0, lineEl.offsetTop - (container.clientHeight / 2) + (lineEl.clientHeight / 2));
-          container.scrollTo({ top: targetY, behavior: 'smooth' });
-        }
+      if (!window.isLyricsUserScrolling && lines[newIdx]) {
+        const lineEl = lines[newIdx];
+        const targetY = isMobile
+          ? Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.28) + (lineEl.clientHeight / 2))
+          : Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.38) + (lineEl.clientHeight / 2));
+        container.scrollTo({ top: targetY, behavior: 'smooth' });
       }
     }
   }
