@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.4">
-  <link rel="stylesheet" href="css/main.css?v=2.7.4">
-  <link rel="stylesheet" href="css/components.css?v=2.7.4">
-  <link rel="stylesheet" href="css/player.css?v=2.7.4">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.5">
+  <link rel="stylesheet" href="css/main.css?v=2.7.5">
+  <link rel="stylesheet" href="css/components.css?v=2.7.5">
+  <link rel="stylesheet" href="css/player.css?v=2.7.5">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -423,59 +423,23 @@
               </button>
             </div>
 
-            <!-- 3 Material 3 Dropdowns Row -->
-            <div class="wave-dropdowns-row">
-              <!-- Dropdown 1: Mood & Activity -->
-              <div class="m3-select-wrapper">
-                <label class="m3-select-label" for="wave-select-mood">
-                  <span>Настроение и занятие:</span>
-                </label>
-                <div class="m3-select-container">
-                  <select id="wave-select-mood" class="m3-select">
-                    <option value="all">Все настроения</option>
-                    <option value="work">Для работы и концентрации</option>
-                    <option value="rest">Спокойный отдых</option>
-                    <option value="sleep">Засыпаю / Релакс</option>
-                    <option value="workout">Интенсивная тренировка</option>
-                    <option value="road">В дорогу / Путешествие</option>
-                    <option value="energy">Бодрость и энергия</option>
-                    <option value="melancholy">Меланхолия и грусть</option>
-                  </select>
-                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
-                </div>
+            <!-- AI Commentary Box under Моя Волна (Point 7 - Image 2) -->
+            <div class="wave-ai-comment-box" id="wave-ai-comment-box">
+              <div class="wave-ai-badge">
+                <svg class="svg-icon" style="width: 13px; height: 13px; fill: currentColor;"><use href="#icon-sparkles"></use></svg>
+                <span>AI</span>
               </div>
-
-              <!-- Dropdown 2: Character -->
-              <div class="m3-select-wrapper">
-                <label class="m3-select-label" for="wave-select-char">
-                  <span>Характер:</span>
-                </label>
-                <div class="m3-select-container">
-                  <select id="wave-select-char" class="m3-select">
-                    <option value="any">Любой</option>
-                    <option value="familiar">Знакомое</option>
-                    <option value="unfamiliar">Незнакомое</option>
-                    <option value="forgotten">Забытое</option>
-                    <option value="popular">Популярное</option>
-                  </select>
-                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
-                </div>
-              </div>
-
-              <!-- Dropdown 3: Genre -->
-              <div class="m3-select-wrapper">
-                <label class="m3-select-label" for="wave-select-genre">
-                  <span>Фильтр по жанру:</span>
-                </label>
-                <div class="m3-select-container">
-                  <select id="wave-select-genre" class="m3-select">
-                    <option value="all">Все жанры</option>
-                  </select>
-                  <svg class="select-chevron svg-icon"><use href="#icon-chevron-down"></use></svg>
-                </div>
-              </div>
+              <div class="wave-ai-text" id="wave-ai-text">Идеальный мэтч человека и ИИ — когда нам нравится одно и то же</div>
             </div>
-          </div>
+
+            <!-- Single Theme Selector Button (Point 5) -->
+            <div style="display: flex; justify-content: center; margin-top: 14px;">
+              <button class="btn btn-tonal" id="wave-theme-picker-btn" type="button" style="padding: 10px 22px; font-weight: 750; font-size: 0.92rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); color: #FFF; backdrop-filter: blur(12px); cursor: pointer;">
+                <svg class="svg-icon" style="width: 18px; height: 18px; fill: var(--md-sys-color-primary);"><use href="#icon-sparkles"></use></svg>
+                <span id="wave-active-theme-label">Выбор темы</span>
+                <svg class="svg-icon" style="width: 14px; height: 14px; opacity: 0.7;"><use href="#icon-chevron-down"></use></svg>
+              </button>
+            </div>
 
           <!-- Section: Tracks Feed -->
           <div class="section-header">
@@ -637,10 +601,19 @@
 
         <!-- SCREEN 5: SETTINGS -->
         <section class="screen" id="screen-settings">
-          <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 20px;" data-i18n="nav_settings">Настройки</h2>
+          <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 14px;" data-i18n="nav_settings">Настройки</h2>
+
+          <!-- Category Navigation Tabs (Point 13) -->
+          <div class="settings-tabs-scroll-row">
+            <button class="settings-tab-pill active" data-settings-tab="all" type="button">Все настройки</button>
+            <button class="settings-tab-pill" data-settings-tab="sound" type="button">Звук и эквалайзер</button>
+            <button class="settings-tab-pill" data-settings-tab="appearance" type="button">Внешний вид</button>
+            <button class="settings-tab-pill" data-settings-tab="perf" type="button">Производительность</button>
+            <button class="settings-tab-pill" data-settings-tab="about" type="button">О сервисе</button>
+          </div>
 
     <!-- Official Telegram Channel Card -->
-    <a href="https://t.me/ouMusicCore" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, rgba(0, 136, 204, 0.22), rgba(0, 136, 204, 0.08)); border: 1px solid rgba(0, 136, 204, 0.35); border-radius: var(--md-shape-corner-large); margin-bottom: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+    <a data-settings-group="about" href="https://t.me/ouMusicCore" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, rgba(0, 136, 204, 0.22), rgba(0, 136, 204, 0.08)); border: 1px solid rgba(0, 136, 204, 0.35); border-radius: var(--md-shape-corner-large); margin-bottom: 20px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
       <div style="display: flex; align-items: center; gap: 14px;">
         <div style="width: 44px; height: 44px; border-radius: 50%; background: #0088cc; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);">
           <svg class="svg-icon" style="width: 22px; height: 22px; fill: #FFFFFF;"><use href="#icon-telegram"></use></svg>
@@ -656,20 +629,20 @@
     </a>
 
     <!-- Performance & Eco Mode Block -->
-    <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 20px;">
+    <div data-settings-group="perf" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 20px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
         <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
           <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-gauge"></use></svg>
-          <span>Режим оптимизации (Эко / 240Hz)</span>
+          <span>Режим оптимизации и энергосбережения</span>
         </div>
-        <span class="badge-beta" style="background: #10B981; color: #FFF; font-weight: 700; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">240 FPS</span>
+        <span class="badge-beta" style="background: #10B981; color: #FFF; font-weight: 700; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">ЭКО-РЕЖИМ</span>
       </div>
 
       <label class="m3-switch" style="margin-bottom: 14px;">
         <div>
           <div class="switch-label">Включить режим оптимизации</div>
           <div style="font-size: 0.76rem; color: var(--md-sys-color-outline); margin-top: 2px;">
-            Отключает тяжелые фоновые шейдеры и волну за обложкой, переводит визуализатор в экономичный цикл для плавных 240 FPS без лагов на слабых смартфонах.
+            Отключает тяжелые фоновые шейдеры и снижает нагрузку на CPU/GPU, обеспечивая плавные 60-120 FPS и максимальную автономность батареи.
           </div>
         </div>
         <input type="checkbox" id="perf-mode-toggle" class="switch-input">
@@ -690,7 +663,7 @@
 
 
           <!-- Theme -->
-          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+          <div data-settings-group="appearance" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
             <div style="font-weight: 600; margin-bottom: 12px;" data-i18n="settings_appearance">Внешний вид</div>
 
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
@@ -750,7 +723,7 @@
           </div>
 
           <!-- Sound Engine M-Core Settings -->
-          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+          <div data-settings-group="sound" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
             <div style="font-weight: 600; margin-bottom: 12px;" data-i18n="settings_audio">Аудиодвижок M-Core</div>
 
             <!-- Loudness Normalizer (Default: ON) -->
@@ -845,6 +818,10 @@
                   <button class="btn btn-outlined" id="eq-reset-btn" style="padding: 4px 10px; font-size: 0.75rem;">Сбросить по умолчанию</button>
                 </div>
               </div>
+              <!-- Interactive Smooth Spline Wave Curve Canvas (Point 12) -->
+              <div class="eq-curve-container" id="eq-curve-container">
+                <canvas id="eq-curve-canvas" class="eq-curve-canvas"></canvas>
+              </div>
               <div id="eq-sliders-row">
                 <!-- 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz -->
                 <div class="eq-band-col">
@@ -868,11 +845,44 @@
                   <div style="font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px; font-weight: 600;">14k</div>
                 </div>
               </div>
+
+              <!-- Advanced Audio DSP Switches (Point 12) -->
+              <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                <label class="m3-switch">
+                  <div>
+                    <div class="switch-label">Усиление низких частот (Bass Boost)</div>
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 2px;">Глубокий мощный саб-бас +8 dB на 80Hz (Low-Shelf фильтр)</div>
+                  </div>
+                  <input type="checkbox" id="eq-bass-boost-toggle" class="switch-input">
+                  <div class="switch-track"><div class="switch-thumb"></div></div>
+                </label>
+
+                <label class="m3-switch">
+                  <div>
+                    <div class="switch-label">Объемный звук (3D Surround Sound)</div>
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 2px;">Панорамное расширение стереобазы и эффект концертного зала</div>
+                  </div>
+                  <input type="checkbox" id="eq-spatial-toggle" class="switch-input">
+                  <div class="switch-track"><div class="switch-thumb"></div></div>
+                </label>
+
+                <label class="m3-switch">
+                  <div>
+                    <div class="switch-label" style="display: flex; align-items: center; gap: 8px;">
+                      <span>Lossless Hi-Res Режим</span>
+                      <span style="background: linear-gradient(135deg, #F59E0B, #D97706); color: #FFF; font-size: 0.68rem; font-weight: 800; padding: 2px 7px; border-radius: 9999px;">LOSSLESS</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 2px;">Студийный 24-bit / 96kHz мастеринг без компрессии с поддержкой баса и объема</div>
+                  </div>
+                  <input type="checkbox" id="lossless-mode-toggle" class="switch-input">
+                  <div class="switch-track"><div class="switch-thumb"></div></div>
+                </label>
+              </div>
             </div>
           </div>
 
           <!-- Blacklist / Disliked Tracks -->
-          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+          <div data-settings-group="sound" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
             <div style="font-weight: 600; margin-bottom: 8px;">Скрытые треки (Черный список)</div>
             <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 12px;">Треки, которым был поставлен Дизлайк, не звучат в Волне и рекомендациях.</div>
             <div class="tracks-list" id="settings-blacklist-list">
@@ -881,7 +891,7 @@
           </div>
 
           <!-- Documentation & About -->
-          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
+          <div data-settings-group="about" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px;">
             <div style="font-weight: 600; margin-bottom: 12px;">О сервисе и документация</div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <button class="btn btn-tonal" id="open-mcore-docs-btn" style="justify-content: flex-start;">
@@ -892,12 +902,12 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">1.0.0</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.5</span> • Разработчик: oulan1
             </div>
           </div>
 
           <!-- Cache Management & Full Wipe Safety Trigger -->
-          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.25);">
+          <div data-settings-group="about" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.25);">
             <div style="font-weight: 600; margin-bottom: 6px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
               <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-trash"></use></svg>
               <span>Управление кэшем и памятью</span>
@@ -915,7 +925,7 @@
           </div>
 
           <!-- Official ouForge™ Branding Footer -->
-          <div class="settings-brand-footer" style="text-align: center; margin-top: 36px; padding: 22px 16px 12px 16px; color: var(--md-sys-color-outline); font-size: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+          <div data-settings-group="about" class="settings-brand-footer" style="text-align: center; margin-top: 36px; padding: 22px 16px 12px 16px; color: var(--md-sys-color-outline); font-size: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
             <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; color: var(--md-sys-color-on-surface); margin-bottom: 6px;">
               <img src="assets/oumusic.png" alt="ouMusic" style="width: 22px; height: 22px; border-radius: 6px;">
               <span>ouMusic Engine M-Core</span>
@@ -924,7 +934,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.4.0 • All Rights Reserved
+              Версия 2.7.5 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -1426,7 +1436,7 @@
 
       <!-- Mini Player Capsule / Dock -->
       <div class="mini-player" id="mini-player" style="display: none;">
-        <div class="mini-player-progress-bar" id="mini-progress-bar"></div>
+        <div class="mini-player-progress-container" id="mini-progress-container" title="Перемотка трека"><div class="mini-player-progress-bar" id="mini-progress-bar"></div></div>
         <div class="mini-cover">
           <img id="mini-cover-img" src="assets/oumusic.png" alt="Cover">
         </div>
@@ -1589,7 +1599,7 @@
         <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-chevron-down"></use></svg>
       </button>
 
-      <div class="lyrics-top-caption" id="lyrics-top-caption">Найденное</div>
+      
 
       <div style="display: flex; align-items: center; gap: 8px;">
         <!-- Vocal Remover BETA Button -->
@@ -2028,75 +2038,115 @@
   </div>
 
   <!-- SECRET MODERATION ROOM MODAL (20 Rapid Taps on Studio) -->
-  <div class="dialog-backdrop" id="moderation-modal" style="display: none;">
-    <div class="dialog-card" style="max-width: 780px; width: 95vw; background: #0F0F17; border: 1px solid rgba(139, 92, 246, 0.4);">
-      <div class="dialog-title" style="display: flex; align-items: center; justify-content: space-between;">
+  <div class="dialog-backdrop modal-backdrop" id="moderation-modal" style="display: none;">
+    <div class="dialog-card" style="max-width: 820px; width: 95vw; background: #0F0F17; border: 1px solid rgba(139, 92, 246, 0.4); max-height: 90vh; display: flex; flex-direction: column; border-radius: 24px; padding: 22px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.9);">
+      <div class="dialog-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <svg class="svg-icon" style="width: 22px; height: 22px; fill: var(--md-sys-color-primary);"><use href="#icon-verified"></use></svg>
-          <span>Панель модерации ouMusic (M-Core Review)</span>
+          <span style="font-weight: 800; font-family: var(--font-family-ys), sans-serif; font-size: 1.15rem;">Панель модерации и упаковки ouMusic</span>
         </div>
-        <span class="badge-beta" style="background: #10B981;">SECRET MODE</span>
-      </div>
-      <div style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-top: -6px; margin-bottom: 16px;">
-        Загрузите контейнер .oump3 для верификации метаданных, прослушивания и проверки синхронизации текста.
+        <button class="icon-btn" id="mod-close-icon-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
       </div>
 
-      <!-- File Drop / Select Area -->
-      <div id="mod-dropzone" style="border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color 0.2s;">
-        <input type="file" id="mod-file-input" accept=".oump3,.zip" style="display: none;">
-        <svg class="svg-icon" style="width: 32px; height: 32px; fill: var(--md-sys-color-primary); margin-bottom: 8px;"><use href="#icon-upload"></use></svg>
-        <div style="font-weight: 600;">Нажмите или перетащите сюда трек .oump3</div>
-        <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">Пакет содержит header.json, audio, cover и lrc</div>
-      </div>
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <!-- File Drop / Select Area -->
+        <div id="mod-dropzone" style="border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 14px; padding: 18px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color 0.2s; margin-bottom: 14px;">
+          <input type="file" id="mod-file-input" accept=".oump3" style="display: none;">
+          <svg class="svg-icon" style="width: 30px; height: 30px; fill: var(--md-sys-color-primary); margin-bottom: 6px;"><use href="#icon-upload"></use></svg>
+          <div style="font-weight: 600; font-size: 0.95rem;">Нажмите или перетащите контейнер .oump3</div>
+          <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">Чтение header.json, аудиодорожки, обложки и караоке-текста</div>
+        </div>
 
-      <!-- Inspection Details Area (Hidden until file selected) -->
-      <div id="mod-review-area" style="display: none; margin-top: 16px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-          <!-- Left: Meta & Player -->
-          <div>
-            <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 12px;">
-              <img id="mod-cover-img" src="assets/oumusic.png" alt="" style="width: 80px; height: 80px; border-radius: 12px; object-fit: cover; background: #111;">
-              <div style="flex: 1; min-width: 0;">
-                <div id="mod-title" style="font-size: 1.15rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Название</div>
-                <div id="mod-artist" style="font-size: 0.9rem; color: var(--md-sys-color-outline); margin-top: 2px;">Артист</div>
-                <div id="mod-genres" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;"></div>
+        <!-- Inspection Details Area (Hidden until file selected) -->
+        <div id="mod-review-area" style="display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <!-- Left: Editable metadata -->
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <img id="mod-cover-img" src="assets/oumusic.png" alt="" style="width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #111; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
+                <div style="flex: 1; min-width: 0;">
+                  <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Название трека</label>
+                  <input type="text" id="mod-edit-title" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="Название трека">
+                </div>
+              </div>
+
+              <div>
+                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Исполнитель / Артист</label>
+                <input type="text" id="mod-edit-artist" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="Исполнитель">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;">
+                <div>
+                  <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Жанры (через запятую)</label>
+                  <input type="text" id="mod-edit-genres" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="hyperpop, rap, alternative">
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; padding-bottom: 8px;">
+                  <input type="checkbox" id="mod-edit-explicit" style="accent-color: #EF4444; width: 16px; height: 16px;">
+                  <span style="color: #EF4444; font-weight: 700;">18+</span>
+                </label>
+              </div>
+
+              <div>
+                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Факт ИИ для «Моя волна» (aiFact)</label>
+                <textarea id="mod-edit-ai-fact" class="m3-input" rows="2" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.82rem; resize: vertical;" placeholder="Интересный факт или описание трека от ИИ..."></textarea>
+              </div>
+
+              <div>
+                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-bottom: 4px; display: block;">Категории Волны</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="mod-categories-chips">
+                  <label class="mod-cat-chip"><input type="checkbox" value="mood:energetic"> ⚡ Энергичное</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="mood:calm"> 🍃 Спокойное</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="mood:sad"> 🌧️ Грустное</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="mood:drive"> 🔥 Драйв</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="char:dark"> 🌙 Мрачное</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="char:light"> ☀️ Светлое</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="lang:ru"> 🇷🇺 На русском</label>
+                  <label class="mod-cat-chip"><input type="checkbox" value="lang:foreign"> 🌍 Иностранное</label>
+                </div>
+              </div>
+
+              <!-- Audio Player Controls -->
+              <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 10px 12px; margin-top: 2px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                  <button class="btn btn-primary" id="mod-play-btn" style="padding: 5px 12px; font-size: 0.8rem;">
+                    <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg>
+                    <span id="mod-play-btn-text">Слушать</span>
+                  </button>
+                  <span id="mod-time" style="font-size: 0.8rem; font-family: monospace;">00:00 / 00:00</span>
+                </div>
+                <input type="range" id="mod-seeker" min="0" max="100" value="0" style="width: 100%; accent-color: var(--md-sys-color-primary);">
               </div>
             </div>
 
-            <!-- Audio Player Controls -->
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 12px; margin-top: 10px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                <button class="btn btn-primary" id="mod-play-btn" style="padding: 6px 14px; font-size: 0.82rem;">
-                  <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg>
-                  <span>Слушать</span>
-                </button>
-                <span id="mod-time" style="font-size: 0.8rem; font-family: monospace;">00:00 / 00:00</span>
+            <!-- Right: Lyrics Synchronized Stream -->
+            <div style="background: rgba(0, 0, 0, 0.35); border-radius: 14px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; min-height: 260px;">
+              <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--md-sys-color-outline); margin-bottom: 8px;">
+                Синхронизация текста (LRC / Караоке):
               </div>
-              <input type="range" id="mod-seeker" min="0" max="100" value="0" style="width: 100%; accent-color: var(--md-sys-color-primary);">
-            </div>
-          </div>
-
-          <!-- Right: Lyrics Synchronized Stream -->
-          <div style="background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column;">
-            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--md-sys-color-outline); margin-bottom: 8px;">
-              Проверка таймингов текста:
-            </div>
-            <div id="mod-lyrics-stream" style="flex: 1; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, monospace; font-size: 0.85rem;">
-              <span style="color: var(--md-sys-color-outline);">Текст не загружен</span>
+              <div id="mod-lyrics-stream" style="flex: 1; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, monospace; font-size: 0.85rem;">
+                <span style="color: var(--md-sys-color-outline);">Текст не загружен</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="dialog-actions" style="margin-top: 20px;">
+      <div class="dialog-actions" style="margin-top: 14px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <button class="btn btn-outlined" id="mod-close-btn">Закрыть</button>
-        <button class="btn btn-outlined" id="mod-reject-btn" style="color: var(--md-sys-color-error); border-color: var(--md-sys-color-error); display: none;">❌ Отклонить</button>
-        <button class="btn btn-primary" id="mod-approve-btn" style="background: #10B981; color: #FFF; display: none;">✅ Одобрить и добавить</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-tonal" id="mod-download-repack-btn" style="display: none; background: rgba(139, 92, 246, 0.2); color: #C4B5FD; border: 1px solid rgba(139, 92, 246, 0.4);">
+            <svg class="svg-icon" style="width: 16px; height: 16px; margin-right: 4px;"><use href="#icon-download"></use></svg>
+            <span>Скачать .oump3</span>
+          </button>
+          <button class="btn btn-primary" id="mod-apply-catalog-btn" style="display: none; background: #10B981; color: #FFF;">
+            <svg class="svg-icon" style="width: 16px; height: 16px; margin-right: 4px;"><use href="#icon-check"></use></svg>
+            <span>Применить в сессию</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: SUBMIT TRACK TO RELEASE VIA TELEGRAM BOT -->
   <div class="dialog-backdrop" id="release-apply-modal" style="display: none;">
     <div class="dialog-card" style="max-width: 520px;">
       <div class="dialog-title" style="display: flex; align-items: center; gap: 10px;">
@@ -2208,7 +2258,65 @@
   </div>
 
   
-  <!-- MODAL: BENCHMARK / ANTUTU FPS & COMPATIBILITY TEST -->
+    <!-- MODAL: WAVE THEME PICKER (Point 5) -->
+  <div class="dialog-backdrop modal-backdrop" id="wave-theme-modal-backdrop" style="display: none;">
+    <div class="dialog-card" id="wave-theme-modal" style="width: 100%; max-width: 480px; max-height: 85vh; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif; display: flex; align-items: center; gap: 8px;">
+          <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-sparkles"></use></svg>
+          <span>Настройка Моей Волны</span>
+        </h3>
+        <button class="icon-btn" id="wave-theme-close-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Category 1: Настроение и активность -->
+        <div>
+          <div style="font-weight: 750; font-size: 0.88rem; color: rgba(255,255,255,0.7); text-transform: uppercase; margin-bottom: 8px;">Настроение и занятие</div>
+          <div class="wave-chips-group" id="wave-mood-chips" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="chip active wave-chip" data-val="all" type="button">✨ Все</button>
+            <button class="chip wave-chip" data-val="work" type="button">💼 Для работы</button>
+            <button class="chip wave-chip" data-val="rest" type="button">☕ Отдых</button>
+            <button class="chip wave-chip" data-val="workout" type="button">⚡ Тренировка</button>
+            <button class="chip wave-chip" data-val="road" type="button">🚗 В дороге</button>
+            <button class="chip wave-chip" data-val="energy" type="button">🔥 Драйв и бодрость</button>
+            <button class="chip wave-chip" data-val="melancholy" type="button">🌧️ Меланхолия</button>
+            <button class="chip wave-chip" data-val="sleep" type="button">🌙 Сон и релакс</button>
+          </div>
+        </div>
+
+        <!-- Category 2: Характер -->
+        <div>
+          <div style="font-weight: 750; font-size: 0.88rem; color: rgba(255,255,255,0.7); text-transform: uppercase; margin-bottom: 8px;">Характер рекомендаций</div>
+          <div class="wave-chips-group" id="wave-char-chips" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="chip active wave-chip" data-val="any" type="button">🎲 Любой</button>
+            <button class="chip wave-chip" data-val="familiar" type="button">❤️ Любимое</button>
+            <button class="chip wave-chip" data-val="unfamiliar" type="button">🔍 Незнакомое</button>
+            <button class="chip wave-chip" data-val="popular" type="button">⭐ Популярное</button>
+            <button class="chip wave-chip" data-val="forgotten" type="button">⏳ Забытое</button>
+          </div>
+        </div>
+
+        <!-- Category 3: Язык и стиль -->
+        <div>
+          <div style="font-weight: 750; font-size: 0.88rem; color: rgba(255,255,255,0.7); text-transform: uppercase; margin-bottom: 8px;">Язык и звучание</div>
+          <div class="wave-chips-group" id="wave-lang-chips" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button class="chip active wave-chip" data-val="all" type="button">🌐 Любое</button>
+            <button class="chip wave-chip" data-val="ru" type="button">🇷🇺 На русском</button>
+            <button class="chip wave-chip" data-val="en" type="button">🌍 Иностранное</button>
+            <button class="chip wave-chip" data-val="inst" type="button">🎹 Без слов</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions" style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px; display: flex; justify-content: space-between;">
+        <button class="btn btn-outlined" id="wave-theme-reset-btn" type="button">Сбросить</button>
+        <button class="btn btn-primary" id="wave-theme-apply-btn" type="button" style="padding: 8px 24px;">Применить</button>
+      </div>
+    </div>
+  </div>
+
+<!-- MODAL: BENCHMARK / ANTUTU FPS & COMPATIBILITY TEST -->
   <div class="dialog-backdrop modal-backdrop" id="benchmark-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="benchmark-modal" style="width: 100%; max-width: 440px; background: #16171D; border: 1px solid rgba(255,255,255,0.15); border-radius: 26px; padding: 26px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); text-align: center;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -2221,18 +2329,22 @@
 
       <!-- Live Benchmark Progress & Gauge -->
       <div id="benchmark-running-view" style="padding: 16px 0;">
-        <div style="position: relative; width: 130px; height: 130px; margin: 0 auto 16px auto;">
+        <div style="position: relative; width: 120px; height: 120px; margin: 0 auto 12px auto;">
           <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="8"></circle>
             <circle id="benchmark-circle-fill" cx="50" cy="50" r="42" fill="none" stroke="var(--md-sys-color-primary)" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" style="transition: stroke-dashoffset 0.15s ease;"></circle>
           </svg>
-          <div id="benchmark-live-fps" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.9rem; font-weight: 900; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">
+          <div id="benchmark-live-fps" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 900; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">
             <span id="benchmark-live-fps-val">--</span>
             <span style="font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: -4px;">FPS</span>
           </div>
         </div>
+
+        <!-- Real Live Visual Test Canvas (Point 4) -->
+        <canvas id="benchmark-canvas" class="benchmark-canvas" width="340" height="85" style="width: 100%; height: 85px; margin-bottom: 10px;"></canvas>
+
         <div id="benchmark-stage-text" style="font-size: 0.95rem; font-weight: 700; color: #FFFFFF; min-height: 24px;">Инициализация теста...</div>
-        <div id="benchmark-sub-text" style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 6px;">Тестирование графических шейдеров и плавности 240Hz...</div>
+        <div id="benchmark-sub-text" style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 4px;">Тестирование WebGL шейдеров и реальной герцовки дисплея...</div>
       </div>
 
       <!-- Benchmark Result View (Shown upon test completion) -->
@@ -2353,42 +2465,42 @@
       <div style="background: rgba(255,255,255,0.04); border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.08);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
           <span style="font-weight: 700; font-size: 0.95rem; color: var(--md-sys-color-primary);">Аудиоэффекты M-Core FX</span>
-          <button class="btn btn-outlined" id="fx-reset-all-btn" style="padding: 4px 10px; font-size: 0.72rem;">Сброс</button>
+          <button class="btn btn-outlined" id="ti-fx-reset-all-btn" style="padding: 4px 10px; font-size: 0.72rem;">Сброс</button>
         </div>
 
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>Скорость и Тон (Slowed / Speed)</span>
-            <span id="fx-speed-val" class="m3-slider-value">1.00x</span>
+            <span id="ti-fx-speed-val" class="m3-slider-value">1.00x</span>
           </div>
-          <input type="range" id="fx-speed-slider" class="m3-range-input" min="0.70" max="1.35" step="0.01" value="1.00">
+          <input type="range" id="ti-fx-speed-slider" class="m3-range-input" min="0.70" max="1.35" step="0.01" value="1.00">
         </div>
 
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>Пространство (Reverb)</span>
-            <span id="fx-reverb-val" class="m3-slider-value">0%</span>
+            <span id="ti-fx-reverb-val" class="m3-slider-value">0%</span>
           </div>
-          <input type="range" id="fx-reverb-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+          <input type="range" id="ti-fx-reverb-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
         </div>
 
         <div class="m3-slider-group">
           <div class="m3-slider-header">
             <span>8D Аудио (Вращение)</span>
-            <span id="fx-spatial-val" class="m3-slider-value">0%</span>
+            <span id="ti-fx-spatial-val" class="m3-slider-value">0%</span>
           </div>
-          <input type="range" id="fx-spatial-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
+          <input type="range" id="ti-fx-spatial-slider" class="m3-range-input" min="0" max="100" step="1" value="0">
         </div>
       </div>
     </div>
   </div>
 
   <!-- Hidden file input for .oulist Import -->
-  <input type="file" id="oulist-file-input" accept=".oulist,.json" style="display: none;">
+  <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.4"></script>
-  <script src="playlists/playlists.js?v=2.7.4"></script>
-  <script src="js/app.standalone.js?v=2.7.4"></script>
+  <script src="tracks/catalog.js?v=2.7.5"></script>
+  <script src="playlists/playlists.js?v=2.7.5"></script>
+  <script src="js/app.standalone.js?v=2.7.5"></script>
 </body>
 </html>

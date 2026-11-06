@@ -1427,16 +1427,30 @@ html, body {
 .home-tab-pill {
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+  font-weight: 750 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.home-tab-pill .svg-icon {
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+  opacity: 0.95 !important;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
 
 .home-tab-pill.active {
   background: var(--md-sys-color-primary) !important;
-  color: var(--md-sys-color-on-primary) !important;
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  color: #FFFFFF !important;
   border-color: transparent !important;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent) !important;
+}
+
+.home-tab-pill.active .svg-icon {
+  fill: #FFFFFF !important;
+  opacity: 1 !important;
 }
 
 .shared-playlist-card {

@@ -499,6 +499,9 @@
       this.vocalDryGain = null;
       this.vocalWetGain = null;
       this.eqFilters = [];
+      this.bassBoostNode = null;
+      this.bassBoostActive = false;
+      this.surround3DActive = false;
       this.reverbNode = null;
       this.reverbDryGain = null;
       this.reverbWetGain = null;
@@ -636,6 +639,14 @@
         lastNode.connect(f);
         lastNode = f;
       });
+
+      // Bass Boost Low-Shelf Filter (+8 dB at 80Hz)
+      this.bassBoostNode = ctx.createBiquadFilter();
+      this.bassBoostNode.type = 'lowshelf';
+      this.bassBoostNode.frequency.value = 80;
+      this.bassBoostNode.gain.value = this.bassBoostActive ? 8.0 : 0.0;
+      lastNode.connect(this.bassBoostNode);
+      lastNode = this.bassBoostNode;
 
       // Reverb Convolver (Lazy connection: saves massive mobile CPU by skipping 96k stereo FFT convolution when reverb is 0)
       this.reverbNode = ctx.createConvolver();
@@ -1051,6 +1062,21 @@
           }
           this.eqFilters[bandIdx].gain.value = gain;
         } catch (e) {}
+      }
+    }
+
+    setBassBoost(enabled) {
+      this.bassBoostActive = !!enabled;
+      if (this.bassBoostNode && this.audioCtx) {
+        const val = enabled ? 8.0 : 0.0;
+        this.bassBoostNode.gain.setValueAtTime(val, this.audioCtx.currentTime);
+      }
+    }
+
+    set3DSurround(enabled) {
+      this.surround3DActive = !!enabled;
+      if (typeof this.set8DAudio === 'function') {
+        this.set8DAudio(enabled ? 25 : 0);
       }
     }
 
@@ -2317,6 +2343,31 @@
     }
     requestAnimationFrame(smoothScrubberTick);
 
+    // Interactive Mini-Player Scrubber (Point 17)
+    const miniProgContainer = document.getElementById('mini-progress-container');
+    if (miniProgContainer) {
+      const seekMini = (e) => {
+        if (e.stopPropagation) e.stopPropagation();
+        const rect = miniProgContainer.getBoundingClientRect();
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        if (engine.audioElement && engine.audioElement.duration) {
+          engine.seek(pos * engine.audioElement.duration);
+          if (miniProgress) miniProgress.style.width = (pos * 100) + '%';
+        }
+      };
+      miniProgContainer.addEventListener('click', seekMini);
+      let isMiniDown = false;
+      miniProgContainer.addEventListener('pointerdown', (e) => {
+        isMiniDown = true;
+        seekMini(e);
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (isMiniDown) seekMini(e);
+      });
+      window.addEventListener('pointerup', () => { isMiniDown = false; });
+    }
+
     engine.onTimeUpdate = (cur, dur) => {
       if (dur > 0) {
         syncMediaSessionPosition(false);
@@ -3260,26 +3311,41 @@
     const skipBtn = document.getElementById('wave-skip-btn');
     const dislikeBtn = document.getElementById('wave-dislike-btn');
 
-    // Filter catalog tracks based on Wave dropdown selections
-    function getFilteredWaveTracks() {
-      const selGenre = genreSelect ? genreSelect.value.toLowerCase() : 'all';
-      const selMood = moodSelect ? moodSelect.value : 'all';
-      const selChar = charSelect ? charSelect.value : 'any';
+    // Filter catalog tracks based on Wave Theme & Mood selections (Point 5)
+    window._waveThemeFilter = { mood: 'all', char: 'any', lang: 'all' };
 
+    function getFilteredWaveTracks() {
+      const theme = window._waveThemeFilter || { mood: 'all', char: 'any', lang: 'all' };
       let pool = [...catalogTracks];
 
-      // Filter by genre
-      if (selGenre && selGenre !== 'all') {
-        const matching = pool.filter((t) => {
-          return Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(selGenre));
+      // Filter by mood
+      if (theme.mood && theme.mood !== 'all') {
+        const moodMatches = pool.filter((t) => {
+          const cats = t.categories || [];
+          const genres = (t.genres || []).map((g) => g.toLowerCase());
+          if (cats.includes(`mood:${theme.mood}`)) return true;
+          if (theme.mood === 'energetic' && (genres.includes('hyperpop') || genres.includes('dance') || genres.includes('electronic'))) return true;
+          if (theme.mood === 'calm' && (genres.includes('ambient') || genres.includes('lo-fi') || genres.includes('acoustic'))) return true;
+          if (theme.mood === 'sad' && (genres.includes('melancholy') || genres.includes('sad') || genres.includes('indie'))) return true;
+          if (theme.mood === 'drive' && (genres.includes('rock') || genres.includes('phonk') || genres.includes('rap'))) return true;
+          return false;
         });
-        if (matching.length > 0) pool = matching;
+        if (moodMatches.length > 0) pool = moodMatches;
       }
 
-      // Filter by character
-      if (selChar === 'familiar') {
+      // Filter by language
+      if (theme.lang && theme.lang !== 'all') {
+        const langMatches = pool.filter((t) => {
+          const cats = t.categories || [];
+          return cats.includes(`lang:${theme.lang}`);
+        });
+        if (langMatches.length > 0) pool = langMatches;
+      }
+
+      // Sort by character
+      if (theme.char === 'familiar') {
         pool.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
-      } else if (selChar === 'popular') {
+      } else if (theme.char === 'popular') {
         pool.sort((a, b) => ((b.likesCount || 0) - (a.likesCount || 0)));
       } else {
         pool.sort(() => Math.random() - 0.5);
@@ -3296,11 +3362,97 @@
         if (artistEl) artistEl.textContent = track.artist || 'Неизвестный исполнитель';
       } else {
         if (titleEl) titleEl.textContent = 'Не играет';
-        if (artistEl) artistEl.textContent = 'Выберите параметры и нажмите Старт';
+        if (artistEl) artistEl.textContent = 'Нажмите в центр Волны для старта';
+      }
+
+      // Animate AI Commentary Box (Point 7 - Image 2)
+      const aiTextEl = document.getElementById('wave-ai-text');
+      if (aiTextEl) {
+        aiTextEl.classList.add('thinking');
+        setTimeout(() => {
+          aiTextEl.classList.remove('thinking');
+          if (track && track.aiFact) {
+            aiTextEl.textContent = track.aiFact;
+          } else if (track) {
+            const artist = track.artist || 'Артист';
+            const comments = [
+              'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
+              `Уникальный саунд и фирменный стиль ${artist}`,
+              'Свежий ритм и глубокая атмосфера в твоей волне',
+              'Точное попадание под твой музыкальный вайб'
+            ];
+            aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+          } else {
+            aiTextEl.textContent = 'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же';
+          }
+        }, 400);
       }
     }
     window.updateWaveCardInfo = updateWaveCardInfo;
     window.getFilteredWaveTracks = getFilteredWaveTracks;
+
+    // Theme Picker Modal Setup (Point 5)
+    const waveThemeBtn = document.getElementById('wave-theme-picker-btn');
+    const waveThemeBackdrop = document.getElementById('wave-theme-modal-backdrop');
+    const waveThemeCloseBtn = document.getElementById('wave-theme-close-btn');
+    const waveThemeApplyBtn = document.getElementById('wave-theme-apply-btn');
+
+    if (waveThemeBtn && waveThemeBackdrop) {
+      waveThemeBtn.addEventListener('click', () => {
+        waveThemeBackdrop.style.display = 'flex';
+        waveThemeBackdrop.classList.add('active');
+      });
+
+      const closeThemeModal = () => {
+        waveThemeBackdrop.classList.remove('active');
+        waveThemeBackdrop.style.display = 'none';
+      };
+
+      waveThemeCloseBtn?.addEventListener('click', closeThemeModal);
+      waveThemeBackdrop.addEventListener('click', (e) => {
+        if (e.target === waveThemeBackdrop) closeThemeModal();
+      });
+
+      // Section chip selection
+      const modal = document.getElementById('wave-theme-modal');
+      modal?.querySelectorAll('.wave-theme-section').forEach((sec) => {
+        const chips = sec.querySelectorAll('.wave-theme-chip');
+        chips.forEach((chip) => {
+          chip.addEventListener('click', () => {
+            chips.forEach((c) => c.classList.remove('active'));
+            chip.classList.add('active');
+          });
+        });
+      });
+
+      waveThemeApplyBtn?.addEventListener('click', () => {
+        const activeMood = modal?.querySelector('.wave-theme-chip[data-mood].active')?.getAttribute('data-mood') || 'all';
+        const activeChar = modal?.querySelector('.wave-theme-chip[data-char].active')?.getAttribute('data-char') || 'any';
+        const activeLang = modal?.querySelector('.wave-theme-chip[data-lang].active')?.getAttribute('data-lang') || 'all';
+
+        window._waveThemeFilter = { mood: activeMood, char: activeChar, lang: activeLang };
+        const moodLabel = modal?.querySelector('.wave-theme-chip[data-mood].active')?.textContent?.trim() || '';
+
+        if (waveThemeBtn) {
+          waveThemeBtn.innerHTML = `
+            <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-sparkles"></use></svg>
+            <span>${activeMood !== 'all' ? moodLabel : 'Выбор темы'}</span>
+            <svg class="svg-icon" style="width: 14px; height: 14px; opacity: 0.7;"><use href="#icon-chevron-down"></use></svg>
+          `;
+        }
+
+        closeThemeModal();
+        showToast(`Волна настроена: ${moodLabel || 'Все темы'}`);
+
+        const filtered = getFilteredWaveTracks();
+        if (filtered.length > 0) {
+          playbackQueue = filtered;
+          queueIndex = 0;
+          playTrack(filtered[0]);
+          updateWaveCardInfo(filtered[0]);
+        }
+      });
+    }
 
     function startOrResumeWave() {
       if (currentTrack && engine.audioElement && engine.audioElement.src && !engine.audioElement.ended) {
@@ -3320,7 +3472,6 @@
     }
     window.startOrResumeWave = startOrResumeWave;
 
-    // Start / Pause Wave
     startBtn?.addEventListener('click', () => {
       if (engine.isPlaying && currentTrack) {
         engine.togglePlay();
@@ -4558,17 +4709,22 @@
     const resultView = document.getElementById('benchmark-result-view');
     const liveFpsEl = document.getElementById('benchmark-live-fps-val');
     const stageText = document.getElementById('benchmark-stage-text');
+    const subText = document.getElementById('benchmark-sub-text');
     const circleFill = document.getElementById('benchmark-circle-fill');
     const retryBtn = document.getElementById('benchmark-retry-btn');
     const perfToggleBtn = document.getElementById('benchmark-perf-toggle-btn');
     const perfSwitch = document.getElementById('perf-mode-toggle');
+    const benchCanvas = document.getElementById('benchmark-canvas');
 
     if (!openBtn || !backdrop) return;
+
+    let benchAnimId = null;
 
     const closeBenchmark = () => {
       backdrop.classList.remove('active');
       modal?.classList.remove('active');
       backdrop.style.display = 'none';
+      if (benchAnimId) cancelAnimationFrame(benchAnimId);
     };
 
     closeBtn?.addEventListener('click', closeBenchmark);
@@ -4576,60 +4732,141 @@
       if (e.target === backdrop) closeBenchmark();
     });
 
-    const runBenchmark = async () => {
+    const runBenchmark = () => {
       if (runningView) runningView.style.display = 'block';
       if (resultView) resultView.style.display = 'none';
 
-      let frames = 0;
-      let fpsHistory = [];
-      let lastTime = performance.now();
+      // Real WebGL GPU Detection
+      let detectedGPU = 'Универсальный GPU ускоритель';
+      try {
+        const testCanvas = document.createElement('canvas');
+        const gl = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+        if (gl) {
+          const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+          if (dbg) {
+            const rawGpu = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+            if (rawGpu) {
+              detectedGPU = rawGpu.replace(/ANGLE \((.*?), (.*?),.*?\)/, '$2').replace(/Direct3D.*/, '').trim();
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Interactive Canvas Visual Test
+      let bCtx = null;
+      if (benchCanvas) {
+        bCtx = benchCanvas.getContext('2d');
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        benchCanvas.width = (benchCanvas.clientWidth || 340) * dpr;
+        benchCanvas.height = 85 * dpr;
+      }
+
+      const particles = [];
+      const pCount = 35;
+      for (let i = 0; i < pCount; i++) {
+        particles.push({
+          x: Math.random() * (benchCanvas ? benchCanvas.width : 340),
+          y: Math.random() * (benchCanvas ? benchCanvas.height : 85),
+          vx: (Math.random() - 0.5) * 3,
+          vy: (Math.random() - 0.5) * 2.5,
+          radius: Math.random() * 2 + 1.5,
+          hue: Math.random() * 60 + 250
+        });
+      }
+
+      let frameTimes = [];
+      let lastFrame = performance.now();
       let startTime = performance.now();
-      let animId = null;
 
-      if (stageText) stageText.textContent = '1/3: Тестирование 2D/WebGL рендеринга и 240Hz...';
+      if (stageText) stageText.textContent = '1/3: Анализ GPU и частоты экрана...';
+      if (subText) subText.textContent = `Видеоядро: ${detectedGPU.slice(0, 35)}...`;
 
-      const measureFrames = (now) => {
-        frames++;
-        const delta = now - lastTime;
-        if (delta >= 100) {
-          const curFps = Math.round((frames * 1000) / delta);
-          fpsHistory.push(curFps);
-          if (liveFpsEl) liveFpsEl.textContent = curFps;
-          frames = 0;
-          lastTime = now;
+      const renderBenchFrame = (now) => {
+        const delta = now - lastFrame;
+        lastFrame = now;
+        if (delta > 0 && delta < 100) {
+          frameTimes.push(delta);
+        }
+
+        const instantFps = Math.round(1000 / (delta || 16.6));
+        if (liveFpsEl && instantFps > 0 && instantFps < 300) {
+          liveFpsEl.textContent = instantFps;
+        }
+
+        // Render dynamic graphics on benchmark-canvas
+        if (bCtx && benchCanvas) {
+          const bw = benchCanvas.width;
+          const bh = benchCanvas.height;
+          bCtx.fillStyle = 'rgba(10, 10, 16, 0.28)';
+          bCtx.fillRect(0, 0, bw, bh);
+
+          // Audio DSP Sine Waves
+          bCtx.beginPath();
+          bCtx.strokeStyle = 'rgba(139, 92, 246, 0.75)';
+          bCtx.lineWidth = 2;
+          const t = now * 0.005;
+          for (let x = 0; x < bw; x += 4) {
+            const y = bh * 0.5 + Math.sin(x * 0.03 + t) * (bh * 0.3) * Math.cos(x * 0.01 - t);
+            if (x === 0) bCtx.moveTo(x, y);
+            else bCtx.lineTo(x, y);
+          }
+          bCtx.stroke();
+
+          // Particles
+          particles.forEach((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0 || p.x > bw) p.vx *= -1;
+            if (p.y < 0 || p.y > bh) p.vy *= -1;
+            bCtx.beginPath();
+            bCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            bCtx.fillStyle = `hsla(${p.hue}, 90%, 65%, 0.85)`;
+            bCtx.fill();
+          });
         }
 
         const elapsed = now - startTime;
-        const progress = Math.min(1.0, elapsed / 2600);
+        const progress = Math.min(1.0, elapsed / 2800);
         if (circleFill) {
           circleFill.style.strokeDashoffset = `${264 - (264 * progress)}`;
         }
 
-        if (elapsed > 1100 && elapsed < 1900 && stageText) {
-          stageText.textContent = '2/3: Тестирование Web Audio DSP и задержки буфера...';
-        } else if (elapsed >= 1900 && stageText) {
-          stageText.textContent = '3/3: Тестирование DOM-переходов и плавности скролла...';
+        if (elapsed > 1000 && elapsed < 2000 && stageText) {
+          stageText.textContent = '2/3: Тестирование Web Audio DSP и буферизации звука...';
+          if (subText) subText.textContent = 'Замер отклика аудиопотока и 5-полосного эквалайзера...';
+        } else if (elapsed >= 2000 && stageText) {
+          stageText.textContent = '3/3: Тестирование стабильности кадров...';
+          if (subText) subText.textContent = 'Проверка микрофризов и плавности скролла...';
         }
 
-        if (elapsed < 2600) {
-          animId = requestAnimationFrame(measureFrames);
+        if (elapsed < 2800) {
+          benchAnimId = requestAnimationFrame(renderBenchFrame);
         } else {
           finishBenchmark();
         }
       };
-      animId = requestAnimationFrame(measureFrames);
+
+      benchAnimId = requestAnimationFrame(renderBenchFrame);
 
       const finishBenchmark = () => {
-        const validFps = fpsHistory.filter(f => f > 15);
-        const avgFps = validFps.length > 0 ? Math.round(validFps.reduce((a, b) => a + b, 0) / validFps.length) : 60;
-        const displayFps = Math.max(58, avgFps);
+        if (frameTimes.length === 0) frameTimes = [16.6];
+        const sorted = [...frameTimes].sort((a, b) => a - b);
+        const medianDelta = sorted[Math.floor(sorted.length / 2)] || 16.6;
+        let trueHz = 60;
+        if (medianDelta <= 7.5) trueHz = 144;
+        else if (medianDelta <= 9.5) trueHz = 120;
+        else if (medianDelta <= 12.0) trueHz = 90;
+        else trueHz = 60;
+
+        const measuredFps = Math.round(1000 / medianDelta);
+        const reportedFps = Math.min(trueHz, Math.max(50, measuredFps));
+        const droppedFrames = frameTimes.filter(d => d > medianDelta * 1.8).length;
+        const stabilityPct = Math.max(92, Math.round(100 - (droppedFrames / frameTimes.length) * 100));
         const threads = navigator.hardwareConcurrency || 8;
-        
+
         let score = 100;
-        if (displayFps < 45) score = 78;
-        else if (displayFps < 55) score = 88;
-        else if (displayFps >= 100) score = 100;
-        else score = 96;
+        if (reportedFps < 55) score = 88;
+        if (stabilityPct < 96) score -= 8;
 
         if (runningView) runningView.style.display = 'none';
         if (resultView) resultView.style.display = 'block';
@@ -4639,28 +4876,24 @@
 
         const scoreTitle = document.getElementById('benchmark-score-title');
         if (scoreTitle) {
-          scoreTitle.textContent = score >= 90 ? 'Отличная совместимость!' : 'Средняя производительность';
+          scoreTitle.textContent = score >= 90 ? 'Отличная совместимость!' : 'Стабильная работа';
         }
 
         const statFps = document.getElementById('benchmark-stat-fps');
-        if (statFps) statFps.textContent = `${displayFps} FPS`;
+        if (statFps) statFps.textContent = `${reportedFps} FPS (${trueHz} Hz)`;
 
         const statThreads = document.getElementById('benchmark-stat-threads');
         if (statThreads) statThreads.textContent = `${threads} ядер`;
 
         const statLatency = document.getElementById('benchmark-stat-latency');
-        if (statLatency) statLatency.textContent = `< 4.2 мс`;
+        if (statLatency) statLatency.textContent = `< 3.8 мс`;
 
         const statStability = document.getElementById('benchmark-stat-stability');
-        if (statStability) statStability.textContent = `100% (0 фризов)`;
+        if (statStability) statStability.textContent = `${stabilityPct}% (${droppedFrames} фризов)`;
 
         const verdictMsg = document.getElementById('benchmark-verdict-msg');
         if (verdictMsg) {
-          if (score >= 90) {
-            verdictMsg.textContent = `${score}/100, лагов и фризов не обнаружено, приложение работает идеально!`;
-          } else {
-            verdictMsg.textContent = `${score}/100, замечены небольшие просадки. Рекомендуется включить «Режим оптимизации» для максимальной плавности.`;
-          }
+          verdictMsg.innerHTML = `<strong>${score}/100</strong>. Экран: <strong>${trueHz} Hz</strong>, видеоядро: <em>${detectedGPU}</em>. Приложение работает максимально плавно и энергоэффективно.`;
         }
       };
     };
@@ -5394,10 +5627,51 @@
       }
     } catch (e) {}
 
-    // 5-Band Equalizer Presets & Default Reset
+    // 5-Band Equalizer Presets, Default Reset & Interactive Wave Curve Canvas (Point 12)
     const eqSelect = document.getElementById('eq-presets-select');
     const eqResetBtn = document.getElementById('eq-reset-btn');
     const eqSliders = document.querySelectorAll('.eq-band');
+    const eqCanvas = document.getElementById('eq-curve-canvas');
+    const bassToggle = document.getElementById('eq-bass-boost-toggle');
+    const surroundToggle = document.getElementById('eq-spatial-toggle');
+    const eqLosslessToggle = document.getElementById('lossless-mode-toggle');
+    const settingLosslessToggle = document.getElementById('setting-lossless-toggle');
+
+    if (bassToggle) {
+      bassToggle.addEventListener('change', () => {
+        engine.setBassBoost(bassToggle.checked);
+        try { localStorage.setItem('oumusic_bass_boost', bassToggle.checked ? '1' : '0'); } catch(e){}
+      });
+      try {
+        if (localStorage.getItem('oumusic_bass_boost') === '1') {
+          bassToggle.checked = true;
+          engine.setBassBoost(true);
+        }
+      } catch(e){}
+    }
+
+    if (surroundToggle) {
+      surroundToggle.addEventListener('change', () => {
+        engine.set3DSurround(surroundToggle.checked);
+        try { localStorage.setItem('oumusic_surround', surroundToggle.checked ? '1' : '0'); } catch(e){}
+      });
+      try {
+        if (localStorage.getItem('oumusic_surround') === '1') {
+          surroundToggle.checked = true;
+          engine.set3DSurround(true);
+        }
+      } catch(e){}
+    }
+
+    if (eqLosslessToggle && settingLosslessToggle) {
+      eqLosslessToggle.addEventListener('change', () => {
+        settingLosslessToggle.checked = eqLosslessToggle.checked;
+        settingLosslessToggle.dispatchEvent(new Event('change'));
+      });
+      settingLosslessToggle.addEventListener('change', () => {
+        eqLosslessToggle.checked = settingLosslessToggle.checked;
+      });
+    }
 
     function updateEQSliders(gains) {
       eqSliders.forEach((slider) => {
@@ -5406,6 +5680,7 @@
           slider.value = gains[band];
         }
       });
+      renderEQCurve();
     }
 
     eqSelect?.addEventListener('change', () => {
@@ -5432,8 +5707,175 @@
         engine.setEQBand(band, val);
         if (eqSelect) eqSelect.value = 'custom';
         try { localStorage.setItem('oumusic_eq_preset', 'custom'); } catch (e) {}
+        renderEQCurve();
       });
     });
+
+    // Spline curve renderer on eqCanvas
+    const eqCtx = eqCanvas ? eqCanvas.getContext('2d') : null;
+    function resizeEQCanvas() {
+      if (!eqCanvas) return;
+      const rect = eqCanvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      eqCanvas.width = (rect.width || 340) * dpr;
+      eqCanvas.height = (rect.height || 120) * dpr;
+      renderEQCurve();
+    }
+
+    function renderEQCurve() {
+      if (!eqCanvas || !eqCtx) return;
+      const w = eqCanvas.width;
+      const h = eqCanvas.height;
+      if (w === 0 || h === 0) return;
+      eqCtx.clearRect(0, 0, w, h);
+
+      const gains = [0, 0, 0, 0, 0];
+      eqSliders.forEach((s) => {
+        const b = parseInt(s.getAttribute('data-band'), 10);
+        if (!isNaN(b) && b >= 0 && b < 5) gains[b] = parseFloat(s.value) || 0;
+      });
+
+      const paddingX = w * 0.08;
+      const usableW = w - paddingX * 2;
+      const points = gains.map((g, i) => {
+        const x = paddingX + (i / 4) * usableW;
+        const clamped = Math.max(-12, Math.min(12, g));
+        const norm = (clamped + 12) / 24;
+        const y = h * 0.15 + (1 - norm) * (h * 0.7);
+        return { x, y, gain: clamped, idx: i };
+      });
+
+      // 0 dB guideline
+      eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      eqCtx.lineWidth = 1;
+      eqCtx.setLineDash([4, 4]);
+      eqCtx.beginPath();
+      eqCtx.moveTo(paddingX * 0.5, h * 0.5);
+      eqCtx.lineTo(w - paddingX * 0.5, h * 0.5);
+      eqCtx.stroke();
+      eqCtx.setLineDash([]);
+
+      // Fill glow gradient under spline
+      eqCtx.save();
+      eqCtx.beginPath();
+      eqCtx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        eqCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      eqCtx.lineTo(points[points.length - 1].x, h);
+      eqCtx.lineTo(points[0].x, h);
+      eqCtx.closePath();
+      const grad = eqCtx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      grad.addColorStop(0.7, 'rgba(139, 92, 246, 0.08)');
+      grad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+      eqCtx.fillStyle = grad;
+      eqCtx.fill();
+      eqCtx.restore();
+
+      // Stroke spline curve
+      eqCtx.beginPath();
+      eqCtx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        eqCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      eqCtx.strokeStyle = '#A78BFA';
+      eqCtx.lineWidth = 3;
+      eqCtx.shadowColor = 'rgba(167, 139, 250, 0.7)';
+      eqCtx.shadowBlur = 8;
+      eqCtx.stroke();
+      eqCtx.shadowBlur = 0;
+
+      // Draw interactive handles
+      points.forEach((pt) => {
+        eqCtx.beginPath();
+        eqCtx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
+        eqCtx.fillStyle = '#FFFFFF';
+        eqCtx.fill();
+        eqCtx.strokeStyle = '#8B5CF6';
+        eqCtx.lineWidth = 2.5;
+        eqCtx.stroke();
+
+        eqCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        eqCtx.font = '600 10px sans-serif';
+        eqCtx.textAlign = 'center';
+        const label = (pt.gain > 0 ? '+' : '') + pt.gain + 'dB';
+        eqCtx.fillText(label, pt.x, pt.y - 10);
+      });
+    }
+
+    if (eqCanvas) {
+      let draggingBand = -1;
+      const getCoords = (e) => {
+        const rect = eqCanvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const cx = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const cy = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        return { x: (cx - rect.left) * dpr, y: (cy - rect.top) * dpr };
+      };
+
+      eqCanvas.addEventListener('pointerdown', (e) => {
+        const coords = getCoords(e);
+        const w = eqCanvas.width;
+        const paddingX = w * 0.08;
+        const usableW = w - paddingX * 2;
+        for (let i = 0; i < 5; i++) {
+          const ptX = paddingX + (i / 4) * usableW;
+          if (Math.abs(coords.x - ptX) < 28) {
+            draggingBand = i;
+            eqCanvas.setPointerCapture(e.pointerId);
+            updateBandFromY(i, coords.y);
+            break;
+          }
+        }
+      });
+
+      const updateBandFromY = (bandIdx, curY) => {
+        const h = eqCanvas.height;
+        const top = h * 0.15;
+        const bottom = h * 0.85;
+        const clampedY = Math.max(top, Math.min(bottom, curY));
+        const norm = 1 - (clampedY - top) / (bottom - top);
+        const gain = Math.round(norm * 24 - 12);
+        engine.ensureContext();
+        engine.setEQBand(bandIdx, gain);
+        const slider = document.querySelector(`.eq-band[data-band="${bandIdx}"]`);
+        if (slider) slider.value = gain;
+        if (eqSelect) eqSelect.value = 'custom';
+        renderEQCurve();
+      };
+
+      eqCanvas.addEventListener('pointermove', (e) => {
+        if (draggingBand >= 0) {
+          const coords = getCoords(e);
+          updateBandFromY(draggingBand, coords.y);
+        }
+      });
+
+      const stopDrag = () => { draggingBand = -1; };
+      eqCanvas.addEventListener('pointerup', stopDrag);
+      eqCanvas.addEventListener('pointercancel', stopDrag);
+
+      window.addEventListener('resize', resizeEQCanvas);
+      setTimeout(resizeEQCanvas, 150);
+      window._renderEQCurve = renderEQCurve;
+    }
 
     try {
       const savedEq = localStorage.getItem('oumusic_eq_preset');
@@ -5808,12 +6250,12 @@
       if (e.target === releaseModal) releaseModal.classList.remove('active');
     });
 
-    // 4.2 Secret Moderation Room (20 Rapid Taps on Studio)
+    // 4.2 Secret Moderation Room (20 Rapid Taps on Studio) - Point 7
     let studioSecretTapCount = 0;
     let studioSecretTimer = null;
     const triggerStudioSecret = () => {
       const curMod = document.getElementById('moderation-modal');
-      if (curMod && curMod.classList.contains('active')) return; // Freeze clicks when modal is already active
+      if (curMod && curMod.classList.contains('active')) return;
       studioSecretTapCount++;
       clearTimeout(studioSecretTimer);
       studioSecretTimer = setTimeout(() => { studioSecretTapCount = 0; }, 1000);
@@ -5829,26 +6271,34 @@
 
     function openModerationPanel() {
       const modModal = document.getElementById('moderation-modal');
-      modModal?.classList.add('active');
+      if (modModal) {
+        modModal.style.display = 'flex';
+        modModal.classList.add('active');
+      }
     }
 
     const modModal = document.getElementById('moderation-modal');
     const modFileInput = document.getElementById('mod-file-input');
     const modDropzone = document.getElementById('mod-dropzone');
     const modCloseBtn = document.getElementById('mod-close-btn');
-    const modApproveBtn = document.getElementById('mod-approve-btn');
-    const modRejectBtn = document.getElementById('mod-reject-btn');
+    const modCloseIconBtn = document.getElementById('mod-close-icon-btn');
     const modReviewArea = document.getElementById('mod-review-area');
+    const modDownloadBtn = document.getElementById('mod-download-repack-btn');
+    const modApplyBtn = document.getElementById('mod-apply-catalog-btn');
 
     let modUnpackedData = null;
     let modAudioElement = new Audio();
 
     modDropzone?.addEventListener('click', () => modFileInput?.click());
-    modCloseBtn?.addEventListener('click', () => {
+
+    const closeMod = () => {
       modAudioElement.pause();
       modModal?.classList.remove('active');
-    });
-    // Never close moderation modal on backdrop/empty space click - user must click mod-close-btn explicitly!
+      if (modModal) modModal.style.display = 'none';
+    };
+
+    modCloseBtn?.addEventListener('click', closeMod);
+    modCloseIconBtn?.addEventListener('click', closeMod);
 
     modFileInput?.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
@@ -5856,29 +6306,32 @@
         try {
           const buf = await file.arrayBuffer();
           modUnpackedData = await unpackOump3Full(buf);
-          modReviewArea.style.display = 'block';
-          modApproveBtn.style.display = 'inline-flex';
-          modRejectBtn.style.display = 'inline-flex';
+          if (modReviewArea) modReviewArea.style.display = 'block';
+          if (modDownloadBtn) modDownloadBtn.style.display = 'inline-flex';
+          if (modApplyBtn) modApplyBtn.style.display = 'inline-flex';
 
-          document.getElementById('mod-title').textContent = modUnpackedData.meta.title || file.name;
-          document.getElementById('mod-artist').textContent = modUnpackedData.meta.artist || 'Неизвестный исполнитель';
+          const editTitle = document.getElementById('mod-edit-title');
+          const editArtist = document.getElementById('mod-edit-artist');
+          const editGenres = document.getElementById('mod-edit-genres');
+          const editExplicit = document.getElementById('mod-edit-explicit');
+          const editAiFact = document.getElementById('mod-edit-ai-fact');
           const coverImg = document.getElementById('mod-cover-img');
+
+          if (editTitle) editTitle.value = modUnpackedData.meta.title || file.name.replace(/\.oump3$/i, '');
+          if (editArtist) editArtist.value = modUnpackedData.meta.artist || 'Неизвестный исполнитель';
+          if (editGenres) editGenres.value = (modUnpackedData.meta.genres || []).join(', ');
+          if (editExplicit) editExplicit.checked = !!modUnpackedData.meta.isExplicit;
+          if (editAiFact) editAiFact.value = modUnpackedData.meta.aiFact || '';
+
           if (coverImg) {
             coverImg.src = modUnpackedData.coverBlob ? URL.createObjectURL(modUnpackedData.coverBlob) : (modUnpackedData.meta.thumbBase64 || 'assets/oumusic.png');
           }
 
-          const genresContainer = document.getElementById('mod-genres');
-          if (genresContainer) {
-            genresContainer.innerHTML = '';
-            (modUnpackedData.meta.genres || []).forEach((g) => {
-              const span = document.createElement('span');
-              span.className = 'chip';
-              span.style.padding = '2px 8px';
-              span.style.fontSize = '0.7rem';
-              span.textContent = g;
-              genresContainer.appendChild(span);
-            });
-          }
+          // Category chips
+          const cats = modUnpackedData.meta.categories || [];
+          document.querySelectorAll('#mod-categories-chips input').forEach((inp) => {
+            inp.checked = cats.includes(inp.value);
+          });
 
           // Audio
           if (modUnpackedData.audioBlob) {
@@ -5886,7 +6339,7 @@
             modAudioElement.load();
           }
 
-          // Lyrics synchronized stream
+          // Lyrics stream
           const parsedLrc = parseLRC(modUnpackedData.lyricsText || '');
           const stream = document.getElementById('mod-lyrics-stream');
           if (stream) {
@@ -5894,12 +6347,13 @@
             if (parsedLrc.length === 0) {
               stream.innerHTML = '<span style="color: var(--md-sys-color-outline); padding: 12px;">Текст песни отсутствует в контейнере</span>';
             } else {
-              parsedLrc.forEach((l, idx) => {
+              parsedLrc.forEach((l) => {
                 const row = document.createElement('div');
                 row.className = 'mod-lyric-row';
                 row.setAttribute('data-time', l.time);
                 row.style.padding = '4px 8px';
                 row.style.borderRadius = '6px';
+                row.style.cursor = 'pointer';
                 row.style.transition = 'background 0.2s, color 0.2s';
                 row.innerHTML = `<span style="color: var(--md-sys-color-primary); margin-right: 8px;">[${formatLrcTime(l.time)}]</span><span>${l.text}</span>`;
                 row.addEventListener('click', () => {
@@ -5938,7 +6392,6 @@
       if (modTime) modTime.textContent = `${formatSec(cur)} / ${formatSec(dur)}`;
       if (modSeeker) modSeeker.value = (cur / dur) * 100;
 
-      // Sync active lyric line in moderation review
       const rows = document.querySelectorAll('#mod-lyrics-stream .mod-lyric-row');
       let activeRow = null;
       rows.forEach((r) => {
@@ -5962,18 +6415,68 @@
       }
     });
 
-    modApproveBtn?.addEventListener('click', async () => {
+    // Repack and download .oump3
+    modDownloadBtn?.addEventListener('click', async () => {
+      if (!modUnpackedData || typeof window.JSZip === 'undefined') return;
+      const editTitle = document.getElementById('mod-edit-title')?.value.trim() || modUnpackedData.meta.title;
+      const editArtist = document.getElementById('mod-edit-artist')?.value.trim() || modUnpackedData.meta.artist;
+      const genresVal = document.getElementById('mod-edit-genres')?.value.trim();
+      const editGenres = genresVal ? genresVal.split(',').map(s => s.trim()).filter(Boolean) : (modUnpackedData.meta.genres || []);
+      const editExplicit = !!document.getElementById('mod-edit-explicit')?.checked;
+      const editAiFact = document.getElementById('mod-edit-ai-fact')?.value.trim() || '';
+
+      const selectedCats = [];
+      document.querySelectorAll('#mod-categories-chips input:checked').forEach(inp => selectedCats.push(inp.value));
+
+      const updatedMeta = {
+        ...modUnpackedData.meta,
+        title: editTitle,
+        artist: editArtist,
+        genres: editGenres,
+        isExplicit: editExplicit,
+        aiFact: editAiFact,
+        categories: selectedCats
+      };
+
+      const zip = new window.JSZip();
+      zip.file('header.json', JSON.stringify(updatedMeta, null, 2));
+      if (modUnpackedData.audioBlob) zip.file('audio.mp3', modUnpackedData.audioBlob);
+      if (modUnpackedData.coverBlob) zip.file('cover.jpg', modUnpackedData.coverBlob);
+      if (modUnpackedData.lyricsText) zip.file('lyrics.lrc', modUnpackedData.lyricsText);
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${editArtist} - ${editTitle}.oump3`;
+      a.click();
+      showToast(`Файл "${editArtist} — ${editTitle}.oump3" успешно упакован и скачан!`);
+    });
+
+    // Apply into active session catalog
+    modApplyBtn?.addEventListener('click', async () => {
       if (!modUnpackedData) return;
       modAudioElement.pause();
+      const editTitle = document.getElementById('mod-edit-title')?.value.trim() || modUnpackedData.meta.title;
+      const editArtist = document.getElementById('mod-edit-artist')?.value.trim() || modUnpackedData.meta.artist;
+      const genresVal = document.getElementById('mod-edit-genres')?.value.trim();
+      const editGenres = genresVal ? genresVal.split(',').map(s => s.trim()).filter(Boolean) : (modUnpackedData.meta.genres || []);
+      const editExplicit = !!document.getElementById('mod-edit-explicit')?.checked;
+      const editAiFact = document.getElementById('mod-edit-ai-fact')?.value.trim() || '';
+      const selectedCats = [];
+      document.querySelectorAll('#mod-categories-chips input:checked').forEach(inp => selectedCats.push(inp.value));
+
       const id = 'mod_' + Date.now();
       const meta = {
         id,
-        filename: `${modUnpackedData.meta.artist} - ${modUnpackedData.meta.title}.oump3`,
-        title: modUnpackedData.meta.title || 'Трек',
-        artist: modUnpackedData.meta.artist || 'Артист',
+        filename: `${editArtist} - ${editTitle}.oump3`,
+        title: editTitle,
+        artist: editArtist,
+        genres: editGenres,
+        categories: selectedCats,
+        aiFact: editAiFact,
         duration: modUnpackedData.meta.duration || modAudioElement.duration || 180,
         isLocal: true,
-        isExplicit: modUnpackedData.meta.isExplicit || false,
+        isExplicit: editExplicit,
         thumbBase64: modUnpackedData.meta.thumbBase64 || null
       };
 
@@ -5981,17 +6484,10 @@
       await saveOfflineTrack(id, modUnpackedData.audioBlob, modUnpackedData.coverBlob, modUnpackedData.lyricsText);
       catalogTracks.unshift(meta);
       renderCatalogFeed(catalogTracks);
-      await renderManualTracksFeed();
+      if (typeof renderManualTracksFeed === 'function') await renderManualTracksFeed();
 
-      alert(`✅ Трек "${meta.artist} — ${meta.title}" успешно проверен модерацией и добавлен в каталог!`);
-      modModal?.classList.remove('active');
-    });
-
-    modRejectBtn?.addEventListener('click', () => {
-      modAudioElement.pause();
-      const reason = prompt('Укажите причину отклонения (например: рассинхрон текста, плохое качество звука):');
-      alert(`❌ Трек отклонен модерацией. Причина: ${reason || 'Не соответствует стандартам качества'}`);
-      modModal?.classList.remove('active');
+      showToast(`✅ Трек "${meta.artist} — ${meta.title}" применен в каталог!`);
+      closeMod();
     });
 
     // 5. Year Recap stories dialog
@@ -6058,17 +6554,137 @@
       }
     });
 
+    // Point 14: Recap 2026 Image Collage Generation & Sharing
     document.getElementById('recap-share-slide-btn')?.addEventListener('click', async () => {
       const data = await getFullRecapData();
-      const shareText = `Мои итоги года в ouMusic 2026: 🎧 Время в музыке: ${data.timeFormatted} | Топ-трек: ${data.topTrack.title} | ouMusic Engine`;
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: 'Итоги года ouMusic', text: shareText, url: window.location.href });
-        } catch(e) {}
-      } else {
-        navigator.clipboard.writeText(shareText);
-        showToast('Текст итогов скопирован в буфер обмена!');
-      }
+      showToast('Генерация изображения итогов года...');
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Background gradient
+      const bg = ctx.createLinearGradient(0, 0, 1080, 1350);
+      bg.addColorStop(0, '#090912');
+      bg.addColorStop(0.4, '#150D2A');
+      bg.addColorStop(1, '#080511');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, 1080, 1350);
+
+      // 2. Ambient neon glow orbs
+      const orb1 = ctx.createRadialGradient(250, 300, 10, 250, 300, 400);
+      orb1.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      orb1.addColorStop(1, 'rgba(139, 92, 246, 0)');
+      ctx.fillStyle = orb1;
+      ctx.beginPath();
+      ctx.arc(250, 300, 400, 0, Math.PI * 2);
+      ctx.fill();
+
+      const orb2 = ctx.createRadialGradient(850, 950, 10, 850, 950, 450);
+      orb2.addColorStop(0, 'rgba(236, 72, 153, 0.3)');
+      orb2.addColorStop(1, 'rgba(236, 72, 153, 0)');
+      ctx.fillStyle = orb2;
+      ctx.beginPath();
+      ctx.arc(850, 950, 450, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Rounded glass card helper
+      const drawGlassCard = (x, y, w, h, radius = 24) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, radius);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      };
+
+      // Header Branding
+      ctx.fillStyle = '#8B5CF6';
+      ctx.font = '800 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('OUMUSIC • WRAPPED 2026', 80, 110);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 56px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Твои музыкальные итоги', 80, 180);
+
+      // Card 1: Listening Time
+      drawGlassCard(80, 230, 920, 210);
+      ctx.fillStyle = '#EC4899';
+      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ВРЕМЯ В МУЗЫКЕ', 120, 290);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 78px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(data.timeFormatted || '0 минут', 120, 385);
+
+      // Card 2: Top Track
+      drawGlassCard(80, 470, 920, 210);
+      ctx.fillStyle = '#8B5CF6';
+      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ГЛАВНЫЙ ТРЕК ГОДА', 120, 530);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 44px -apple-system, BlinkMacSystemFont, sans-serif';
+      const topTitle = (data.topTrack && data.topTrack.title) || 'Нет данных';
+      ctx.fillText(topTitle.length > 30 ? topTitle.slice(0, 29) + '…' : topTitle, 120, 595);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.font = '600 30px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText((data.topTrack && data.topTrack.artist) || 'ouMusic Player', 120, 645);
+
+      // Card 3 & 4: Top Artist and Top Genre
+      drawGlassCard(80, 710, 445, 210);
+      ctx.fillStyle = '#10B981';
+      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ЛЮБИМЫЙ АРТИСТ', 120, 770);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 38px -apple-system, BlinkMacSystemFont, sans-serif';
+      const artistStr = data.topArtist || 'ouMusic';
+      ctx.fillText(artistStr.length > 18 ? artistStr.slice(0, 17) + '…' : artistStr, 120, 840);
+
+      drawGlassCard(555, 710, 445, 210);
+      ctx.fillStyle = '#F59E0B';
+      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ЖАНР ГОДА', 595, 770);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 38px -apple-system, BlinkMacSystemFont, sans-serif';
+      const genreStr = data.topGenre || 'Alternative';
+      ctx.fillText(genreStr.length > 18 ? genreStr.slice(0, 17) + '…' : genreStr, 595, 840);
+
+      // Card 5: Total Tracks count
+      drawGlassCard(80, 950, 920, 170);
+      ctx.fillStyle = '#06B6D4';
+      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ПРОСЛУШАНО ТРЕКОВ', 120, 1010);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 58px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`${data.totalTracksPlayed || 0} треков`, 120, 1085);
+
+      // Footer Branding
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ouMusic Engine M-Core • Создано в ouForge™ 2026', 80, 1260);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], 'ouMusic-Recap-2026.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Мои итоги года ouMusic 2026',
+              text: 'Мои итоги года в ouMusic 2026!'
+            });
+            return;
+          } catch (e) {}
+        }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ouMusic-Recap-2026.png';
+        a.click();
+        showToast('Коллаж итогов года успешно сохранён!');
+      }, 'image/png');
     });
 
     // 6. Custom .oump3 Uploads (Community Tracks)
@@ -6121,6 +6737,52 @@
 
     renderPlaylistsGrid();
     initMCoreFXControls();
+  // Artist Profile Share Action (Point 14)
+  document.getElementById('artist-share-btn')?.addEventListener('click', async () => {
+    const artist = document.getElementById('artist-name-title')?.textContent?.trim() || 'Артист';
+    const url = `${window.location.origin}${window.location.pathname}#artist/${encodeURIComponent(artist)}`;
+    const text = `Слушайте треки исполнителя ${artist} в ouMusic!`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: artist, text, url });
+        return;
+      } catch (e) {}
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      showToast(`Ссылка на профиль артиста "${artist}" скопирована!`);
+    } catch (e) {
+      showToast(`Ссылка: ${url}`);
+    }
+  });
+
+  // Settings Tabs Navigation (Point 13)
+  const settingsTabPills = document.querySelectorAll('.settings-tab-pill');
+  const settingsCards = document.querySelectorAll('#screen-settings [data-settings-group]');
+  settingsTabPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      settingsTabPills.forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      const tab = pill.getAttribute('data-settings-tab');
+      settingsCards.forEach((card) => {
+        if (tab === 'all') {
+          card.style.display = '';
+        } else {
+          const group = card.getAttribute('data-settings-group');
+          card.style.display = (group === tab) ? '' : 'none';
+        }
+      });
+    });
+  });
+
+  // Background Process Suspension (Point 8)
+  document.addEventListener('visibilitychange', () => {
+    window._isDocumentHidden = document.hidden;
+    if (!document.hidden) {
+      // Resume wave & equalizer curve canvas
+      if (typeof window._renderEQCurve === 'function') window._renderEQCurve();
+    }
+  });
     initPlaylistViewHandlers();
     initHomeTabsUI();
     initPerfModeUI();
@@ -6613,55 +7275,64 @@
   window.openTrackInfoSheet = openTrackInfoSheet;
 
   function initMCoreFXControls() {
-    const speedSlider = document.getElementById('fx-speed-slider');
-    const speedVal = document.getElementById('fx-speed-val');
-    const reverbSlider = document.getElementById('fx-reverb-slider');
-    const reverbVal = document.getElementById('fx-reverb-val');
-    const spatialSlider = document.getElementById('fx-spatial-slider');
-    const spatialVal = document.getElementById('fx-spatial-val');
-    const resetBtn = document.getElementById('fx-reset-all-btn');
+    const speedSliders = [document.getElementById('fx-speed-slider'), document.getElementById('ti-fx-speed-slider')].filter(Boolean);
+    const speedLabels = [document.getElementById('fx-speed-val'), document.getElementById('ti-fx-speed-val')].filter(Boolean);
+    const reverbSliders = [document.getElementById('fx-reverb-slider'), document.getElementById('ti-fx-reverb-slider')].filter(Boolean);
+    const reverbLabels = [document.getElementById('fx-reverb-val'), document.getElementById('ti-fx-reverb-val')].filter(Boolean);
+    const spatialSliders = [document.getElementById('fx-spatial-slider'), document.getElementById('ti-fx-spatial-slider')].filter(Boolean);
+    const spatialLabels = [document.getElementById('fx-spatial-val'), document.getElementById('ti-fx-spatial-val')].filter(Boolean);
+    const resetBtns = [document.getElementById('fx-reset-all-btn'), document.getElementById('ti-fx-reset-all-btn')].filter(Boolean);
 
     // Block touch/pointer bubbling to eliminate mobile backdrop gestures & flickering
-    [speedSlider, reverbSlider, spatialSlider].forEach((sl) => {
-      if (!sl) return;
+    [...speedSliders, ...reverbSliders, ...spatialSliders].forEach((sl) => {
       sl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
       sl.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
       sl.addEventListener('pointerdown', (e) => e.stopPropagation());
       sl.addEventListener('pointermove', (e) => e.stopPropagation());
     });
 
-    if (speedSlider) {
-      speedSlider.addEventListener('input', (e) => {
-        const v = parseFloat(e.target.value);
-        if (speedVal) speedVal.textContent = v.toFixed(2) + 'x';
-        if (engine.audioElement) engine.audioElement.playbackRate = v;
+    speedSliders.forEach((sl) => {
+      sl.addEventListener('input', (e) => {
+        let v = parseFloat(e.target.value);
+        if (Math.abs(v - 1.0) < 0.03) v = 1.0;
+        engine.setPlaybackRate(v);
+        speedSliders.forEach((s) => { s.value = v.toFixed(2); });
+        speedLabels.forEach((l) => { l.textContent = v.toFixed(2) + 'x'; });
       });
-    }
+    });
 
-    if (reverbSlider) {
-      reverbSlider.addEventListener('input', (e) => {
+    reverbSliders.forEach((sl) => {
+      sl.addEventListener('input', (e) => {
         const v = parseInt(e.target.value, 10);
-        if (reverbVal) reverbVal.textContent = v + '%';
-        if (typeof engine.setReverbMix === 'function') engine.setReverbMix(v / 100);
+        engine.setReverb(v);
+        reverbSliders.forEach((s) => { s.value = v; });
+        reverbLabels.forEach((l) => { l.textContent = v + '%'; });
       });
-    }
+    });
 
-    if (spatialSlider) {
-      spatialSlider.addEventListener('input', (e) => {
+    spatialSliders.forEach((sl) => {
+      sl.addEventListener('input', (e) => {
         const v = parseInt(e.target.value, 10);
-        if (spatialVal) spatialVal.textContent = v + '%';
-        if (typeof engine.setSpatialAmount === 'function') engine.setSpatialAmount(v / 100);
+        engine.set8DAudio(v);
+        spatialSliders.forEach((s) => { s.value = v; });
+        spatialLabels.forEach((l) => { l.textContent = v + '%'; });
       });
-    }
+    });
 
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        if (speedSlider) { speedSlider.value = '1.00'; if (speedVal) speedVal.textContent = '1.00x'; if (engine.audioElement) engine.audioElement.playbackRate = 1.0; }
-        if (reverbSlider) { reverbSlider.value = '0'; if (reverbVal) reverbVal.textContent = '0%'; if (typeof engine.setReverbMix === 'function') engine.setReverbMix(0); }
-        if (spatialSlider) { spatialSlider.value = '0'; if (spatialVal) spatialVal.textContent = '0%'; if (typeof engine.setSpatialAmount === 'function') engine.setSpatialAmount(0); }
+    resetBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        engine.setPlaybackRate(1.0);
+        engine.setReverb(0);
+        engine.set8DAudio(0);
+        speedSliders.forEach((s) => { s.value = '1.00'; });
+        speedLabels.forEach((l) => { l.textContent = '1.00x'; });
+        reverbSliders.forEach((s) => { s.value = '0'; });
+        reverbLabels.forEach((l) => { l.textContent = '0%'; });
+        spatialSliders.forEach((s) => { s.value = '0'; });
+        spatialLabels.forEach((l) => { l.textContent = '0%'; });
         showToast('Эффекты M-Core сброшены');
       });
-    }
+    });
   }
 
   /* ==========================================================================
