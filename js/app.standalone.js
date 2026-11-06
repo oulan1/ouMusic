@@ -1561,6 +1561,9 @@
 
     const target = document.getElementById(`screen-${screenId}`);
     if (target) target.classList.add('active');
+    if (screenId === 'settings' && window._resizeEQCanvas) {
+      setTimeout(window._resizeEQCanvas, 50);
+    }
 
     const backBtn = document.getElementById('top-back-btn');
     if (backBtn) backBtn.style.display = 'none'; // Permanently hidden on artist page across PC and mobile
@@ -3357,35 +3360,39 @@
     function updateWaveCardInfo(track) {
       const titleEl = document.getElementById('wave-track-title') || document.getElementById('wave-np-title');
       const artistEl = document.getElementById('wave-track-artist') || document.getElementById('wave-np-artist');
+      const aiBox = document.getElementById('wave-ai-comment-box');
+      const aiTextEl = document.getElementById('wave-ai-text');
+
       if (track) {
-        if (titleEl) titleEl.textContent = track.title || 'Безымянный трек';
+        if (titleEl) titleEl.textContent = track.title || 'Без названия';
         if (artistEl) artistEl.textContent = track.artist || 'Неизвестный исполнитель';
+        if (aiBox) {
+          aiBox.style.display = 'flex';
+          if (aiTextEl) {
+            aiTextEl.classList.add('thinking');
+            setTimeout(() => {
+              aiTextEl.classList.remove('thinking');
+              if (track && track.aiFact) {
+                aiTextEl.textContent = track.aiFact;
+              } else if (track) {
+                const artist = track.artist || 'этого исполнителя';
+                const comments = [
+                  'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
+                  `Особая атмосфера и уникальное звучание от ${artist}`,
+                  'Этот трек отлично вписывается в настроение вашей волны',
+                  'Глубокий ритм и живой бас'
+                ];
+                aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+              }
+            }, 350);
+          }
+        }
       } else {
         if (titleEl) titleEl.textContent = 'Не играет';
-        if (artistEl) artistEl.textContent = 'Нажмите в центр Волны для старта';
-      }
-
-      // Animate AI Commentary Box (Point 7 - Image 2)
-      const aiTextEl = document.getElementById('wave-ai-text');
-      if (aiTextEl) {
-        aiTextEl.classList.add('thinking');
-        setTimeout(() => {
-          aiTextEl.classList.remove('thinking');
-          if (track && track.aiFact) {
-            aiTextEl.textContent = track.aiFact;
-          } else if (track) {
-            const artist = track.artist || 'Артист';
-            const comments = [
-              'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
-              `Уникальный саунд и фирменный стиль ${artist}`,
-              'Свежий ритм и глубокая атмосфера в твоей волне',
-              'Точное попадание под твой музыкальный вайб'
-            ];
-            aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
-          } else {
-            aiTextEl.textContent = 'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же';
-          }
-        }, 400);
+        if (artistEl) artistEl.textContent = 'Выберите параметры и нажмите Старт';
+        if (aiBox) {
+          aiBox.style.display = 'none';
+        }
       }
     }
     window.updateWaveCardInfo = updateWaveCardInfo;
@@ -4576,7 +4583,33 @@
      HOME TABS & SHARED COMMUNITY PLAYLISTS (.oulist)
      ========================================================================== */
   function initHomeTabsUI() {
+    const musicBtn = document.getElementById('home-tab-music-btn');
+    const plBtn = document.getElementById('home-tab-playlists-btn');
+    const tracksContainer = document.getElementById('home-tracks-container');
+    const sharedPlView = document.getElementById('home-shared-playlists-view');
+
+    const showMusic = () => {
+      musicBtn?.classList.add('active');
+      plBtn?.classList.remove('active');
+      if (tracksContainer) tracksContainer.style.display = 'block';
+      if (sharedPlView) sharedPlView.style.display = 'none';
+    };
+
+    const showPlaylists = () => {
+      plBtn?.classList.add('active');
+      musicBtn?.classList.remove('active');
+      if (tracksContainer) tracksContainer.style.display = 'none';
+      if (sharedPlView) sharedPlView.style.display = 'block';
+      renderSharedPlaylists();
+    };
+
+    musicBtn?.addEventListener('click', showMusic);
+    plBtn?.addEventListener('click', showPlaylists);
+
+    // Initial state: show music tracks
+    showMusic();
     renderSharedPlaylists();
+
     document.getElementById('home-import-oulist-btn')?.addEventListener('click', () => {
       document.getElementById('oulist-file-input')?.click();
     });
@@ -5666,25 +5699,36 @@
 
     const eqCtx = eqCanvas ? eqCanvas.getContext('2d') : null;
     function resizeEQCanvas() {
-      if (!eqCanvas) return;
+      if (!eqCanvas || !eqCtx) return;
       const rect = eqCanvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      eqCanvas.width = (rect.width || 340) * dpr;
-      eqCanvas.height = (rect.height || 180) * dpr;
+      const targetW = Math.round(rect.width * dpr);
+      const targetH = Math.round(rect.height * dpr);
+
+      if (eqCanvas.width !== targetW || eqCanvas.height !== targetH) {
+        eqCanvas.width = targetW;
+        eqCanvas.height = targetH;
+      }
       renderEQCurve();
     }
 
     function renderEQCurve() {
       if (!eqCanvas || !eqCtx) return;
-      const w = eqCanvas.width;
-      const h = eqCanvas.height;
-      if (w === 0 || h === 0) return;
-      eqCtx.clearRect(0, 0, w, h);
+      const rect = eqCanvas.getBoundingClientRect();
+      const cssW = rect.width || (eqCanvas.width / (window.devicePixelRatio || 1));
+      const cssH = rect.height || (eqCanvas.height / (window.devicePixelRatio || 1));
+      if (cssW <= 0 || cssH <= 0) return;
 
-      const paddingX = w * 0.09;
-      const usableW = w - paddingX * 2;
-      const topBound = h * 0.18;
-      const bottomBound = h * 0.76;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      eqCtx.save();
+      eqCtx.clearRect(0, 0, eqCanvas.width, eqCanvas.height);
+      eqCtx.scale(dpr, dpr);
+
+      const paddingX = Math.max(30, cssW * 0.08);
+      const usableW = cssW - paddingX * 2;
+      const topBound = cssH * 0.22;
+      const bottomBound = cssH * 0.72;
 
       const points = currentEQGains.map((g, i) => {
         const x = paddingX + (i / 4) * usableW;
@@ -5701,24 +5745,24 @@
       eqCtx.setLineDash([4, 4]);
       eqCtx.beginPath();
       eqCtx.moveTo(paddingX * 0.5, zeroY);
-      eqCtx.lineTo(w - paddingX * 0.5, zeroY);
+      eqCtx.lineTo(cssW - paddingX * 0.5, zeroY);
       eqCtx.stroke();
       eqCtx.setLineDash([]);
 
       // Vertical guide lines for each frequency band
       points.forEach((pt) => {
-        eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
         eqCtx.lineWidth = 1;
         eqCtx.beginPath();
-        eqCtx.moveTo(pt.x, topBound * 0.5);
-        eqCtx.lineTo(pt.x, bottomBound + 10);
+        eqCtx.moveTo(pt.x, topBound * 0.6);
+        eqCtx.lineTo(pt.x, bottomBound + 12);
         eqCtx.stroke();
       });
 
       // Fill glow gradient under spline
-      eqCtx.save();
       eqCtx.beginPath();
-      eqCtx.moveTo(points[0].x, points[0].y);
+      eqCtx.moveTo(points[0].x, cssH);
+      eqCtx.lineTo(points[0].x, points[0].y);
       for (let i = 0; i < points.length - 1; i++) {
         const p0 = points[Math.max(0, i - 1)];
         const p1 = points[i];
@@ -5730,16 +5774,14 @@
         const cp2y = p2.y - (p3.y - p1.y) / 6;
         eqCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
-      eqCtx.lineTo(points[points.length - 1].x, h);
-      eqCtx.lineTo(points[0].x, h);
+      eqCtx.lineTo(points[points.length - 1].x, cssH);
       eqCtx.closePath();
-      const grad = eqCtx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, 'rgba(139, 92, 246, 0.38)');
-      grad.addColorStop(0.65, 'rgba(139, 92, 246, 0.08)');
+      const grad = eqCtx.createLinearGradient(0, topBound, 0, cssH);
+      grad.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      grad.addColorStop(0.65, 'rgba(139, 92, 246, 0.07)');
       grad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
       eqCtx.fillStyle = grad;
       eqCtx.fill();
-      eqCtx.restore();
 
       // Stroke spline curve
       eqCtx.beginPath();
@@ -5775,36 +5817,38 @@
 
         // dB value above point
         eqCtx.fillStyle = '#FFFFFF';
-        eqCtx.font = '700 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        eqCtx.font = '700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         eqCtx.textAlign = 'center';
         const label = (pt.gain > 0 ? '+' : '') + pt.gain + ' dB';
-        eqCtx.fillText(label, pt.x, Math.max(14, pt.y - 12));
+        eqCtx.fillText(label, pt.x, Math.max(16, pt.y - 12));
 
         // Frequency label below near canvas bottom
-        eqCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        eqCtx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
-        eqCtx.fillText(pt.label, pt.x, h - 8);
+        eqCtx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+        eqCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        eqCtx.fillText(pt.label, pt.x, cssH - 8);
       });
+
+      eqCtx.restore();
     }
 
     if (eqCanvas) {
       let draggingBand = -1;
       const getCoords = (e) => {
         const rect = eqCanvas.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const cx = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
         const cy = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-        return { x: (cx - rect.left) * dpr, y: (cy - rect.top) * dpr };
+        return { x: cx - rect.left, y: cy - rect.top };
       };
 
       eqCanvas.addEventListener('pointerdown', (e) => {
         const coords = getCoords(e);
-        const w = eqCanvas.width;
-        const paddingX = w * 0.09;
-        const usableW = w - paddingX * 2;
+        const rect = eqCanvas.getBoundingClientRect();
+        const cssW = rect.width || 340;
+        const paddingX = Math.max(30, cssW * 0.08);
+        const usableW = cssW - paddingX * 2;
         for (let i = 0; i < 5; i++) {
           const ptX = paddingX + (i / 4) * usableW;
-          if (Math.abs(coords.x - ptX) < 36) {
+          if (Math.abs(coords.x - ptX) < 32) {
             draggingBand = i;
             eqCanvas.setPointerCapture(e.pointerId);
             updateBandFromY(i, coords.y);
@@ -5814,9 +5858,10 @@
       });
 
       const updateBandFromY = (bandIdx, curY) => {
-        const h = eqCanvas.height;
-        const topBound = h * 0.18;
-        const bottomBound = h * 0.76;
+        const rect = eqCanvas.getBoundingClientRect();
+        const cssH = rect.height || 180;
+        const topBound = cssH * 0.22;
+        const bottomBound = cssH * 0.72;
         const clampedY = Math.max(topBound, Math.min(bottomBound, curY));
         const norm = (bottomBound - clampedY) / (bottomBound - topBound);
         const gain = Math.round(norm * 24 - 12);
@@ -5839,11 +5884,18 @@
       eqCanvas.addEventListener('pointerup', stopDrag);
       eqCanvas.addEventListener('pointercancel', stopDrag);
 
+      // Use ResizeObserver for instant, responsive canvas scaling without stretching
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => {
+          resizeEQCanvas();
+        });
+        ro.observe(eqCanvas);
+      }
       window.addEventListener('resize', resizeEQCanvas);
-      setTimeout(resizeEQCanvas, 150);
+      setTimeout(resizeEQCanvas, 100);
       window._renderEQCurve = renderEQCurve;
+      window._resizeEQCanvas = resizeEQCanvas;
     }
-
     try {
       const savedEq = localStorage.getItem('oumusic_eq_preset');
       if (savedEq && eqSelect) {
@@ -6733,6 +6785,9 @@
       pill.classList.add('active');
       const tab = pill.getAttribute('data-settings-tab');
       if (screenSettings) screenSettings.setAttribute('data-active-tab', tab);
+      if (tab === 'sound' && window._resizeEQCanvas) {
+        setTimeout(window._resizeEQCanvas, 50);
+      }
     });
   });
 

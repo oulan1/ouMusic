@@ -1,3 +1,10 @@
+
+/* Global SVG Icon Base */
+.svg-icon {
+  fill: currentColor;
+  display: inline-block;
+  vertical-align: middle;
+}
 /* Material 3 Buttons */
 .btn {
   display: inline-flex;
@@ -1581,10 +1588,11 @@ input[type="range"].eq-band {
   box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 .eq-curve-canvas {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   display: block;
-  cursor: pointer;
+  cursor: ns-resize;
+  touch-action: none;
 }
 
 /* Wave AI Comment Box under Album Wave (Point 7 - Image 2) */
