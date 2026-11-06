@@ -1571,7 +1571,8 @@ input[type="range"].eq-band {
 .eq-curve-container {
   position: relative;
   width: 100%;
-  height: 130px;
+  height: 180px;
+  touch-action: none;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1671,4 +1672,65 @@ input[type="range"].eq-band {
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: block;
   margin-bottom: 12px;
+}
+
+/* Telegram Channel Card High-Fidelity Flex */
+.telegram-channel-card {
+  text-decoration: none;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(0, 136, 204, 0.22), rgba(0, 136, 204, 0.08));
+  border: 1px solid rgba(0, 136, 204, 0.35);
+  border-radius: var(--md-shape-corner-large);
+  margin-bottom: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+.telegram-channel-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 136, 204, 0.3);
+}
+
+/* Settings Screen Categorical Tab Filtering (Pure CSS) */
+#screen-settings:not([data-active-tab]) [data-settings-group]:not([data-settings-group="sound"]),
+#screen-settings[data-active-tab="sound"] [data-settings-group]:not([data-settings-group="sound"]),
+#screen-settings[data-active-tab="appearance"] [data-settings-group]:not([data-settings-group="appearance"]),
+#screen-settings[data-active-tab="perf"] [data-settings-group]:not([data-settings-group="perf"]),
+#screen-settings[data-active-tab="about"] [data-settings-group]:not([data-settings-group="about"]) {
+  display: none !important;
+}
+
+/* Wave Theme Chips with SVG Icons */
+.wave-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+.wave-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.wave-chip.active {
+  background: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+  font-weight: 700;
+}
+.wave-chip .svg-icon {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  flex-shrink: 0;
 }

@@ -3425,18 +3425,20 @@
         });
       });
 
-      waveThemeApplyBtn?.addEventListener('click', () => {
-        const activeMood = modal?.querySelector('.wave-theme-chip[data-mood].active')?.getAttribute('data-mood') || 'all';
-        const activeChar = modal?.querySelector('.wave-theme-chip[data-char].active')?.getAttribute('data-char') || 'any';
-        const activeLang = modal?.querySelector('.wave-theme-chip[data-lang].active')?.getAttribute('data-lang') || 'all';
+    waveThemeApplyBtn?.addEventListener('click', () => {
+        const activeMood = modal?.querySelector('#wave-mood-chips .wave-chip.active')?.getAttribute('data-val') || 'all';
+        const activeChar = modal?.querySelector('#wave-char-chips .wave-chip.active')?.getAttribute('data-val') || 'any';
+        const activeLang = modal?.querySelector('#wave-lang-chips .wave-chip.active')?.getAttribute('data-val') || 'all';
 
         window._waveThemeFilter = { mood: activeMood, char: activeChar, lang: activeLang };
-        const moodLabel = modal?.querySelector('.wave-theme-chip[data-mood].active')?.textContent?.trim() || '';
+        const activeMoodChip = modal?.querySelector('#wave-mood-chips .wave-chip.active');
+        const moodLabel = activeMoodChip ? (activeMoodChip.querySelector('span')?.textContent?.trim() || activeMoodChip.textContent.trim()) : '';
 
         if (waveThemeBtn) {
+          const displayLabel = (activeMood !== 'all' && moodLabel) ? moodLabel : 'Выбор темы';
           waveThemeBtn.innerHTML = `
             <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-sparkles"></use></svg>
-            <span>${activeMood !== 'all' ? moodLabel : 'Выбор темы'}</span>
+            <span id="wave-active-theme-label">${displayLabel}</span>
             <svg class="svg-icon" style="width: 14px; height: 14px; opacity: 0.7;"><use href="#icon-chevron-down"></use></svg>
           `;
         }
@@ -4574,40 +4576,7 @@
      HOME TABS & SHARED COMMUNITY PLAYLISTS (.oulist)
      ========================================================================== */
   function initHomeTabsUI() {
-    const musicBtn = document.getElementById('home-tab-music-btn');
-    const plBtn = document.getElementById('home-tab-playlists-btn');
-    const waveVisualizer = document.getElementById('wave-visualizer-container');
-    const waveMeta = document.getElementById('wave-track-meta');
-    const waveControls = document.querySelector('.wave-controls-row');
-    const waveDropdowns = document.querySelector('.wave-dropdowns-row');
-    const sharedPlView = document.getElementById('home-shared-playlists-view');
-
-    if (!musicBtn || !plBtn) return;
-
-    const showMusic = () => {
-      musicBtn.classList.add('active');
-      plBtn.classList.remove('active');
-      if (waveVisualizer) waveVisualizer.style.display = 'flex';
-      if (waveMeta) waveMeta.style.display = 'block';
-      if (waveControls) waveControls.style.display = 'flex';
-      if (waveDropdowns) waveDropdowns.style.display = 'flex';
-      if (sharedPlView) sharedPlView.style.display = 'none';
-    };
-
-    const showPlaylists = () => {
-      plBtn.classList.add('active');
-      musicBtn.classList.remove('active');
-      if (waveVisualizer) waveVisualizer.style.display = 'none';
-      if (waveMeta) waveMeta.style.display = 'none';
-      if (waveControls) waveControls.style.display = 'none';
-      if (waveDropdowns) waveDropdowns.style.display = 'none';
-      if (sharedPlView) sharedPlView.style.display = 'block';
-      renderSharedPlaylists();
-    };
-
-    musicBtn.addEventListener('click', showMusic);
-    plBtn.addEventListener('click', showPlaylists);
-
+    renderSharedPlaylists();
     document.getElementById('home-import-oulist-btn')?.addEventListener('click', () => {
       document.getElementById('oulist-file-input')?.click();
     });
@@ -5602,40 +5571,49 @@
       }
     } catch (e) {}
 
-    // Lossless Quality Mode Toggle
-    const losslessToggle = document.getElementById('setting-lossless-toggle');
-    const eqBox = document.getElementById('equalizer-settings-box');
-    const losslessBanner = document.getElementById('lossless-active-banner');
+    // Audio Quality Slider (Point 3 - No checkbox, slider only)
+    const qualitySlider = document.getElementById('audio-quality-slider');
+    const qualityBadge = document.getElementById('audio-quality-badge');
+    const qualityLabel = document.getElementById('audio-quality-label');
 
-    function applyLosslessUI(isLossless) {
-      if (losslessToggle) losslessToggle.checked = isLossless;
-      if (eqBox) eqBox.style.display = isLossless ? 'none' : 'block';
-      if (losslessBanner) losslessBanner.style.display = isLossless ? 'block' : 'none';
-      engine.setLosslessMode(isLossless);
+    function applyAudioQuality(level) {
+      const lvl = parseInt(level, 10);
+      if (lvl === 3) {
+        if (qualityBadge) qualityBadge.textContent = 'FLAC LOSSLESS';
+        if (qualityLabel) qualityLabel.textContent = 'Hi-Fi Lossless (Студийное)';
+        engine.setLosslessMode(true);
+      } else if (lvl === 2) {
+        if (qualityBadge) qualityBadge.textContent = '320 KBPS';
+        if (qualityLabel) qualityLabel.textContent = 'Высокое качество (HQ)';
+        engine.setLosslessMode(false);
+      } else {
+        if (qualityBadge) qualityBadge.textContent = '192 KBPS';
+        if (qualityLabel) qualityLabel.textContent = 'Стандартное (Эко)';
+        engine.setLosslessMode(false);
+      }
     }
 
-    losslessToggle?.addEventListener('change', () => {
-      const active = losslessToggle.checked;
-      applyLosslessUI(active);
-      try { localStorage.setItem('oumusic_lossless_mode', active ? 'true' : 'false'); } catch (e) {}
-    });
+    if (qualitySlider) {
+      qualitySlider.addEventListener('input', (e) => {
+        applyAudioQuality(e.target.value);
+        try { localStorage.setItem('oumusic_sound_quality', e.target.value); } catch (e) {}
+      });
+      try {
+        const savedQ = localStorage.getItem('oumusic_sound_quality') || '3';
+        qualitySlider.value = savedQ;
+        applyAudioQuality(savedQ);
+      } catch (e) {}
+    }
 
-    try {
-      const savedLossless = localStorage.getItem('oumusic_lossless_mode') === 'true';
-      if (savedLossless) {
-        applyLosslessUI(true);
-      }
-    } catch (e) {}
-
-    // 5-Band Equalizer Presets, Default Reset & Interactive Wave Curve Canvas (Point 12)
+    // 5-Band Equalizer Presets, Default Reset & Interactive Wave Curve Canvas (Point 1 - Canvas Points Only)
     const eqSelect = document.getElementById('eq-presets-select');
     const eqResetBtn = document.getElementById('eq-reset-btn');
-    const eqSliders = document.querySelectorAll('.eq-band');
     const eqCanvas = document.getElementById('eq-curve-canvas');
     const bassToggle = document.getElementById('eq-bass-boost-toggle');
     const surroundToggle = document.getElementById('eq-spatial-toggle');
-    const eqLosslessToggle = document.getElementById('lossless-mode-toggle');
-    const settingLosslessToggle = document.getElementById('setting-lossless-toggle');
+
+    let currentEQGains = [0, 0, 0, 0, 0];
+    const EQ_FREQS = ['60 Hz', '230 Hz', '910 Hz', '3.6 kHz', '14 kHz'];
 
     if (bassToggle) {
       bassToggle.addEventListener('change', () => {
@@ -5663,23 +5641,10 @@
       } catch(e){}
     }
 
-    if (eqLosslessToggle && settingLosslessToggle) {
-      eqLosslessToggle.addEventListener('change', () => {
-        settingLosslessToggle.checked = eqLosslessToggle.checked;
-        settingLosslessToggle.dispatchEvent(new Event('change'));
-      });
-      settingLosslessToggle.addEventListener('change', () => {
-        eqLosslessToggle.checked = settingLosslessToggle.checked;
-      });
-    }
-
-    function updateEQSliders(gains) {
-      eqSliders.forEach((slider) => {
-        const band = parseInt(slider.getAttribute('data-band'), 10);
-        if (!isNaN(band) && gains[band] !== undefined) {
-          slider.value = gains[band];
-        }
-      });
+    function updateEQGains(gains) {
+      if (Array.isArray(gains)) {
+        currentEQGains = [...gains];
+      }
       renderEQCurve();
     }
 
@@ -5687,7 +5652,7 @@
       const preset = eqSelect.value;
       engine.ensureContext();
       const gains = engine.applyEQPreset(preset);
-      updateEQSliders(gains);
+      updateEQGains(gains);
       try { localStorage.setItem('oumusic_eq_preset', preset); } catch (e) {}
     });
 
@@ -5695,30 +5660,17 @@
       engine.ensureContext();
       const gains = engine.applyEQPreset('flat');
       if (eqSelect) eqSelect.value = 'flat';
-      updateEQSliders(gains);
+      updateEQGains(gains);
       try { localStorage.setItem('oumusic_eq_preset', 'flat'); } catch (e) {}
     });
 
-    eqSliders.forEach((slider) => {
-      slider.addEventListener('input', () => {
-        const band = parseInt(slider.getAttribute('data-band'), 10);
-        const val = parseFloat(slider.value);
-        engine.ensureContext();
-        engine.setEQBand(band, val);
-        if (eqSelect) eqSelect.value = 'custom';
-        try { localStorage.setItem('oumusic_eq_preset', 'custom'); } catch (e) {}
-        renderEQCurve();
-      });
-    });
-
-    // Spline curve renderer on eqCanvas
     const eqCtx = eqCanvas ? eqCanvas.getContext('2d') : null;
     function resizeEQCanvas() {
       if (!eqCanvas) return;
       const rect = eqCanvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       eqCanvas.width = (rect.width || 340) * dpr;
-      eqCanvas.height = (rect.height || 120) * dpr;
+      eqCanvas.height = (rect.height || 180) * dpr;
       renderEQCurve();
     }
 
@@ -5729,31 +5681,39 @@
       if (w === 0 || h === 0) return;
       eqCtx.clearRect(0, 0, w, h);
 
-      const gains = [0, 0, 0, 0, 0];
-      eqSliders.forEach((s) => {
-        const b = parseInt(s.getAttribute('data-band'), 10);
-        if (!isNaN(b) && b >= 0 && b < 5) gains[b] = parseFloat(s.value) || 0;
-      });
-
-      const paddingX = w * 0.08;
+      const paddingX = w * 0.09;
       const usableW = w - paddingX * 2;
-      const points = gains.map((g, i) => {
+      const topBound = h * 0.18;
+      const bottomBound = h * 0.76;
+
+      const points = currentEQGains.map((g, i) => {
         const x = paddingX + (i / 4) * usableW;
         const clamped = Math.max(-12, Math.min(12, g));
         const norm = (clamped + 12) / 24;
-        const y = h * 0.15 + (1 - norm) * (h * 0.7);
-        return { x, y, gain: clamped, idx: i };
+        const y = bottomBound - norm * (bottomBound - topBound);
+        return { x, y, gain: clamped, idx: i, label: EQ_FREQS[i] };
       });
 
       // 0 dB guideline
+      const zeroY = (topBound + bottomBound) / 2;
       eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       eqCtx.lineWidth = 1;
       eqCtx.setLineDash([4, 4]);
       eqCtx.beginPath();
-      eqCtx.moveTo(paddingX * 0.5, h * 0.5);
-      eqCtx.lineTo(w - paddingX * 0.5, h * 0.5);
+      eqCtx.moveTo(paddingX * 0.5, zeroY);
+      eqCtx.lineTo(w - paddingX * 0.5, zeroY);
       eqCtx.stroke();
       eqCtx.setLineDash([]);
+
+      // Vertical guide lines for each frequency band
+      points.forEach((pt) => {
+        eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        eqCtx.lineWidth = 1;
+        eqCtx.beginPath();
+        eqCtx.moveTo(pt.x, topBound * 0.5);
+        eqCtx.lineTo(pt.x, bottomBound + 10);
+        eqCtx.stroke();
+      });
 
       // Fill glow gradient under spline
       eqCtx.save();
@@ -5774,8 +5734,8 @@
       eqCtx.lineTo(points[0].x, h);
       eqCtx.closePath();
       const grad = eqCtx.createLinearGradient(0, 0, 0, h);
-      grad.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
-      grad.addColorStop(0.7, 'rgba(139, 92, 246, 0.08)');
+      grad.addColorStop(0, 'rgba(139, 92, 246, 0.38)');
+      grad.addColorStop(0.65, 'rgba(139, 92, 246, 0.08)');
       grad.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
       eqCtx.fillStyle = grad;
       eqCtx.fill();
@@ -5796,27 +5756,34 @@
         eqCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
       }
       eqCtx.strokeStyle = '#A78BFA';
-      eqCtx.lineWidth = 3;
-      eqCtx.shadowColor = 'rgba(167, 139, 250, 0.7)';
-      eqCtx.shadowBlur = 8;
+      eqCtx.lineWidth = 3.5;
+      eqCtx.shadowColor = 'rgba(167, 139, 250, 0.8)';
+      eqCtx.shadowBlur = 10;
       eqCtx.stroke();
       eqCtx.shadowBlur = 0;
 
-      // Draw interactive handles
+      // Draw interactive handles, dB values and frequency labels
       points.forEach((pt) => {
+        // Handle circle
         eqCtx.beginPath();
-        eqCtx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
+        eqCtx.arc(pt.x, pt.y, 7.5, 0, Math.PI * 2);
         eqCtx.fillStyle = '#FFFFFF';
         eqCtx.fill();
         eqCtx.strokeStyle = '#8B5CF6';
-        eqCtx.lineWidth = 2.5;
+        eqCtx.lineWidth = 3;
         eqCtx.stroke();
 
-        eqCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        eqCtx.font = '600 10px sans-serif';
+        // dB value above point
+        eqCtx.fillStyle = '#FFFFFF';
+        eqCtx.font = '700 11px -apple-system, BlinkMacSystemFont, sans-serif';
         eqCtx.textAlign = 'center';
-        const label = (pt.gain > 0 ? '+' : '') + pt.gain + 'dB';
-        eqCtx.fillText(label, pt.x, pt.y - 10);
+        const label = (pt.gain > 0 ? '+' : '') + pt.gain + ' dB';
+        eqCtx.fillText(label, pt.x, Math.max(14, pt.y - 12));
+
+        // Frequency label below near canvas bottom
+        eqCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        eqCtx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        eqCtx.fillText(pt.label, pt.x, h - 8);
       });
     }
 
@@ -5833,11 +5800,11 @@
       eqCanvas.addEventListener('pointerdown', (e) => {
         const coords = getCoords(e);
         const w = eqCanvas.width;
-        const paddingX = w * 0.08;
+        const paddingX = w * 0.09;
         const usableW = w - paddingX * 2;
         for (let i = 0; i < 5; i++) {
           const ptX = paddingX + (i / 4) * usableW;
-          if (Math.abs(coords.x - ptX) < 28) {
+          if (Math.abs(coords.x - ptX) < 36) {
             draggingBand = i;
             eqCanvas.setPointerCapture(e.pointerId);
             updateBandFromY(i, coords.y);
@@ -5848,16 +5815,16 @@
 
       const updateBandFromY = (bandIdx, curY) => {
         const h = eqCanvas.height;
-        const top = h * 0.15;
-        const bottom = h * 0.85;
-        const clampedY = Math.max(top, Math.min(bottom, curY));
-        const norm = 1 - (clampedY - top) / (bottom - top);
+        const topBound = h * 0.18;
+        const bottomBound = h * 0.76;
+        const clampedY = Math.max(topBound, Math.min(bottomBound, curY));
+        const norm = (bottomBound - clampedY) / (bottomBound - topBound);
         const gain = Math.round(norm * 24 - 12);
+        currentEQGains[bandIdx] = gain;
         engine.ensureContext();
         engine.setEQBand(bandIdx, gain);
-        const slider = document.querySelector(`.eq-band[data-band="${bandIdx}"]`);
-        if (slider) slider.value = gain;
         if (eqSelect) eqSelect.value = 'custom';
+        try { localStorage.setItem('oumusic_eq_preset', 'custom'); } catch (e) {}
         renderEQCurve();
       };
 
@@ -5883,7 +5850,7 @@
         eqSelect.value = savedEq;
         if (savedEq !== 'custom') {
           const gains = engine.applyEQPreset(savedEq);
-          updateEQSliders(gains);
+          updateEQGains(gains);
         }
       }
     } catch (e) {}
@@ -6756,22 +6723,16 @@
     }
   });
 
-  // Settings Tabs Navigation (Point 13)
+  // Settings Tabs Navigation (Point 13 & Point 2 - CSS Based)
+  const screenSettings = document.getElementById('screen-settings');
   const settingsTabPills = document.querySelectorAll('.settings-tab-pill');
-  const settingsCards = document.querySelectorAll('#screen-settings [data-settings-group]');
+  if (screenSettings) screenSettings.setAttribute('data-active-tab', 'sound');
   settingsTabPills.forEach((pill) => {
     pill.addEventListener('click', () => {
       settingsTabPills.forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
       const tab = pill.getAttribute('data-settings-tab');
-      settingsCards.forEach((card) => {
-        if (tab === 'all') {
-          card.style.display = '';
-        } else {
-          const group = card.getAttribute('data-settings-group');
-          card.style.display = (group === tab) ? '' : 'none';
-        }
-      });
+      if (screenSettings) screenSettings.setAttribute('data-active-tab', tab);
     });
   });
 
