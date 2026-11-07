@@ -1543,9 +1543,11 @@ input[type="range"].eq-band {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
-  margin-bottom: 20px;
-  padding-bottom: 4px;
+  margin-bottom: 18px;
+  padding: 6px 4px 8px 4px !important;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
 .settings-tabs-scroll-row::-webkit-scrollbar {
@@ -1555,23 +1557,28 @@ input[type="range"].eq-band {
   flex-shrink: 0;
   padding: 8px 18px;
   border-radius: 9999px;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-weight: 700;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-sizing: border-box;
+  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, color 0.22s ease !important;
 }
 .settings-tab-pill:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #FFFFFF;
 }
+.settings-tab-pill:active {
+  transform: scale(0.97) !important;
+}
 .settings-tab-pill.active {
   background: var(--md-sys-color-primary) !important;
   color: #FFFFFF !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  transform: none !important; /* DO NOT SCALE UP — prevents clipping */
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent) !important;
 }
 
 /* Interactive Equalizer Waveform Curve Canvas (Point 12) */
@@ -1763,20 +1770,22 @@ input[type="range"].eq-band {
               color 0.25s ease !important;
 }
 .home-tab-pill:hover,
-.settings-tab-pill:hover,
 .wave-chip:hover {
-  transform: translateY(-1px) scale(1.02);
+  transform: translateY(-1px);
+}
+.settings-tab-pill:hover {
+  transform: none !important;
 }
 .home-tab-pill:active,
 .settings-tab-pill:active,
 .wave-chip:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .home-tab-pill.active,
 .settings-tab-pill.active,
 .wave-chip.active {
-  transform: scale(1.03);
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+  transform: none !important; /* Stable boundaries, zero clipping in overflow rows */
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent) !important;
 }
 [data-perf-mode="true"] .home-tab-pill,
 [data-perf-mode="true"] .settings-tab-pill,

@@ -992,7 +992,19 @@ html, body {
 }
 
 /* Primary Glass Surfaces: Dual-surface refraction simulation + WebGL support */
-[data-liquid-glass="true"] .top-app-bar,
+/* Top App Bar under Liquid Glass: Deep sleek dark glass in dark mode, crisp in light mode */
+[data-liquid-glass="true"] .top-app-bar {
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  background: rgba(14, 15, 22, 0.82) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+[data-liquid-glass="true"] .top-app-bar canvas {
+  display: none !important; /* Never obscure top bar with sampled white canvas */
+}
+
+/* Floating Panels: Dual-surface refraction simulation + WebGL support */
 [data-liquid-glass="true"] .arc-sidebar,
 [data-liquid-glass="true"] .mini-player,
 [data-liquid-glass="true"] .dialog-card,
@@ -1682,4 +1694,144 @@ html, body {
 }
 .mobile-nav-capsule .nav-tab.active .tab-icon-wrap {
   background: transparent !important;
+}
+
+/* ==========================================================================
+   Comprehensive Light Theme Contrast Guarantees (No white text on white bg)
+   ========================================================================== */
+[data-theme="light"] {
+  --md-sys-color-surface: #FDFBFF;
+  --md-sys-color-on-surface: #1D1B20;
+  --md-sys-color-on-surface-variant: #49454F;
+  --md-sys-color-surface-container: #F3EDF7;
+  --md-sys-color-surface-container-high: #ECE6F0;
+  --md-sys-color-surface-container-highest: #E6E0E9;
+  --md-sys-color-outline: #79747E;
+  --md-sys-color-outline-variant: #CAC4D0;
+}
+
+[data-theme="light"] body,
+[data-theme="light"] .main-view {
+  background: #FDFBFF !important;
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] .section-title,
+[data-theme="light"] .home-section-title,
+[data-theme="light"] .wave-display-title,
+[data-theme="light"] .wave-track-title,
+[data-theme="light"] .switch-label,
+[data-theme="light"] .option-title,
+[data-theme="light"] .settings-title,
+[data-theme="light"] .settings-group-title,
+[data-theme="light"] .dialog-title,
+[data-theme="light"] .dialog-card h2,
+[data-theme="light"] .dialog-card h3,
+[data-theme="light"] .brand-title,
+[data-theme="light"] #artist-name-title {
+  color: #1D1B20 !important;
+}
+
+[data-theme="light"] p,
+[data-theme="light"] .section-subtitle,
+[data-theme="light"] .home-section-subtitle,
+[data-theme="light"] .wave-display-subtitle,
+[data-theme="light"] .wave-track-artist,
+[data-theme="light"] .switch-desc,
+[data-theme="light"] .option-subtitle,
+[data-theme="light"] .settings-item-desc,
+[data-theme="light"] .dialog-card p,
+[data-theme="light"] .dialog-card label {
+  color: #49454F !important;
+}
+
+/* Light Theme Settings Pills & Category Rows */
+[data-theme="light"] .settings-tab-pill,
+[data-theme="light"] .home-tab-pill,
+[data-theme="light"] .wave-chip,
+[data-theme="light"] .chip {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #49454F !important;
+}
+[data-theme="light"] .settings-tab-pill:hover,
+[data-theme="light"] .home-tab-pill:hover,
+[data-theme="light"] .wave-chip:hover,
+[data-theme="light"] .chip:hover {
+  background: rgba(0, 0, 0, 0.09) !important;
+  color: #1D1B20 !important;
+}
+[data-theme="light"] .settings-tab-pill.active,
+[data-theme="light"] .home-tab-pill.active,
+[data-theme="light"] .wave-chip.active,
+[data-theme="light"] .chip.active {
+  background: var(--md-sys-color-primary) !important;
+  color: #FFFFFF !important;
+  border-color: transparent !important;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent) !important;
+}
+
+/* Light Theme Modals & Dialogs */
+[data-theme="light"] .dialog-card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .dialog-card input,
+[data-theme="light"] .dialog-card textarea {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #1D1B20 !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+}
+[data-theme="light"] .dialog-card input::placeholder,
+[data-theme="light"] .dialog-card textarea::placeholder {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+[data-theme="light"] #edit-playlist-tracks-scroll {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Light Theme Cards & Groups */
+[data-theme="light"] .settings-group,
+[data-theme="light"] .option-card,
+[data-theme="light"] .stat-card,
+[data-theme="light"] .home-wave-card,
+[data-theme="light"] .studio-box,
+[data-theme="light"] .studio-preset-card,
+[data-theme="light"] .playlist-card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Light Theme Buttons */
+[data-theme="light"] .btn-tonal {
+  background: rgba(0, 0, 0, 0.07) !important;
+  color: #1D1B20 !important;
+  border-color: transparent !important;
+}
+[data-theme="light"] .btn-tonal:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+  color: #1D1B20 !important;
+}
+[data-theme="light"] .btn-outlined {
+  border-color: rgba(0, 0, 0, 0.18) !important;
+  color: #1D1B20 !important;
+}
+[data-theme="light"] #wave-theme-picker-btn {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  color: #1D1B20 !important;
+}
+[data-theme="light"] #wave-ai-block {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] #wave-ai-comment-text {
+  color: #1D1B20 !important;
 }

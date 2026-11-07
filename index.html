@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.8">
-  <link rel="stylesheet" href="css/main.css?v=2.7.8">
-  <link rel="stylesheet" href="css/components.css?v=2.7.8">
-  <link rel="stylesheet" href="css/player.css?v=2.7.8">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.9">
+  <link rel="stylesheet" href="css/main.css?v=2.7.9">
+  <link rel="stylesheet" href="css/components.css?v=2.7.9">
+  <link rel="stylesheet" href="css/player.css?v=2.7.9">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.8"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.9"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -881,7 +881,7 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.8</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.9</span> • Разработчик: oulan1
             </div>
           </div>
 
@@ -913,7 +913,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.7.8 • All Rights Reserved
+              Версия 2.7.9 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -1172,7 +1172,7 @@
               <!-- Instrumental Master Switch -->
               <label class="m3-switch" style="margin-bottom: 20px; padding: 14px 18px; background: rgba(139, 92, 246, 0.12); border-radius: 14px; border: 1px solid rgba(139, 92, 246, 0.28);">
                 <div>
-                  <div class="switch-label" style="font-weight: 800; color: #FFF; font-size: 0.98rem;">Включить минусовку для трека</div>
+                  <div class="switch-label" style="font-weight: 800; color: var(--md-sys-color-on-surface); font-size: 0.98rem;">Включить минусовку для трека</div>
                   <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-top: 2px;">Создать кастомный профиль караоке-минусовки для слушателей</div>
                 </div>
                 <input type="checkbox" id="studio-instrumental-toggle" class="switch-input" checked>
@@ -2190,7 +2190,7 @@
   <div class="dialog-backdrop modal-backdrop" id="edit-playlist-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="edit-playlist-modal" style="width: 100%; max-width: 520px; max-height: 88vh; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="font-size: 1.3rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif;">Редактировать плейлист</h3>
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--md-sys-color-on-surface); font-family: var(--font-family-ys), sans-serif;">Редактировать плейлист</h3>
         <button class="icon-btn" id="edit-playlist-x-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
       </div>
 
@@ -2209,12 +2209,12 @@
 
         <div>
           <label style="font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.7); margin-bottom: 4px; display: block;">Название:</label>
-          <input type="text" id="edit-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 0.98rem; outline: none; box-sizing: border-box;">
+          <input type="text" id="edit-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); font-size: 0.98rem; outline: none; box-sizing: border-box;">
         </div>
 
         <div>
           <label style="font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.7); margin-bottom: 4px; display: block;">Описание:</label>
-          <textarea id="edit-playlist-desc-input" rows="2" placeholder="Добавьте краткое описание плейлиста..." style="width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 0.92rem; outline: none; box-sizing: border-box; resize: none;"></textarea>
+          <textarea id="edit-playlist-desc-input" rows="2" placeholder="Добавьте краткое описание плейлиста..." style="width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); font-size: 0.92rem; outline: none; box-sizing: border-box; resize: none;"></textarea>
         </div>
 
         <!-- Track list reordering section -->
@@ -2242,7 +2242,7 @@
   <div class="dialog-backdrop modal-backdrop" id="wave-theme-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="wave-theme-modal" style="width: 100%; max-width: 480px; max-height: 85vh; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 26px; padding: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF; font-family: var(--font-family-ys), sans-serif; display: flex; align-items: center; gap: 8px;">
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--md-sys-color-on-surface); font-family: var(--font-family-ys), sans-serif; display: flex; align-items: center; gap: 8px;">
           <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-sparkles"></use></svg>
           <span>Настройка Моей Волны</span>
         </h3>
@@ -2422,7 +2422,7 @@
       <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(239,68,68,0.15); color: #EF4444; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
         <svg class="svg-icon" style="width: 26px; height: 26px;"><use href="#icon-trash"></use></svg>
       </div>
-      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Удалить плейлист?</h3>
+      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: var(--md-sys-color-on-surface);">Удалить плейлист?</h3>
       <p id="delete-playlist-dialog-msg" style="font-size: 0.9rem; color: rgba(255,255,255,0.68); line-height: 1.45; margin-bottom: 22px;">Вы действительно хотите удалить этот плейлист? Треки останутся в вашей медиатеке.</p>
       <div style="display: flex; justify-content: center; gap: 12px;">
         <button class="btn btn-tonal" id="cancel-delete-playlist-btn" type="button" style="flex: 1;">Отмена</button>
@@ -2434,9 +2434,9 @@
   <!-- MODAL: EDIT USERNAME (Replaces prompt()) -->
   <div class="dialog-backdrop modal-backdrop" id="edit-username-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="edit-username-modal" style="width: 100%; max-width: 400px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.85);">
-      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Имя пользователя</h3>
+      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: var(--md-sys-color-on-surface);">Имя пользователя</h3>
       <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 16px;">Введите никнейм для профиля и персональной аналитики ouMusic.</p>
-      <input type="text" id="edit-username-input" placeholder="Ваш никнейм..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
+      <input type="text" id="edit-username-input" placeholder="Ваш никнейм..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn btn-tonal" id="edit-username-cancel-btn" type="button">Отмена</button>
         <button class="btn btn-primary" id="edit-username-save-btn" type="button">Сохранить</button>
@@ -2447,9 +2447,9 @@
   <!-- MODAL: CREATE PLAYLIST (Replaces prompt()) -->
   <div class="dialog-backdrop modal-backdrop" id="create-playlist-modal-backdrop" style="display: none;">
     <div class="dialog-card" id="create-playlist-modal" style="width: 100%; max-width: 420px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
-      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: #FFFFFF;">Новый плейлист</h3>
+      <h3 style="font-size: 1.25rem; font-weight: 750; margin-bottom: 8px; color: var(--md-sys-color-on-surface);">Новый плейлист</h3>
       <p style="font-size: 0.88rem; color: rgba(255,255,255,0.6); margin-bottom: 18px;">Придумайте название для вашей персональной подборки треков.</p>
-      <input type="text" id="create-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #FFFFFF; font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
+      <input type="text" id="create-playlist-input" placeholder="Название плейлиста..." style="width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); font-size: 1rem; outline: none; margin-bottom: 20px; box-sizing: border-box;">
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn btn-tonal" id="create-playlist-cancel-btn">Отмена</button>
         <button class="btn btn-primary" id="create-playlist-submit-btn">Создать</button>
@@ -2462,7 +2462,7 @@
     <div class="bottom-sheet modern-track-sheet" id="add-to-playlist-sheet" style="max-height: 80vh; overflow-y: auto;">
       <div class="bottom-sheet-handle"></div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);">
-        <div style="font-size: 1.25rem; font-weight: 750; color: #FFFFFF;">Добавить в плейлист</div>
+        <div style="font-size: 1.25rem; font-weight: 750; color: var(--md-sys-color-on-surface);">Добавить в плейлист</div>
         <button class="btn btn-tonal" id="add-to-playlist-new-btn" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 9999px;">+ Новый плейлист</button>
       </div>
       <div id="add-to-playlist-items-list" style="display: flex; flex-direction: column; gap: 10px;">
@@ -2530,8 +2530,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.8"></script>
-  <script src="playlists/playlists.js?v=2.7.8"></script>
-  <script src="js/app.standalone.js?v=2.7.8"></script>
+  <script src="tracks/catalog.js?v=2.7.9"></script>
+  <script src="playlists/playlists.js?v=2.7.9"></script>
+  <script src="js/app.standalone.js?v=2.7.9"></script>
 </body>
 </html>

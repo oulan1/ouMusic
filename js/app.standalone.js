@@ -5596,7 +5596,10 @@
         const mainView = document.querySelector('.main-view');
         if (mainView) {
           const directGlasses = [];
-          if (topBar && topBar.parentElement === mainView) directGlasses.push(topBar);
+          // Note: topBar sits at (0,0) with no sibling background behind it.
+          // Sampling topBar via WebGL creates an opaque white raster layer.
+          // topBar is styled via CSS backdrop-filter glass, keeping directGlasses
+          // strictly for floating panels (miniPlayer, mobileNav).
           if (miniPlayer && miniPlayer.parentElement === mainView) directGlasses.push(miniPlayer);
           if (mobileNav && mobileNav.parentElement === mainView) directGlasses.push(mobileNav);
 
