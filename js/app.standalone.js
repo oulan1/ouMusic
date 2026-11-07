@@ -1564,9 +1564,7 @@
     if (screenId === 'settings' && window._resizeEQCanvas) {
       setTimeout(window._resizeEQCanvas, 50);
     }
-    if (window.updateMobileNavIndicator) {
-      setTimeout(window.updateMobileNavIndicator, 20);
-    }
+
 
     const backBtn = document.getElementById('top-back-btn');
     if (backBtn) backBtn.style.display = 'none'; // Permanently hidden on artist page across PC and mobile
@@ -3420,31 +3418,49 @@
           aiBox.style.display = 'flex';
 
           const trackId = track.id || track.src || (track.title + track.artist);
-          // If this is a newly selected track, show "Думает..." and then reveal comment!
+          // If this is a newly selected track, show realistic extended "Думает..." processing sequence
           if (trackId !== currentAITrackId) {
             currentAITrackId = trackId;
-            if (aiThinkingTimeout) clearTimeout(aiThinkingTimeout);
+            if (window._aiThinkingTimers) {
+              window._aiThinkingTimers.forEach(t => clearTimeout(t));
+            }
+            window._aiThinkingTimers = [];
 
             if (aiTextEl) {
-              aiTextEl.textContent = 'Думает...';
+              const steps = [
+                'Думает.',
+                'Думает..',
+                'Думает...',
+                'Анализирует звучание...'
+              ];
+              aiTextEl.textContent = steps[0];
               aiTextEl.classList.add('thinking');
 
-              aiThinkingTimeout = setTimeout(() => {
+              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[1]; }, 450));
+              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[2]; }, 950));
+              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[3]; }, 1450));
+
+              window._aiThinkingTimers.push(setTimeout(() => {
+                if (trackId !== currentAITrackId) return;
                 aiTextEl.classList.remove('thinking');
-                // Priority: User's moderation fact first, then curated fact
-                if (track.aiFact && track.aiFact.trim()) {
-                  aiTextEl.textContent = track.aiFact.trim();
-                } else {
-                  const artist = track.artist || 'этого исполнителя';
-                  const comments = [
-                    'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
-                    `Особая атмосфера и уникальное звучание от ${artist}`,
-                    'Этот трек отлично вписывается в настроение вашей волны',
-                    'Глубокий ритм и живой бас'
-                  ];
-                  aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
-                }
-              }, 600);
+                aiTextEl.style.opacity = '0';
+
+                setTimeout(() => {
+                  if (track.aiFact && track.aiFact.trim()) {
+                    aiTextEl.textContent = track.aiFact.trim();
+                  } else {
+                    const artist = track.artist || 'этого исполнителя';
+                    const comments = [
+                      'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
+                      `Особая атмосфера и уникальное звучание от ${artist}`,
+                      'Этот трек отлично вписывается в настроение вашей волны',
+                      'Глубокий ритм и живой бас'
+                    ];
+                    aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+                  }
+                  aiTextEl.style.opacity = '1';
+                }, 120);
+              }, 2200));
             }
           }
           // If same track (e.g. paused / resumed), keep current comment visible!
@@ -5596,12 +5612,11 @@
         const mainView = document.querySelector('.main-view');
         if (mainView) {
           const directGlasses = [];
-          // Note: topBar sits at (0,0) with no sibling background behind it.
-          // Sampling topBar via WebGL creates an opaque white raster layer.
-          // topBar is styled via CSS backdrop-filter glass, keeping directGlasses
-          // strictly for floating panels (miniPlayer, mobileNav).
-          if (miniPlayer && miniPlayer.parentElement === mainView) directGlasses.push(miniPlayer);
-          if (mobileNav && mobileNav.parentElement === mainView) directGlasses.push(mobileNav);
+          // Note: Sticky and fixed UI panels (topBar, miniPlayer, mobileNav)
+          // float over viewport boundaries with no sibling canvas background.
+          // Sampling them via WebGL renders an opaque white raster layer and shifts
+          // flex child alignment. They are styled via CSS backdrop-filter glass,
+          // while directGlasses is kept strictly for cards with rich backgrounds.
 
           if (directGlasses.length > 0) {
             const inst = await window.LiquidGlass.init({
@@ -8463,23 +8478,5 @@
   window.updateActiveLyric = updateActiveLyric;
 })();
 
-  function updateMobileNavIndicator() {
-    const navCapsule = document.querySelector('.mobile-nav-capsule');
-    const indicator = document.getElementById('mobile-nav-pill-indicator');
-    const activeTab = navCapsule?.querySelector('.nav-tab.active');
-    if (!navCapsule || !indicator || !activeTab) return;
-
-    const capsuleRect = navCapsule.getBoundingClientRect();
-    const tabRect = activeTab.getBoundingClientRect();
-    if (capsuleRect.width <= 0 || tabRect.width <= 0) return;
-
-    const pillWidth = Math.min(64, tabRect.width - 8);
-    const leftOffset = (tabRect.left - capsuleRect.left) + (tabRect.width - pillWidth) / 2;
-
-    indicator.style.width = `${pillWidth}px`;
-    indicator.style.transform = `translateX(${leftOffset}px)`;
-    indicator.style.opacity = '1';
-  }
-  window.updateMobileNavIndicator = updateMobileNavIndicator;
-  window.addEventListener('resize', updateMobileNavIndicator);
-  window.addEventListener('load', () => setTimeout(updateMobileNavIndicator, 200));
+  // Mobile navigation active tab styling is handled directly by .tab-icon-wrap in CSS
+  window.updateMobileNavIndicator = function() {};
