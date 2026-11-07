@@ -43,6 +43,14 @@
       document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
     }
   </script>
+
+  <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
+  <script src="js/vendor/liquidglass.js?v=2.7.8"></script>
+  <script>
+    if (typeof window.LiquidGlass === 'undefined') {
+      document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
+    }
+  </script>
 </head>
 <body>
   <!-- Inlined SVG icons container for 100% offline and file:// reliability -->

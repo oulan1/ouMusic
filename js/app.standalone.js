@@ -5495,10 +5495,150 @@
       try { localStorage.setItem('oumusic_amoled', isAm ? 'true' : 'false'); } catch (e) {}
     });
 
+    // =========================================================================
+    // Official ybouane/liquidglass WebGL Glass Engine Integration
+    // =========================================================================
+    let activeLiquidGlassInstances = [];
+
+    async function applyLiquidGlassEngine() {
+      const isGlass = document.documentElement.getAttribute('data-liquid-glass') === 'true';
+      if (!isGlass) {
+        destroyLiquidGlassEngine();
+        return;
+      }
+      if (typeof window.LiquidGlass === 'undefined') {
+        setTimeout(() => {
+          if (typeof window.LiquidGlass !== 'undefined') applyLiquidGlassEngine();
+        }, 150);
+        return;
+      }
+
+      destroyLiquidGlassEngine();
+
+      // Configure targets according to ybouane/liquidglass documentation
+      const topBar = document.querySelector('.top-app-bar');
+      if (topBar) {
+        topBar.dataset.config = JSON.stringify({
+          cornerRadius: 0,
+          zRadius: 18,
+          refraction: 0.65,
+          chromAberration: 0.05,
+          edgeHighlight: 0.1,
+          fresnel: 1.0,
+          blurAmount: 0.25,
+          shadowOpacity: 0.2
+        });
+      }
+
+      const miniPlayer = document.querySelector('.player-container');
+      if (miniPlayer) {
+        miniPlayer.dataset.config = JSON.stringify({
+          cornerRadius: 24,
+          zRadius: 24,
+          refraction: 0.75,
+          chromAberration: 0.08,
+          edgeHighlight: 0.12,
+          specular: 0.2,
+          fresnel: 1.0,
+          blurAmount: 0.25,
+          shadowOpacity: 0.35,
+          shadowSpread: 12,
+          shadowOffsetY: 2
+        });
+      }
+
+      const mobileNav = document.querySelector('.mobile-nav-capsule');
+      if (mobileNav) {
+        mobileNav.dataset.config = JSON.stringify({
+          cornerRadius: 32,
+          zRadius: 24,
+          refraction: 0.75,
+          chromAberration: 0.08,
+          edgeHighlight: 0.12,
+          specular: 0.25,
+          fresnel: 1.0,
+          blurAmount: 0.2
+        });
+      }
+
+      const waveCard = document.getElementById('home-wave-card');
+      if (waveCard) {
+        waveCard.dataset.config = JSON.stringify({
+          cornerRadius: 28,
+          zRadius: 28,
+          refraction: 0.8,
+          chromAberration: 0.08,
+          edgeHighlight: 0.12,
+          specular: 0.22,
+          fresnel: 1.0,
+          blurAmount: 0.2,
+          shadowOpacity: 0.35,
+          shadowSpread: 12,
+          shadowOffsetY: 2
+        });
+      }
+
+      const waveThemeBtn = document.getElementById('wave-theme-open-btn');
+      if (waveThemeBtn) {
+        waveThemeBtn.dataset.config = JSON.stringify({
+          button: true,
+          cornerRadius: 22,
+          zRadius: 20,
+          refraction: 0.75,
+          chromAberration: 0.06,
+          edgeHighlight: 0.15,
+          specular: 0.3,
+          blurAmount: 0.15
+        });
+      }
+
+      try {
+        const mainView = document.querySelector('.main-view');
+        if (mainView) {
+          const directGlasses = [];
+          if (topBar && topBar.parentElement === mainView) directGlasses.push(topBar);
+          if (miniPlayer && miniPlayer.parentElement === mainView) directGlasses.push(miniPlayer);
+          if (mobileNav && mobileNav.parentElement === mainView) directGlasses.push(mobileNav);
+
+          if (directGlasses.length > 0) {
+            const inst = await window.LiquidGlass.init({
+              root: mainView,
+              glassElements: directGlasses,
+              defaults: {
+                cornerRadius: 24,
+                refraction: 0.75,
+                chromAberration: 0.08,
+                edgeHighlight: 0.12,
+                specular: 0.2,
+                fresnel: 1.0,
+                blurAmount: 0.2,
+                shadowOpacity: 0.3
+              }
+            });
+            activeLiquidGlassInstances.push(inst);
+          }
+        }
+      } catch (e) {
+        console.warn('LiquidGlass mainView init notice:', e);
+      }
+    }
+
+    function destroyLiquidGlassEngine() {
+      while (activeLiquidGlassInstances.length > 0) {
+        const inst = activeLiquidGlassInstances.pop();
+        try { inst?.destroy(); } catch (e) {}
+      }
+    }
+
     liquidGlassToggle?.addEventListener('change', () => {
       const isGlass = liquidGlassToggle.checked;
       document.documentElement.setAttribute('data-liquid-glass', isGlass ? 'true' : 'false');
       try { localStorage.setItem('oumusic_liquid_glass', isGlass ? 'true' : 'false'); } catch (e) {}
+      if (isGlass) {
+        applyLiquidGlassEngine();
+      } else {
+        destroyLiquidGlassEngine();
+      }
     });
 
     // Font size selector
@@ -5632,6 +5772,9 @@
       const savedGlass = localStorage.getItem('oumusic_liquid_glass') === 'true';
       if (liquidGlassToggle) liquidGlassToggle.checked = savedGlass;
       document.documentElement.setAttribute('data-liquid-glass', savedGlass ? 'true' : 'false');
+      if (savedGlass) {
+        setTimeout(applyLiquidGlassEngine, 100);
+      }
 
       // 4. Font size
       const savedFontSize = localStorage.getItem('oumusic_font_size') || 'medium';

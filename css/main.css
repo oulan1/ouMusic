@@ -963,15 +963,35 @@ html, body {
 }
 
 /* ==========================================================================
-   LIQUID GLASS DESIGN SYSTEM (Apple visionOS & iOS style)
+   LIQUID GLASS ENGINE & DESIGN SYSTEM (ybouane/liquidglass)
    ========================================================================== */
 [data-liquid-glass="true"] {
   --lg-glass-blur: blur(28px) saturate(190%) contrast(105%);
-  --lg-specular-top: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.55);
-  --lg-specular-bottom: inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35);
+  --lg-specular-top: inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.65);
+  --lg-specular-bottom: inset 0 -1px 2px 0 rgba(0, 0, 0, 0.3);
+  --lg-rim-glow: inset 0 0 12px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* 1. Primary Floating Glass Panels (Top-level surfaces only: backdrop-filter enabled) */
+/* Support WebGL Injected Canvases from ybouane/liquidglass */
+[data-liquid-glass="true"] canvas[data-liquid-glass="true"],
+[data-liquid-glass="true"] .glass-canvas,
+.liquid-glass-button {
+  pointer-events: none !important;
+}
+.liquid-glass-button {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+[data-liquid-glass="true"] .liquid-glass-content,
+[data-liquid-glass="true"] .top-app-bar > *,
+[data-liquid-glass="true"] .mini-player > *,
+[data-liquid-glass="true"] .mobile-nav-capsule > *,
+[data-liquid-glass="true"] .home-wave-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Primary Glass Surfaces: Dual-surface refraction simulation + WebGL support */
 [data-liquid-glass="true"] .top-app-bar,
 [data-liquid-glass="true"] .arc-sidebar,
 [data-liquid-glass="true"] .mini-player,
@@ -980,9 +1000,12 @@ html, body {
 [data-liquid-glass="true"] .cover-lightbox-modal {
   -webkit-backdrop-filter: var(--lg-glass-blur) !important;
   backdrop-filter: var(--lg-glass-blur) !important;
-  background: rgba(18, 18, 28, 0.68) !important;
-  box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), 0 16px 36px rgba(0, 0, 0, 0.45) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: linear-gradient(135deg, rgba(235, 243, 255, 0.12) 0%, rgba(18, 18, 28, 0.65) 100%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.45) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: var(--lg-specular-top), var(--lg-specular-bottom), var(--lg-rim-glow), 0 16px 36px rgba(0, 0, 0, 0.45) !important;
 }
 
 [data-liquid-glass="true"][data-theme="light"] .top-app-bar,
@@ -991,9 +1014,12 @@ html, body {
 [data-liquid-glass="true"][data-theme="light"] .dialog-card,
 [data-liquid-glass="true"][data-theme="light"] .bottom-sheet,
 [data-liquid-glass="true"][data-theme="light"] .cover-lightbox-modal {
-  background: rgba(255, 255, 255, 0.75) !important;
-  border: 1px solid rgba(255, 255, 255, 0.65) !important;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(240, 245, 255, 0.72) 100%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 2px 0 rgba(0, 0, 0, 0.08), 0 10px 30px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* 2. Specular Glass Content Cards & Lists (Zero GPU blur passes, 120 FPS rock-solid, zero flickering) */
