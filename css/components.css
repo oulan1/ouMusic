@@ -590,7 +590,7 @@
   height: 16px;
   background: var(--md-sys-color-outline);
   border-radius: 50%;
-  transition: transform var(--motion-duration-short), background var(--motion-duration-short);
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.25s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .switch-input:checked + .switch-track {
@@ -1741,4 +1741,53 @@ input[type="range"].eq-band {
   height: 15px;
   fill: currentColor;
   flex-shrink: 0;
+}
+
+/* Smooth Switch Track Transitions */
+.switch-track {
+  transition: background 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+[data-perf-mode="true"] .switch-track,
+[data-perf-mode="true"] .switch-thumb {
+  transition: none !important;
+}
+
+/* Category Capsules & Tabs Spring Animations (Point 9) */
+.home-tab-pill,
+.settings-tab-pill,
+.wave-chip {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.25s ease,
+              border-color 0.25s ease,
+              box-shadow 0.25s ease,
+              color 0.25s ease !important;
+}
+.home-tab-pill:hover,
+.settings-tab-pill:hover,
+.wave-chip:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+.home-tab-pill:active,
+.settings-tab-pill:active,
+.wave-chip:active {
+  transform: scale(0.96);
+}
+.home-tab-pill.active,
+.settings-tab-pill.active,
+.wave-chip.active {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+}
+[data-perf-mode="true"] .home-tab-pill,
+[data-perf-mode="true"] .settings-tab-pill,
+[data-perf-mode="true"] .wave-chip {
+  transition: none !important;
+  transform: none !important;
+}
+
+/* Telegram Card White Icon Guarantee (Point 3) */
+.telegram-channel-card svg,
+.telegram-channel-card .telegram-icon-white {
+  color: #FFFFFF !important;
+  fill: #FFFFFF !important;
 }

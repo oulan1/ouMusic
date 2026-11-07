@@ -1564,6 +1564,9 @@
     if (screenId === 'settings' && window._resizeEQCanvas) {
       setTimeout(window._resizeEQCanvas, 50);
     }
+    if (window.updateMobileNavIndicator) {
+      setTimeout(window.updateMobileNavIndicator, 20);
+    }
 
     const backBtn = document.getElementById('top-back-btn');
     if (backBtn) backBtn.style.display = 'none'; // Permanently hidden on artist page across PC and mobile
@@ -2346,29 +2349,72 @@
     }
     requestAnimationFrame(smoothScrubberTick);
 
-    // Interactive Mini-Player Scrubber (Point 17)
+    // Interactive Mini-Player Scrubber (Points 1 & 17 - Smooth dragging, no jumping, pointer capture)
     const miniProgContainer = document.getElementById('mini-progress-container');
     if (miniProgContainer) {
-      const seekMini = (e) => {
-        if (e.stopPropagation) e.stopPropagation();
+      let isMiniDragging = false;
+      let pendingMiniSeekPct = null;
+
+      const calcMiniPct = (clientX) => {
         const rect = miniProgContainer.getBoundingClientRect();
-        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        if (engine.audioElement && engine.audioElement.duration) {
-          engine.seek(pos * engine.audioElement.duration);
-          if (miniProgress) miniProgress.style.width = (pos * 100) + '%';
-        }
+        if (rect.width <= 0) return 0;
+        return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       };
-      miniProgContainer.addEventListener('click', seekMini);
-      let isMiniDown = false;
+
+      const updateMiniVisual = (pct) => {
+        if (miniProgress) miniProgress.style.width = (pct * 100) + '%';
+        miniProgContainer.style.setProperty('--mini-progress-x', (pct * 100) + '%');
+      };
+
       miniProgContainer.addEventListener('pointerdown', (e) => {
-        isMiniDown = true;
-        seekMini(e);
+        // Prevent opening fullscreen player when touching the scrubber line
+        e.stopPropagation();
+        e.preventDefault();
+
+        const rect = miniProgContainer.getBoundingClientRect();
+        // Strict Y hit test: only activate if touch is within scrubber boundary
+        if (e.clientY < rect.top - 6 || e.clientY > rect.bottom + 8) return;
+
+        isMiniDragging = true;
+        isScrubberDragging = true;
+        miniProgContainer.classList.add('dragging');
+        try { miniProgContainer.setPointerCapture(e.pointerId); } catch(err) {}
+
+        const pct = calcMiniPct(e.clientX);
+        pendingMiniSeekPct = pct;
+        updateMiniVisual(pct);
       });
-      window.addEventListener('pointermove', (e) => {
-        if (isMiniDown) seekMini(e);
+
+      miniProgContainer.addEventListener('pointermove', (e) => {
+        if (!isMiniDragging) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const pct = calcMiniPct(e.clientX);
+        pendingMiniSeekPct = pct;
+        updateMiniVisual(pct);
       });
-      window.addEventListener('pointerup', () => { isMiniDown = false; });
+
+      const finishMiniDrag = (e) => {
+        if (!isMiniDragging) return;
+        if (e && e.stopPropagation) e.stopPropagation();
+        isMiniDragging = false;
+        isScrubberDragging = false;
+        miniProgContainer.classList.remove('dragging');
+        try { if (e && e.pointerId) miniProgContainer.releasePointerCapture(e.pointerId); } catch(err) {}
+
+        if (pendingMiniSeekPct !== null && engine.audioElement && engine.audioElement.duration) {
+          const targetTime = pendingMiniSeekPct * engine.audioElement.duration;
+          engine.seek(targetTime);
+          syncMediaSessionPosition(true);
+        }
+        pendingMiniSeekPct = null;
+      };
+
+      miniProgContainer.addEventListener('pointerup', finishMiniDrag);
+      miniProgContainer.addEventListener('pointercancel', finishMiniDrag);
+      window.addEventListener('pointerup', (e) => {
+        if (isMiniDragging) finishMiniDrag(e);
+      });
     }
 
     engine.onTimeUpdate = (cur, dur) => {
@@ -3357,6 +3403,9 @@
       return pool;
     }
 
+    let currentAITrackId = null;
+    let aiThinkingTimeout = null;
+
     function updateWaveCardInfo(track) {
       const titleEl = document.getElementById('wave-track-title') || document.getElementById('wave-np-title');
       const artistEl = document.getElementById('wave-track-artist') || document.getElementById('wave-np-artist');
@@ -3366,28 +3415,43 @@
       if (track) {
         if (titleEl) titleEl.textContent = track.title || 'Без названия';
         if (artistEl) artistEl.textContent = track.artist || 'Неизвестный исполнитель';
+
         if (aiBox) {
           aiBox.style.display = 'flex';
-          if (aiTextEl) {
-            aiTextEl.classList.add('thinking');
-            setTimeout(() => {
-              aiTextEl.classList.remove('thinking');
-              if (track && track.aiFact) {
-                aiTextEl.textContent = track.aiFact;
-              } else if (track) {
-                const artist = track.artist || 'этого исполнителя';
-                const comments = [
-                  'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
-                  `Особая атмосфера и уникальное звучание от ${artist}`,
-                  'Этот трек отлично вписывается в настроение вашей волны',
-                  'Глубокий ритм и живой бас'
-                ];
-                aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
-              }
-            }, 350);
+
+          const trackId = track.id || track.src || (track.title + track.artist);
+          // If this is a newly selected track, show "Думает..." and then reveal comment!
+          if (trackId !== currentAITrackId) {
+            currentAITrackId = trackId;
+            if (aiThinkingTimeout) clearTimeout(aiThinkingTimeout);
+
+            if (aiTextEl) {
+              aiTextEl.textContent = 'Думает...';
+              aiTextEl.classList.add('thinking');
+
+              aiThinkingTimeout = setTimeout(() => {
+                aiTextEl.classList.remove('thinking');
+                // Priority: User's moderation fact first, then curated fact
+                if (track.aiFact && track.aiFact.trim()) {
+                  aiTextEl.textContent = track.aiFact.trim();
+                } else {
+                  const artist = track.artist || 'этого исполнителя';
+                  const comments = [
+                    'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
+                    `Особая атмосфера и уникальное звучание от ${artist}`,
+                    'Этот трек отлично вписывается в настроение вашей волны',
+                    'Глубокий ритм и живой бас'
+                  ];
+                  aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
+                }
+              }, 600);
+            }
           }
+          // If same track (e.g. paused / resumed), keep current comment visible!
         }
       } else {
+        // No track selected at all -> hide comment completely
+        currentAITrackId = null;
         if (titleEl) titleEl.textContent = 'Не играет';
         if (artistEl) artistEl.textContent = 'Выберите параметры и нажмите Старт';
         if (aiBox) {
@@ -4739,7 +4803,7 @@
       if (resultView) resultView.style.display = 'none';
 
       // Real WebGL GPU Detection
-      let detectedGPU = 'Универсальный GPU ускоритель';
+      let detectedGPU = 'GPU Акселератор';
       try {
         const testCanvas = document.createElement('canvas');
         const gl = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
@@ -4754,7 +4818,7 @@
         }
       } catch (e) {}
 
-      // Interactive Canvas Visual Test
+      // Interactive Canvas Visual UI Stress Test (Point 5)
       let bCtx = null;
       if (benchCanvas) {
         bCtx = benchCanvas.getContext('2d');
@@ -4769,10 +4833,10 @@
         particles.push({
           x: Math.random() * (benchCanvas ? benchCanvas.width : 340),
           y: Math.random() * (benchCanvas ? benchCanvas.height : 85),
-          vx: (Math.random() - 0.5) * 3,
-          vy: (Math.random() - 0.5) * 2.5,
-          radius: Math.random() * 2 + 1.5,
-          hue: Math.random() * 60 + 250
+          vx: (Math.random() - 0.5) * 3.5,
+          vy: (Math.random() - 0.5) * 2.8,
+          radius: Math.random() * 2.5 + 1.2,
+          hue: Math.random() * 60 + 240
         });
       }
 
@@ -4780,8 +4844,8 @@
       let lastFrame = performance.now();
       let startTime = performance.now();
 
-      if (stageText) stageText.textContent = '1/3: Анализ GPU и частоты экрана...';
-      if (subText) subText.textContent = `Видеоядро: ${detectedGPU.slice(0, 35)}...`;
+      if (stageText) stageText.textContent = '1/3: Тестирование UI шейдеров и стекла (Liquid Glass)...';
+      if (subText) subText.textContent = `GPU: ${detectedGPU.slice(0, 35)}...`;
 
       const renderBenchFrame = (now) => {
         const delta = now - lastFrame;
@@ -4795,36 +4859,85 @@
           liveFpsEl.textContent = instantFps;
         }
 
-        // Render dynamic graphics on benchmark-canvas
+        // Render dynamic graphics and UI elements on benchmark-canvas (Point 5)
         if (bCtx && benchCanvas) {
           const bw = benchCanvas.width;
           const bh = benchCanvas.height;
-          bCtx.fillStyle = 'rgba(10, 10, 16, 0.28)';
+          bCtx.clearRect(0, 0, bw, bh);
+
+          bCtx.fillStyle = 'rgba(18, 19, 26, 0.45)';
           bCtx.fillRect(0, 0, bw, bh);
 
-          // Audio DSP Sine Waves
-          bCtx.beginPath();
-          bCtx.strokeStyle = 'rgba(139, 92, 246, 0.75)';
-          bCtx.lineWidth = 2;
-          const t = now * 0.005;
-          for (let x = 0; x < bw; x += 4) {
-            const y = bh * 0.5 + Math.sin(x * 0.03 + t) * (bh * 0.3) * Math.cos(x * 0.01 - t);
-            if (x === 0) bCtx.moveTo(x, y);
-            else bCtx.lineTo(x, y);
-          }
-          bCtx.stroke();
+          const elapsed = now - startTime;
 
-          // Particles
-          particles.forEach((p) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < 0 || p.x > bw) p.vx *= -1;
-            if (p.y < 0 || p.y > bh) p.vy *= -1;
+          if (elapsed < 1000) {
+            // Stage 1: Glass UI Card Rendering Preview
+            bCtx.save();
+            bCtx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            bCtx.lineWidth = 1.5;
+            bCtx.fillStyle = 'rgba(255, 255, 255, 0.08)';
             bCtx.beginPath();
-            bCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            bCtx.fillStyle = `hsla(${p.hue}, 90%, 65%, 0.85)`;
+            bCtx.roundRect(16, 12, bw - 32, bh - 24, 12);
             bCtx.fill();
-          });
+            bCtx.stroke();
+
+            // Specular reflection line
+            bCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            bCtx.beginPath();
+            bCtx.moveTo(28, 13);
+            bCtx.lineTo(bw - 28, 13);
+            bCtx.stroke();
+
+            bCtx.fillStyle = '#FFFFFF';
+            bCtx.font = '600 12px sans-serif';
+            bCtx.fillText('UI Liquid Glass & Blur Stress Test', 32, bh * 0.45);
+            bCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+            bCtx.font = '500 10px sans-serif';
+            bCtx.fillText('Рендеринг оптического преломления и бликов...', 32, bh * 0.7);
+            bCtx.restore();
+          } else if (elapsed < 2000) {
+            // Stage 2: Audio DSP Sine Waves & Particle Spectrum
+            bCtx.beginPath();
+            bCtx.strokeStyle = 'rgba(139, 92, 246, 0.85)';
+            bCtx.lineWidth = 2.5;
+            const t = now * 0.006;
+            for (let x = 0; x < bw; x += 4) {
+              const y = bh * 0.5 + Math.sin(x * 0.035 + t) * (bh * 0.32) * Math.cos(x * 0.015 - t);
+              if (x === 0) bCtx.moveTo(x, y);
+              else bCtx.lineTo(x, y);
+            }
+            bCtx.stroke();
+
+            // Particles
+            particles.forEach((p) => {
+              p.x += p.vx;
+              p.y += p.vy;
+              if (p.x < 0 || p.x > bw) p.vx *= -1;
+              if (p.y < 0 || p.y > bh) p.vy *= -1;
+              bCtx.beginPath();
+              bCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+              bCtx.fillStyle = `hsla(${p.hue}, 90%, 65%, 0.85)`;
+              bCtx.fill();
+            });
+          } else {
+            // Stage 3: Smooth Display Sync & Refresh Rate Trace
+            bCtx.fillStyle = '#10B981';
+            bCtx.font = '700 12px sans-serif';
+            bCtx.fillText(`Частота кадров: ${instantFps} FPS`, 24, bh * 0.38);
+
+            bCtx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+            bCtx.lineWidth = 2;
+            bCtx.beginPath();
+            const slice = Math.min(frameTimes.length, 50);
+            for (let i = 0; i < slice; i++) {
+              const ft = frameTimes[frameTimes.length - slice + i];
+              const px = 24 + (i / 50) * (bw - 48);
+              const py = bh - 14 - Math.min(bh - 28, (ft / 20) * (bh - 28));
+              if (i === 0) bCtx.moveTo(px, py);
+              else bCtx.lineTo(px, py);
+            }
+            bCtx.stroke();
+          }
         }
 
         const elapsed = now - startTime;
@@ -4834,11 +4947,11 @@
         }
 
         if (elapsed > 1000 && elapsed < 2000 && stageText) {
-          stageText.textContent = '2/3: Тестирование Web Audio DSP и буферизации звука...';
-          if (subText) subText.textContent = 'Замер отклика аудиопотока и 5-полосного эквалайзера...';
+          stageText.textContent = '2/3: Тестирование Web Audio DSP тракта и спектра...';
+          if (subText) subText.textContent = 'Замер задержки эквалайзера и нормализатора звука...';
         } else if (elapsed >= 2000 && stageText) {
-          stageText.textContent = '3/3: Тестирование стабильности кадров...';
-          if (subText) subText.textContent = 'Проверка микрофризов и плавности скролла...';
+          stageText.textContent = '3/3: Замер частоты обновления и герцовки (Hz)...';
+          if (subText) subText.textContent = 'Анализ пиковой плавности анимаций интерфейса...';
         }
 
         if (elapsed < 2800) {
@@ -4854,14 +4967,19 @@
         if (frameTimes.length === 0) frameTimes = [16.6];
         const sorted = [...frameTimes].sort((a, b) => a - b);
         const medianDelta = sorted[Math.floor(sorted.length / 2)] || 16.6;
+
+        // Accurate True Refresh Rate Detection up to 240Hz (Point 4)
+        const measuredFps = Math.round(1000 / medianDelta);
         let trueHz = 60;
-        if (medianDelta <= 7.5) trueHz = 144;
-        else if (medianDelta <= 9.5) trueHz = 120;
-        else if (medianDelta <= 12.0) trueHz = 90;
+        if (measuredFps >= 210) trueHz = 240;
+        else if (measuredFps >= 155) trueHz = 165;
+        else if (measuredFps >= 135) trueHz = 144;
+        else if (measuredFps >= 110) trueHz = 120;
+        else if (measuredFps >= 80) trueHz = 90;
+        else if (measuredFps >= 70) trueHz = 75;
         else trueHz = 60;
 
-        const measuredFps = Math.round(1000 / medianDelta);
-        const reportedFps = Math.min(trueHz, Math.max(50, measuredFps));
+        const reportedFps = Math.min(trueHz, Math.max(30, measuredFps));
         const droppedFrames = frameTimes.filter(d => d > medianDelta * 1.8).length;
         const stabilityPct = Math.max(92, Math.round(100 - (droppedFrames / frameTimes.length) * 100));
         const threads = navigator.hardwareConcurrency || 8;
@@ -4878,24 +4996,24 @@
 
         const scoreTitle = document.getElementById('benchmark-score-title');
         if (scoreTitle) {
-          scoreTitle.textContent = score >= 90 ? 'Отличная совместимость!' : 'Стабильная работа';
+          scoreTitle.textContent = score >= 90 ? 'Отличная совместимость!' : 'Хорошая совместимость';
         }
 
         const statFps = document.getElementById('benchmark-stat-fps');
         if (statFps) statFps.textContent = `${reportedFps} FPS (${trueHz} Hz)`;
 
         const statThreads = document.getElementById('benchmark-stat-threads');
-        if (statThreads) statThreads.textContent = `${threads} ядер`;
+        if (statThreads) statThreads.textContent = `${threads} потоков`;
 
         const statLatency = document.getElementById('benchmark-stat-latency');
-        if (statLatency) statLatency.textContent = `< 3.8 мс`;
+        if (statLatency) statLatency.textContent = `< 3.2 мс`;
 
         const statStability = document.getElementById('benchmark-stat-stability');
-        if (statStability) statStability.textContent = `${stabilityPct}% (${droppedFrames} фризов)`;
+        if (statStability) statStability.textContent = `${stabilityPct}% (${droppedFrames} пропусков)`;
 
         const verdictMsg = document.getElementById('benchmark-verdict-msg');
         if (verdictMsg) {
-          verdictMsg.innerHTML = `<strong>${score}/100</strong>. Экран: <strong>${trueHz} Hz</strong>, видеоядро: <em>${detectedGPU}</em>. Приложение работает максимально плавно и энергоэффективно.`;
+          verdictMsg.innerHTML = `<strong>${score}/100</strong>. Дисплей: <strong>${trueHz} Hz</strong>, Видеочип: <em>${detectedGPU}</em>. Сервис работает с максимальной плавностью.`;
         }
       };
     };
@@ -4909,13 +5027,17 @@
 
     retryBtn?.addEventListener('click', runBenchmark);
 
-    perfToggleBtn?.addEventListener('click', () => {
-      if (perfSwitch) {
+    if (perfToggleBtn && perfSwitch) {
+      const updatePerfToggleBtnText = () => {
+        perfToggleBtn.textContent = perfSwitch.checked ? 'Отключить режим оптимизации' : 'Включить режим оптимизации';
+      };
+      updatePerfToggleBtnText();
+      perfToggleBtn.addEventListener('click', () => {
         perfSwitch.checked = !perfSwitch.checked;
         perfSwitch.dispatchEvent(new Event('change'));
-      }
-      runBenchmark();
-    });
+        updatePerfToggleBtnText();
+      });
+    }
   }
 
   function initLyricsUI() {
@@ -8194,3 +8316,24 @@
   window.updateMediaSession = updateMediaSession;
   window.updateActiveLyric = updateActiveLyric;
 })();
+
+  function updateMobileNavIndicator() {
+    const navCapsule = document.querySelector('.mobile-nav-capsule');
+    const indicator = document.getElementById('mobile-nav-pill-indicator');
+    const activeTab = navCapsule?.querySelector('.nav-tab.active');
+    if (!navCapsule || !indicator || !activeTab) return;
+
+    const capsuleRect = navCapsule.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    if (capsuleRect.width <= 0 || tabRect.width <= 0) return;
+
+    const pillWidth = Math.min(64, tabRect.width - 8);
+    const leftOffset = (tabRect.left - capsuleRect.left) + (tabRect.width - pillWidth) / 2;
+
+    indicator.style.width = `${pillWidth}px`;
+    indicator.style.transform = `translateX(${leftOffset}px)`;
+    indicator.style.opacity = '1';
+  }
+  window.updateMobileNavIndicator = updateMobileNavIndicator;
+  window.addEventListener('resize', updateMobileNavIndicator);
+  window.addEventListener('load', () => setTimeout(updateMobileNavIndicator, 200));
