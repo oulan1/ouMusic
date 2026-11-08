@@ -11,26 +11,70 @@
   "icons": [
     {
       "src": "./assets/oumusic.png",
-      "sizes": "192x192 512x512",
+      "sizes": "96x96",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/oumusic.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/oumusic.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/oumusic.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/oumusic.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./assets/oumusic.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "categories": ["music", "entertainment", "audio"],
+  "categories": [
+    "music",
+    "entertainment",
+    "audio"
+  ],
   "shortcuts": [
     {
       "name": "Главная",
       "short_name": "Главная",
       "description": "Открыть ouMusic",
       "url": "./index.html#home",
-      "icons": [{ "src": "./assets/oumusic.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "./assets/oumusic.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Моя Студия",
       "short_name": "Студия",
       "description": "Создать и обрезать новый .oump3 трек",
       "url": "./index.html#studio",
-      "icons": [{ "src": "./assets/oumusic.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "./assets/oumusic.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

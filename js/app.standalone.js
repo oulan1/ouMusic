@@ -1955,17 +1955,18 @@
     try {
       const coverUrl = track.coverUrl || track.thumbBase64 || 'assets/oumusic.png';
       const absCover = new URL(coverUrl, window.location.href).href;
+      const mime = absCover.startsWith('data:image/jpeg') ? 'image/jpeg' : (absCover.startsWith('data:image/webp') ? 'image/webp' : 'image/png');
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title || 'ouMusic Track',
         artist: track.artist || 'ouMusic Artist',
         album: 'ouMusic',
         artwork: [
-          { src: absCover, sizes: '96x96', type: 'image/png' },
-          { src: absCover, sizes: '128x128', type: 'image/png' },
-          { src: absCover, sizes: '192x192', type: 'image/png' },
-          { src: absCover, sizes: '256x256', type: 'image/png' },
-          { src: absCover, sizes: '384x384', type: 'image/png' },
-          { src: absCover, sizes: '512x512', type: 'image/png' }
+          { src: absCover, sizes: '96x96', type: mime },
+          { src: absCover, sizes: '128x128', type: mime },
+          { src: absCover, sizes: '192x192', type: mime },
+          { src: absCover, sizes: '256x256', type: mime },
+          { src: absCover, sizes: '384x384', type: mime },
+          { src: absCover, sizes: '512x512', type: mime }
         ]
       });
 
@@ -8549,7 +8550,10 @@
 
     const pillW = Math.max(0, Math.round(tabRect.width - (insetX * 2)));
     const pillH = Math.max(0, Math.round(capsule.clientHeight - (insetY * 2)));
-    const targetX = Math.round(tabRect.left - capsuleRect.left - clientLeft + insetX);
+    const minPillX = insetX;
+    const maxPillX = Math.max(minPillX, capsule.clientWidth - pillW - insetX);
+    let targetX = Math.round(tabRect.left - capsuleRect.left - clientLeft + insetX);
+    targetX = Math.max(minPillX, Math.min(maxPillX, targetX));
     const targetY = Math.round(insetY);
 
     pill.style.width = `${pillW}px`;
