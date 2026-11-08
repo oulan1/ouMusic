@@ -8503,22 +8503,36 @@
     const activeTab = capsule?.querySelector('.nav-tab.active');
     if (!capsule || !pill || !activeTab) return;
 
-    const iconWrap = activeTab.querySelector('.tab-icon-wrap') || activeTab;
     const capsuleRect = capsule.getBoundingClientRect();
-    const iconRect = iconWrap.getBoundingClientRect();
-    if (capsuleRect.width <= 0 || iconRect.width <= 0) return;
+    const tabRect = activeTab.getBoundingClientRect();
+    if (capsuleRect.width <= 0 || tabRect.width <= 0) return;
 
-    const targetX = iconRect.left - capsuleRect.left;
-    const targetY = iconRect.top - capsuleRect.top;
-    const pillW = Math.round(iconRect.width);
-    const pillH = Math.round(iconRect.height);
+    // Encompass the entire active section (both icon and label)
+    const clientLeft = capsule.clientLeft || 0;
+    const clientTop = capsule.clientTop || 0;
+    const insetY = 5;
+    const insetX = 4;
+
+    const pillW = Math.max(0, Math.round(tabRect.width - (insetX * 2)));
+    const pillH = Math.max(0, Math.round(capsule.clientHeight - (insetY * 2)));
+    const targetX = Math.round(tabRect.left - capsuleRect.left - clientLeft + insetX);
+    const targetY = Math.round(insetY);
 
     pill.style.width = `${pillW}px`;
     pill.style.height = `${pillH}px`;
-    pill.style.transform = `translate3d(${Math.round(targetX)}px, ${Math.round(targetY)}px, 0)`;
+    pill.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
     pill.style.opacity = '1';
   }
   window.updateMobileNavPill = updateMobileNavPill;
   window.addEventListener('resize', updateMobileNavPill);
-  window.addEventListener('load', () => setTimeout(updateMobileNavPill, 100));
-  document.addEventListener('DOMContentLoaded', () => setTimeout(updateMobileNavPill, 60));
+  window.addEventListener('load', () => {
+    updateMobileNavPill();
+    setTimeout(updateMobileNavPill, 80);
+    setTimeout(updateMobileNavPill, 250);
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    updateMobileNavPill();
+    setTimeout(updateMobileNavPill, 50);
+  });
+  // Immediate call in case DOM is already ready
+  setTimeout(updateMobileNavPill, 30);
