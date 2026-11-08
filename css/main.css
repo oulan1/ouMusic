@@ -534,7 +534,6 @@ html, body {
   box-sizing: border-box;
   touch-action: none;
   user-select: none;
-  overflow: hidden !important;
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -582,7 +581,7 @@ html, body {
   z-index: 1 !important;
   opacity: 0;
   box-sizing: border-box;
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
               width 0.25s ease,
               height 0.25s ease,
               opacity 0.2s ease !important;
@@ -1100,7 +1099,7 @@ html, body {
 }
 [data-liquid-glass="true"] .liquid-glass-content,
 [data-liquid-glass="true"] .top-app-bar > *,
-[data-liquid-glass="true"] .mini-player > *:not(.mini-player-progress-container),
+[data-liquid-glass="true"] .mini-player > *,
 [data-liquid-glass="true"] .home-wave-card > * {
   position: relative;
   z-index: 2;
@@ -1949,45 +1948,4 @@ html, body {
 [data-theme="light"] #wave-ai-comment-text.thinking {
   color: var(--md-sys-color-primary) !important;
   text-shadow: none;
-}
-
-/* Explicit Liquid Glass Scrubber Integrity (Uncompromised visibility & touch tracking) */
-[data-liquid-glass="true"] .mini-player > .mini-player-progress-container,
-[data-liquid-glass="true"] .mini-player-progress-container {
-  position: absolute !important;
-  top: -6px !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 16px !important;
-  z-index: 45 !important;
-  display: flex !important;
-  align-items: center !important;
-  overflow: visible !important;
-  pointer-events: auto !important;
-}
-
-[data-liquid-glass="true"] .mini-player-pill-clip {
-  position: absolute !important;
-  inset: 0 !important;
-  border-radius: 9999px !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-  z-index: 10 !important;
-}
-
-[data-liquid-glass="true"] .mini-player-pill-clip .mini-player-progress-bar,
-[data-liquid-glass="true"] .mini-player-progress-bar {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  height: 100% !important;
-  display: block !important;
-  opacity: 1 !important;
-  background: var(--md-sys-color-primary) !important;
-  box-shadow: 0 0 10px var(--md-sys-color-primary) !important;
-  pointer-events: none !important;
-}
-
-[data-liquid-glass="true"] .mini-player-progress-container::after {
-  z-index: 50 !important;
 }

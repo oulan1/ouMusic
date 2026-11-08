@@ -28,16 +28,13 @@
   <title>ouMusic</title>
 
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="assets/oumusic.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="assets/oumusic.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="assets/oumusic.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="assets/oumusic.png">
+  <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.14">
-  <link rel="stylesheet" href="css/main.css?v=2.7.14">
-  <link rel="stylesheet" href="css/components.css?v=2.7.14">
-  <link rel="stylesheet" href="css/player.css?v=2.7.14">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.13">
+  <link rel="stylesheet" href="css/main.css?v=2.7.13">
+  <link rel="stylesheet" href="css/components.css?v=2.7.13">
+  <link rel="stylesheet" href="css/player.css?v=2.7.13">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -48,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.14"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.13"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -884,7 +881,7 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.14</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.13</span> • Разработчик: oulan1
             </div>
           </div>
 
@@ -916,7 +913,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.7.14 • All Rights Reserved
+              Версия 2.7.13 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -1418,11 +1415,7 @@
 
       <!-- Mini Player Capsule / Dock -->
       <div class="mini-player" id="mini-player" style="display: none;">
-        <div class="mini-player-progress-container" id="mini-progress-container" title="Перемотка"></div>
-        <div class="mini-player-pill-clip">
-          <div class="mini-player-progress-bar" id="mini-progress-bar"></div>
-        </div>
-        </div>
+        <div class="mini-player-progress-container" id="mini-progress-container" title="Перемотка трека"><div class="mini-player-progress-bar" id="mini-progress-bar"></div></div>
         <div class="mini-cover">
           <img id="mini-cover-img" src="assets/oumusic.png" alt="Cover">
         </div>
@@ -2537,8 +2530,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.14"></script>
-  <script src="playlists/playlists.js?v=2.7.14"></script>
-  <script src="js/app.standalone.js?v=2.7.14"></script>
+  <script src="tracks/catalog.js?v=2.7.13"></script>
+  <script src="playlists/playlists.js?v=2.7.13"></script>
+  <script src="js/app.standalone.js?v=2.7.13"></script>
 </body>
 </html>
