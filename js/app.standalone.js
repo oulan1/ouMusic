@@ -1470,6 +1470,11 @@
 
     document.querySelectorAll('[data-nav]').forEach((tab) => {
       tab.addEventListener('click', (e) => {
+        if (window._suppressNavClickUntil && Date.now() < window._suppressNavClickUntil) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         e.preventDefault();
         const screenId = tab.getAttribute('data-nav');
         if (screenId) navigateTo(screenId);
@@ -3181,7 +3186,13 @@
 
       // Theme-aware radiant colors cached outside 120 FPS render loop
       let tr = 139, tg = 92, tb = 246;
-      function syncWaveColors() {
+      function syncWaveColors(forceR, forceG, forceB) {
+        if (typeof forceR === 'number' && typeof forceG === 'number' && typeof forceB === 'number') {
+          tr = forceR;
+          tg = forceG;
+          tb = forceB;
+          return;
+        }
         try {
           const rootStyle = getComputedStyle(document.documentElement);
           const accent = (rootStyle.getPropertyValue('--md-sys-color-primary') || '#8B5CF6').trim();
@@ -3193,6 +3204,18 @@
             tb = parseInt(h.substring(4, 6), 16) || tb;
           } else if (accent.startsWith('rgb')) {
             const m = accent.match(/\d+/g);
+            if (m && m.length >= 3) {
+              tr = parseInt(m[0], 10);
+              tg = parseInt(m[1], 10);
+              tb = parseInt(m[2], 10);
+            }
+          } else {
+            const d = document.createElement('div');
+            d.style.color = accent;
+            document.body.appendChild(d);
+            const comp = getComputedStyle(d).color;
+            document.body.removeChild(d);
+            const m = comp.match(/\d+/g);
             if (m && m.length >= 3) {
               tr = parseInt(m[0], 10);
               tg = parseInt(m[1], 10);
@@ -3286,7 +3309,7 @@
         const coreBloom = baseRadius * 1.35 + smoothBass * 28;
         const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.2, cx, cy, coreBloom);
         aura.addColorStop(0, `rgba(${curR}, ${curG}, ${curB}, ${0.55 + smoothBass * 0.35})`);
-        aura.addColorStop(0.5, `rgba(${Math.min(255, curR + 40)}, ${curG}, ${Math.min(255, curB + 60)}, ${0.22 + smoothBass * 0.2})`);
+        aura.addColorStop(0.5, `rgba(${curR}, ${curG}, ${curB}, ${0.22 + smoothBass * 0.2})`);
         aura.addColorStop(0.85, `rgba(${curR}, ${curG}, ${curB}, 0.05)`);
         aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = aura;
@@ -5508,6 +5531,8 @@
       try { localStorage.setItem('oumusic_theme', 'dark'); } catch (e) {}
       syncAmoledAvailability(true);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
     });
 
     lightBtn?.addEventListener('click', () => {
@@ -5517,6 +5542,8 @@
       try { localStorage.setItem('oumusic_theme', 'light'); } catch (e) {}
       syncAmoledAvailability(false);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
     });
 
     amoledToggle?.addEventListener('change', () => {
@@ -5707,6 +5734,8 @@
       root.style.setProperty('--md-sys-color-on-primary-container', `rgba(${Math.min(255, r + 60)}, ${Math.min(255, g + 60)}, ${Math.min(255, b + 60)}, 1)`);
       root.style.setProperty('--glow-color-1', `rgba(${r}, ${g}, ${b}, 0.45)`);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
 
       try {
         localStorage.setItem('oumusic_accent_color', colorHex);
@@ -5738,6 +5767,7 @@
         }
       }
     }
+    window.applyAccentColor = applyAccentColor;
 
     // Adaptive Accent Color Button
     const adaptiveBtn = document.getElementById('adaptive-accent-btn');
@@ -5793,11 +5823,15 @@
         darkBtn?.classList.remove('active');
         syncAmoledAvailability(false);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
       } else {
         darkBtn?.classList.add('active');
         lightBtn?.classList.remove('active');
         syncAmoledAvailability(true);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
       }
 
       // 2. AMOLED
@@ -8524,15 +8558,126 @@
     pill.style.opacity = '1';
   }
   window.updateMobileNavPill = updateMobileNavPill;
+
+  /* Smooth Drag / Slide Across Bottom Navigation Pill */
+  function initMobileNavDrag() {
+    const capsule = document.querySelector('.mobile-nav-capsule');
+    const pill = document.getElementById('mobile-nav-sliding-pill');
+    if (!capsule || !pill || capsule._dragInitialized) return;
+    capsule._dragInitialized = true;
+
+    let isDragging = false;
+    let startX = 0;
+    let hasMoved = false;
+
+    function getTabs() {
+      return Array.from(capsule.querySelectorAll('.nav-tab'));
+    }
+
+    function getClosestTab(clientX) {
+      const tabs = getTabs();
+      if (!tabs.length) return null;
+      let closest = tabs[0];
+      let minDistance = Infinity;
+      tabs.forEach((tab) => {
+        const r = tab.getBoundingClientRect();
+        const centerX = r.left + r.width / 2;
+        const dist = Math.abs(clientX - centerX);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closest = tab;
+        }
+      });
+      return closest;
+    }
+
+    function onPointerDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      try { capsule.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const dx = Math.abs(e.clientX - startX);
+      if (dx > 4) {
+        hasMoved = true;
+      }
+      if (!hasMoved) return;
+
+      const capsuleRect = capsule.getBoundingClientRect();
+      const clientLeft = capsule.clientLeft || 0;
+      const insetY = 5;
+      const insetX = 4;
+      const tabs = getTabs();
+      const currentTab = getClosestTab(e.clientX);
+      if (!currentTab) return;
+
+      const tabRect = currentTab.getBoundingClientRect();
+      const pillW = Math.max(0, Math.round(tabRect.width - (insetX * 2)));
+      const pillH = Math.max(0, Math.round(capsule.clientHeight - (insetY * 2)));
+
+      // Disable transition during drag for 0-latency 120fps tracking
+      pill.style.transition = 'none';
+
+      // Follow finger smoothly, centered on cursor, clamped within capsule bounds
+      const minPillX = insetX;
+      const maxPillX = capsule.clientWidth - pillW - insetX;
+      let targetX = e.clientX - capsuleRect.left - clientLeft - (pillW / 2);
+      targetX = Math.max(minPillX, Math.min(maxPillX, targetX));
+
+      pill.style.width = `${pillW}px`;
+      pill.style.height = `${pillH}px`;
+      pill.style.transform = `translate3d(${Math.round(targetX)}px, ${insetY}px, 0)`;
+      pill.style.opacity = '1';
+
+      // Visually activate tab as finger slides over it
+      tabs.forEach((t) => t.classList.toggle('active', t === currentTab));
+    }
+
+    function onPointerUp(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      try { capsule.releasePointerCapture(e.pointerId); } catch (_) {}
+
+      // Re-enable smooth spring transition
+      pill.style.transition = '';
+
+      if (hasMoved) {
+        window._suppressNavClickUntil = Date.now() + 150;
+        const targetTab = getClosestTab(e.clientX);
+        const screenId = targetTab?.getAttribute('data-nav');
+        if (screenId && window.navigateTo) {
+          window.navigateTo(screenId);
+        } else {
+          updateMobileNavPill();
+        }
+      } else {
+        updateMobileNavPill();
+      }
+    }
+
+    capsule.addEventListener('pointerdown', onPointerDown);
+    capsule.addEventListener('pointermove', onPointerMove);
+    capsule.addEventListener('pointerup', onPointerUp);
+    capsule.addEventListener('pointercancel', onPointerUp);
+  }
+  window.initMobileNavDrag = initMobileNavDrag;
+
   window.addEventListener('resize', updateMobileNavPill);
   window.addEventListener('load', () => {
     updateMobileNavPill();
+    initMobileNavDrag();
     setTimeout(updateMobileNavPill, 80);
     setTimeout(updateMobileNavPill, 250);
   });
   document.addEventListener('DOMContentLoaded', () => {
     updateMobileNavPill();
+    initMobileNavDrag();
     setTimeout(updateMobileNavPill, 50);
   });
-  // Immediate call in case DOM is already ready
+  // Immediate calls
   setTimeout(updateMobileNavPill, 30);
+  setTimeout(initMobileNavDrag, 30);

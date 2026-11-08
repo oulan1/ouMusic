@@ -713,7 +713,7 @@
   text-align: center;
   padding: 18px 16px 14px 16px;
   margin-bottom: 20px;
-  background: radial-gradient(circle at 50% 30%, rgba(139, 92, 246, 0.18) 0%, rgba(236, 72, 153, 0.08) 45%, rgba(18, 18, 24, 0) 75%);
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) 0%, color-mix(in srgb, var(--md-sys-color-primary) 6%, transparent) 45%, rgba(18, 18, 24, 0) 75%);
   border-radius: var(--md-shape-corner-extra-large);
   border: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -728,7 +728,7 @@
   width: 380px;
   height: 380px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--glow-color-1, rgba(139, 92, 246, 0.28)) 0%, rgba(236, 72, 153, 0.12) 35%, rgba(139, 92, 246, 0.03) 60%, transparent 75%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent) 0%, color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent) 40%, transparent 75%);
   pointer-events: none;
   z-index: 0;
   opacity: 0.85;
@@ -850,7 +850,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent);
   border: none;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
@@ -858,7 +858,7 @@
 
 .wave-main-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 30px rgba(139, 92, 246, 0.7);
+  box-shadow: 0 6px 30px color-mix(in srgb, var(--md-sys-color-primary) 55%, transparent);
 }
 
 .wave-main-fab:active {
@@ -1432,7 +1432,7 @@
   background: var(--md-sys-color-primary);
   color: #FFFFFF;
   border: none;
-  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.55);
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
