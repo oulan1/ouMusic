@@ -565,7 +565,49 @@ html, body {
   display: none !important;
 }
 
-/* Nav capsule tabs: completely flat, transparent buttons inside capsule */
+/* Mobile Navigation Sliding Oval Pill (Smooth Spring Movement) */
+.mobile-nav-sliding-pill {
+  position: absolute !important;
+  top: 6px;
+  left: 0;
+  width: 52px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  pointer-events: none !important;
+  z-index: 1 !important;
+  opacity: 0;
+  box-sizing: border-box;
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 0.25s ease,
+              height 0.25s ease,
+              opacity 0.2s ease !important;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="light"] .mobile-nav-sliding-pill {
+  background: var(--md-sys-color-primary-container) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent) !important;
+}
+
+[data-liquid-glass="true"] .mobile-nav-sliding-pill {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="light"][data-liquid-glass="true"] .mobile-nav-sliding-pill {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-perf-mode="true"] .mobile-nav-sliding-pill {
+  transition: none !important;
+}
+
+/* Nav capsule tabs: flat transparent buttons positioned above sliding pill */
 .mobile-nav-capsule .nav-tab,
 [data-liquid-glass="true"] .mobile-nav-capsule .nav-tab,
 [data-theme="light"][data-liquid-glass="true"] .mobile-nav-capsule .nav-tab {
@@ -582,6 +624,8 @@ html, body {
   padding: 4px 0;
   cursor: pointer;
   box-sizing: border-box;
+  position: relative !important;
+  z-index: 2 !important;
 }
 
 .nav-tab {
@@ -608,32 +652,35 @@ html, body {
   width: 52px;
   height: 28px;
   border-radius: 9999px;
-  transition: background 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.2s ease, box-shadow 0.25s ease;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: transform 0.2s ease;
   box-sizing: border-box;
 }
 
 .nav-tab.active .tab-icon-wrap {
-  background: var(--md-sys-color-primary-container) !important;
+  background: transparent !important;
   color: var(--md-sys-color-on-primary-container) !important;
 }
 
 [data-liquid-glass="true"] .nav-tab.active .tab-icon-wrap {
-  background: rgba(255, 255, 255, 0.18) !important;
+  background: transparent !important;
   color: #FFFFFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 [data-theme="light"] .nav-tab.active .tab-icon-wrap {
-  background: var(--md-sys-color-primary-container) !important;
+  background: transparent !important;
   color: var(--md-sys-color-on-primary-container) !important;
 }
 
 [data-theme="light"][data-liquid-glass="true"] .nav-tab.active .tab-icon-wrap {
-  background: rgba(0, 0, 0, 0.08) !important;
+  background: transparent !important;
   color: var(--md-sys-color-primary) !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .nav-tab.active {

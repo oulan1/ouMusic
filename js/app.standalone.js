@@ -1564,6 +1564,9 @@
     if (screenId === 'settings' && window._resizeEQCanvas) {
       setTimeout(window._resizeEQCanvas, 50);
     }
+    if (window.updateMobileNavPill) {
+      window.updateMobileNavPill();
+    }
 
 
     const backBtn = document.getElementById('top-back-btn');
@@ -3418,7 +3421,7 @@
           aiBox.style.display = 'flex';
 
           const trackId = track.id || track.src || (track.title + track.artist);
-          // If this is a newly selected track, show realistic extended "Думает..." processing sequence
+          // If this is a newly selected track, show realistic randomized 4-6s thinking sequence
           if (trackId !== currentAITrackId) {
             currentAITrackId = trackId;
             if (window._aiThinkingTimers) {
@@ -3427,18 +3430,33 @@
             window._aiThinkingTimers = [];
 
             if (aiTextEl) {
+              // Randomized thinking duration between 4000ms and 6000ms
+              const totalDuration = 4000 + Math.random() * 2000;
               const steps = [
                 'Думает.',
                 'Думает..',
                 'Думает...',
-                'Анализирует звучание...'
+                'Анализирует трек...',
+                'Формирует рекомендацию...'
               ];
               aiTextEl.textContent = steps[0];
               aiTextEl.classList.add('thinking');
 
-              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[1]; }, 450));
-              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[2]; }, 950));
-              window._aiThinkingTimers.push(setTimeout(() => { if (trackId === currentAITrackId) aiTextEl.textContent = steps[3]; }, 1450));
+              window._aiThinkingTimers.push(setTimeout(() => {
+                if (trackId === currentAITrackId) aiTextEl.textContent = steps[1];
+              }, Math.round(totalDuration * 0.18)));
+
+              window._aiThinkingTimers.push(setTimeout(() => {
+                if (trackId === currentAITrackId) aiTextEl.textContent = steps[2];
+              }, Math.round(totalDuration * 0.36)));
+
+              window._aiThinkingTimers.push(setTimeout(() => {
+                if (trackId === currentAITrackId) aiTextEl.textContent = steps[3];
+              }, Math.round(totalDuration * 0.55)));
+
+              window._aiThinkingTimers.push(setTimeout(() => {
+                if (trackId === currentAITrackId) aiTextEl.textContent = steps[4];
+              }, Math.round(totalDuration * 0.75)));
 
               window._aiThinkingTimers.push(setTimeout(() => {
                 if (trackId !== currentAITrackId) return;
@@ -3454,13 +3472,14 @@
                       'Идеальный мэтч человека и ИИ — когда нам нравится одно и то же',
                       `Особая атмосфера и уникальное звучание от ${artist}`,
                       'Этот трек отлично вписывается в настроение вашей волны',
-                      'Глубокий ритм и живой бас'
+                      'Глубокий ритм и живой бас',
+                      'Свежий релиз, который идеально подходит под ваш профиль'
                     ];
                     aiTextEl.textContent = comments[Math.floor(Math.random() * comments.length)];
                   }
                   aiTextEl.style.opacity = '1';
-                }, 120);
-              }, 2200));
+                }, 140);
+              }, Math.round(totalDuration)));
             }
           }
           // If same track (e.g. paused / resumed), keep current comment visible!
@@ -8478,5 +8497,28 @@
   window.updateActiveLyric = updateActiveLyric;
 })();
 
-  // Mobile navigation active tab styling is handled directly by .tab-icon-wrap in CSS
-  window.updateMobileNavIndicator = function() {};
+  function updateMobileNavPill() {
+    const capsule = document.querySelector('.mobile-nav-capsule');
+    const pill = document.getElementById('mobile-nav-sliding-pill');
+    const activeTab = capsule?.querySelector('.nav-tab.active');
+    if (!capsule || !pill || !activeTab) return;
+
+    const iconWrap = activeTab.querySelector('.tab-icon-wrap') || activeTab;
+    const capsuleRect = capsule.getBoundingClientRect();
+    const iconRect = iconWrap.getBoundingClientRect();
+    if (capsuleRect.width <= 0 || iconRect.width <= 0) return;
+
+    const targetX = iconRect.left - capsuleRect.left;
+    const targetY = iconRect.top - capsuleRect.top;
+    const pillW = Math.round(iconRect.width);
+    const pillH = Math.round(iconRect.height);
+
+    pill.style.width = `${pillW}px`;
+    pill.style.height = `${pillH}px`;
+    pill.style.transform = `translate3d(${Math.round(targetX)}px, ${Math.round(targetY)}px, 0)`;
+    pill.style.opacity = '1';
+  }
+  window.updateMobileNavPill = updateMobileNavPill;
+  window.addEventListener('resize', updateMobileNavPill);
+  window.addEventListener('load', () => setTimeout(updateMobileNavPill, 100));
+  document.addEventListener('DOMContentLoaded', () => setTimeout(updateMobileNavPill, 60));
