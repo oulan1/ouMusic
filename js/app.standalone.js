@@ -8549,7 +8549,10 @@
 
     const pillW = Math.max(0, Math.round(tabRect.width - (insetX * 2)));
     const pillH = Math.max(0, Math.round(capsule.clientHeight - (insetY * 2)));
-    const targetX = Math.round(tabRect.left - capsuleRect.left - clientLeft + insetX);
+    const minPillX = insetX;
+    const maxPillX = Math.max(minPillX, capsule.clientWidth - pillW - insetX);
+    let targetX = Math.round(tabRect.left - capsuleRect.left - clientLeft + insetX);
+    targetX = Math.max(minPillX, Math.min(maxPillX, targetX));
     const targetY = Math.round(insetY);
 
     pill.style.width = `${pillW}px`;
