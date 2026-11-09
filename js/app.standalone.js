@@ -1566,6 +1566,19 @@
 
     const target = document.getElementById(`screen-${screenId}`);
     if (target) target.classList.add('active');
+    const screensContainer = document.getElementById('screens-container') || document.querySelector('.screens-container');
+    if (screensContainer) {
+      screensContainer.scrollTop = 0;
+    }
+    if (document.body.scrollTop !== 0) {
+      document.body.scrollTop = 0;
+    }
+    if (document.documentElement.scrollTop !== 0) {
+      document.documentElement.scrollTop = 0;
+    }
+    if (window.scrollY !== 0) {
+      window.scrollTo(0, 0);
+    }
     if (screenId === 'settings' && window._resizeEQCanvas) {
       setTimeout(window._resizeEQCanvas, 50);
     }
@@ -3714,7 +3727,19 @@
         stopStudioPreview();
       }
 
-      document.getElementById('screen-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const screensContainer = document.getElementById('screens-container') || document.querySelector('.screens-container');
+      if (screensContainer) {
+        screensContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (document.body.scrollTop !== 0) {
+        document.body.scrollTop = 0;
+      }
+      if (document.documentElement.scrollTop !== 0) {
+        document.documentElement.scrollTop = 0;
+      }
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
     }
     window.goToStudioStep = goToStudioStep;
     window.setStudioAudioBuffer = function(buf, blob) {
