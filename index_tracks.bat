@@ -22,10 +22,10 @@ if not defined PY_CMD (
 
 echo [1/2] Indexing tracks (*.oump3) and playlists (*.oulist)...
 %PY_CMD% "%~dp0index_tracks.py"
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo [ERROR] Indexing failed!
     pause
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 echo.
@@ -36,12 +36,12 @@ git add -A tracks playlists assets artists.txt index.html css js sw.js manifest.
 git pull --rebase origin main >nul 2>&1
 
 git diff --staged --quiet
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo [INFO] Committing indexed catalog...
     git commit -m "sync: index tracks and community playlists"
     echo [INFO] Pushing to GitHub Pages...
     git push origin main
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         echo [SUCCESS] Catalog synced and published to GitHub!
     ) else (
         echo [WARNING] Git push failed. Please check internet connection.

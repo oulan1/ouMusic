@@ -23,10 +23,10 @@ if not defined PY_CMD (
 
 echo [1/3] Indexing tracks (*.oump3) and playlists (*.oulist)...
 %PY_CMD% "%~dp0index_tracks.py"
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo [ERROR] Indexing failed!
     pause
-    exit /b %ERRORLEVEL%
+    exit /b !ERRORLEVEL!
 )
 
 echo.
@@ -37,12 +37,12 @@ git add -A tracks playlists assets artists.txt index.html css js sw.js manifest.
 git pull --rebase origin main >nul 2>&1
 
 git diff --staged --quiet
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo [INFO] Committing changes...
     git commit -m "sync: 1-click auto update tracks and community playlists"
     echo [INFO] Pushing updates to GitHub Pages...
     git push origin main
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         echo [SUCCESS] Updates published to GitHub!
         echo URL: https://oulan1.github.io/ouMusic/
     ) else (
@@ -61,7 +61,7 @@ echo.
 start http://localhost:8080
 
 %PY_CMD% -m http.server 8080 --directory "%~dp0."
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     npx serve -l 8080 "%~dp0."
 )
 pause
