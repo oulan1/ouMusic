@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.19">
-  <link rel="stylesheet" href="css/main.css?v=2.7.19">
-  <link rel="stylesheet" href="css/components.css?v=2.7.19">
-  <link rel="stylesheet" href="css/player.css?v=2.7.19">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.20">
+  <link rel="stylesheet" href="css/main.css?v=2.7.20">
+  <link rel="stylesheet" href="css/components.css?v=2.7.20">
+  <link rel="stylesheet" href="css/player.css?v=2.7.20">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.19"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.20"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -881,7 +881,7 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.19</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.20</span> • Разработчик: oulan1
             </div>
           </div>
 
@@ -913,7 +913,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.7.19 • All Rights Reserved
+              Версия 2.7.20 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -1226,6 +1226,17 @@
                   </div>
                 </div>
 
+                <!-- Quick DSP Presets Bar -->
+                <div style="margin-bottom: 18px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px 14px;">
+                  <div style="font-size: 0.82rem; font-weight: 700; color: var(--md-sys-color-outline); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Готовые пресеты минусовки:</div>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-tonal studio-preset-btn active" data-preset="balanced" style="font-size: 0.82rem; padding: 6px 14px; font-weight: 700; border: 1px solid rgba(139, 92, 246, 0.65); background: rgba(139, 92, 246, 0.25);">Студийный баланс</button>
+                    <button type="button" class="btn btn-tonal studio-preset-btn" data-preset="aggressive" style="font-size: 0.82rem; padding: 6px 14px; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.15);">Максимум (Агрессивное)</button>
+                    <button type="button" class="btn btn-tonal studio-preset-btn" data-preset="soft" style="font-size: 0.82rem; padding: 6px 14px; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.15);">Мягкое (Акустика / Рок)</button>
+                    <button type="button" class="btn btn-tonal studio-preset-btn" data-preset="trap" style="font-size: 0.82rem; padding: 6px 14px; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.15);">Хип-хоп / Трэп / Фонк</button>
+                  </div>
+                </div>
+
                 <!-- 6 Interactive DSP Sliders Grid -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 22px;">
                   
@@ -1233,19 +1244,19 @@
                   <div class="dsp-slider-card">
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;">
                       <span>Сохранение баса (НЧ)</span>
-                      <span id="val-inst-bass-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">160 Гц</span>
+                      <span id="val-inst-bass-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">135 Гц</span>
                     </div>
-                    <input type="range" id="slider-inst-bass-freq" min="60" max="380" step="5" value="160" style="width: 100%;">
-                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Сохраняет бочку и бас-линию без искажений</div>
+                    <input type="range" id="slider-inst-bass-freq" min="60" max="260" step="5" value="135" style="width: 100%;">
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Крутой срез 24 дБ/окт без просачивания голоса</div>
                   </div>
 
                   <!-- 2. Highs / Air Retention (HighPass cutoff) -->
                   <div class="dsp-slider-card">
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;">
                       <span>Сохранение верхов (ВЧ)</span>
-                      <span id="val-inst-air-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">8500 Гц</span>
+                      <span id="val-inst-air-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">9000 Гц</span>
                     </div>
-                    <input type="range" id="slider-inst-air-freq" min="4000" max="16000" step="100" value="8500" style="width: 100%;">
+                    <input type="range" id="slider-inst-air-freq" min="4000" max="16000" step="100" value="9000" style="width: 100%;">
                     <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Оставляет тарелки, хай-хэты и воздух инструментов</div>
                   </div>
 
@@ -1256,17 +1267,17 @@
                       <span id="val-inst-depth" style="color: var(--md-sys-color-primary); font-weight: 800;">100%</span>
                     </div>
                     <input type="range" id="slider-inst-depth" min="20" max="100" step="5" value="100" style="width: 100%;">
-                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Сила фазового подавления центрального моно-вокала</div>
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Mid-Side подавление центрального моно-вокала</div>
                   </div>
 
                   <!-- 4. Vocal Notch Frequency -->
                   <div class="dsp-slider-card">
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;">
                       <span>Вокальный режектор (Notch)</span>
-                      <span id="val-inst-notch-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">1600 Гц</span>
+                      <span id="val-inst-notch-freq" style="color: var(--md-sys-color-primary); font-weight: 800;">1500 Гц</span>
                     </div>
-                    <input type="range" id="slider-inst-notch-freq" min="600" max="4200" step="50" value="1600" style="width: 100%;">
-                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Целевая частота связок для устранения остаточного вокала</div>
+                    <input type="range" id="slider-inst-notch-freq" min="600" max="3500" step="25" value="1500" style="width: 100%;">
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Двухступенчатое устранение вокальных формант</div>
                   </div>
 
                   <!-- 5. Notch Filter Q Factor -->
@@ -1283,10 +1294,10 @@
                   <div class="dsp-slider-card">
                     <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;">
                       <span>Компенсация громкости</span>
-                      <span id="val-inst-makeup" style="color: var(--md-sys-color-primary); font-weight: 800;">1.30x</span>
+                      <span id="val-inst-makeup" style="color: var(--md-sys-color-primary); font-weight: 800;">1.15x</span>
                     </div>
-                    <input type="range" id="slider-inst-makeup" min="0.80" max="2.20" step="0.05" value="1.30" style="width: 100%;">
-                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Выравнивает громкость фонограммы после удаления вокала</div>
+                    <input type="range" id="slider-inst-makeup" min="0.80" max="2.20" step="0.05" value="1.15" style="width: 100%;">
+                    <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 6px;">Выравнивает громкость фонограммы без просадки</div>
                   </div>
                 </div>
               </div>
@@ -2530,8 +2541,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.19"></script>
-  <script src="playlists/playlists.js?v=2.7.19"></script>
-  <script src="js/app.standalone.js?v=2.7.19"></script>
+  <script src="tracks/catalog.js?v=2.7.20"></script>
+  <script src="playlists/playlists.js?v=2.7.20"></script>
+  <script src="js/app.standalone.js?v=2.7.20"></script>
 </body>
 </html>

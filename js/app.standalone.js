@@ -541,83 +541,121 @@
       const ctx = this.audioCtx;
       this.sourceNode = ctx.createMediaElementSource(this.audioElement);
 
-      // Professional Vocal Cancellation Matrix (L - R for stereo instruments + Lowpass bass)
+      // High-Fidelity Mid-Side Vocal Remover Engine (M-Core DSP v2)
       this.vocalDryGain = ctx.createGain();
       this.vocalWetGain = ctx.createGain();
       this.vocalDryGain.gain.value = 1.0;
       this.vocalWetGain.gain.value = 0.0;
 
+      // 1. Channel Splitter: L (ch 0) and R (ch 1)
       const splitter = ctx.createChannelSplitter(2);
       this.sourceNode.connect(splitter);
 
-      // Precise Center Vocal Cancellation Matrix with Dynamic Makeup Gain & Bass/Air Preservation
-      // Difference matrix: L - R cancels centered mono lead vocals, retaining full stereo spread
-      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 1.15;
-      const gainR_to_L = ctx.createGain(); gainR_to_L.gain.value = -1.15; // -R
-      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 1.15;
-      const gainL_to_R = ctx.createGain(); gainL_to_R.gain.value = -1.15; // -L
+      // 2. Mid Channel Matrix: M = 0.5 * L + 0.5 * R
+      const gainL_to_M = ctx.createGain(); gainL_to_M.gain.value = 0.5;
+      const gainR_to_M = ctx.createGain(); gainR_to_M.gain.value = 0.5;
+      const midNode = ctx.createGain();
+      splitter.connect(gainL_to_M, 0);
+      splitter.connect(gainR_to_M, 1);
+      gainL_to_M.connect(midNode);
+      gainR_to_M.connect(midNode);
 
-      splitter.connect(gainL_to_L, 0);
-      splitter.connect(gainR_to_L, 1);
-      splitter.connect(gainR_to_R, 1);
-      splitter.connect(gainL_to_R, 0);
+      // 3. Side Channel Matrix: S = 0.5 * L - 0.5 * R (Center Lead Vocals are 100% eliminated here!)
+      const gainL_to_S = ctx.createGain(); gainL_to_S.gain.value = 0.5;
+      const gainR_to_S = ctx.createGain(); gainR_to_S.gain.value = -0.5;
+      const sideNode = ctx.createGain();
+      splitter.connect(gainL_to_S, 0);
+      splitter.connect(gainR_to_S, 1);
+      gainL_to_S.connect(sideNode);
+      gainR_to_S.connect(sideNode);
 
-      // Low-pass filter to retain punchy kick drum & bass
-      const bassFilter = ctx.createBiquadFilter();
-      bassFilter.type = 'lowpass';
-      bassFilter.frequency.value = 160;
+      // 4. Processed Mid Stream: Mid Bass + Mid Air + Mid Center Vocal (attenuated)
+      const mProcessedNode = ctx.createGain();
+
+      // 4a. Cascaded 24 dB/octave LowPass for pure sub-bass & kick retention without vocal fundamental bleed
+      const bassFilter1 = ctx.createBiquadFilter();
+      bassFilter1.type = 'lowpass';
+      bassFilter1.frequency.value = 135;
+      bassFilter1.Q.value = 0.707;
+      const bassFilter2 = ctx.createBiquadFilter();
+      bassFilter2.type = 'lowpass';
+      bassFilter2.frequency.value = 135;
+      bassFilter2.Q.value = 0.707;
       const bassGain = ctx.createGain();
-      bassGain.gain.value = 0.72;
+      bassGain.gain.value = 0.95;
 
-      // High-shelf filter to retain crisp cymbals & acoustic air
+      midNode.connect(bassFilter1);
+      bassFilter1.connect(bassFilter2);
+      bassFilter2.connect(bassGain);
+      bassGain.connect(mProcessedNode);
+
+      // 4b. Air HighPass filter for cymbals, shimmer and stereo brilliance
       const airFilter = ctx.createBiquadFilter();
       airFilter.type = 'highpass';
-      airFilter.frequency.value = 8800;
+      airFilter.frequency.value = 9000;
+      airFilter.Q.value = 0.707;
       const airGain = ctx.createGain();
-      airGain.gain.value = 0.24;
+      airGain.gain.value = 0.30;
 
-      this.vocalBassFilter = bassFilter;
+      midNode.connect(airFilter);
+      airFilter.connect(airGain);
+      airGain.connect(mProcessedNode);
+
+      // 4c. Mid Vocal Band Notch Filter & Depth Attenuation
+      const vocalNotch1 = ctx.createBiquadFilter();
+      vocalNotch1.type = 'notch';
+      vocalNotch1.frequency.value = 1500;
+      vocalNotch1.Q.value = 1.4;
+
+      const vocalNotch2 = ctx.createBiquadFilter();
+      vocalNotch2.type = 'notch';
+      vocalNotch2.frequency.value = 2800;
+      vocalNotch2.Q.value = 2.0;
+
+      const vocalBandGain = ctx.createGain();
+      vocalBandGain.gain.value = 0.0; // depth = 100% -> vocal band fully eliminated
+
+      midNode.connect(vocalNotch1);
+      vocalNotch1.connect(vocalNotch2);
+      vocalNotch2.connect(vocalBandGain);
+      vocalBandGain.connect(mProcessedNode);
+
+      // 5. High-Fidelity Stereo Reconstruction Matrix:
+      // Left Out  = M_processed + S
+      // Right Out = M_processed - S
+      // Mono Sum  = (M_processed + S) + (M_processed - S) = 2 * M_processed (NEVER cancels out!)
+      // Stereo Diff = (M_processed + S) - (M_processed - S) = 2 * S (100% full stereo imaging!)
+      const merger = ctx.createChannelMerger(2);
+      const sideInverter = ctx.createGain();
+      sideInverter.gain.value = -1.0;
+      sideNode.connect(sideInverter);
+
+      // Left Channel
+      mProcessedNode.connect(merger, 0, 0);
+      sideNode.connect(merger, 0, 0);
+
+      // Right Channel
+      mProcessedNode.connect(merger, 0, 1);
+      sideInverter.connect(merger, 0, 1);
+
+      // 6. Master Makeup Gain
+      const makeupGain = ctx.createGain();
+      makeupGain.gain.value = 1.15;
+      merger.connect(makeupGain);
+      makeupGain.connect(this.vocalWetGain);
+
+      this.sourceNode.connect(this.vocalDryGain);
+
+      // Save references for live tuning
+      this.vocalBassFilter1 = bassFilter1;
+      this.vocalBassFilter2 = bassFilter2;
       this.vocalBassGain = bassGain;
       this.vocalAirFilter = airFilter;
       this.vocalAirGain = airGain;
-      this.vocalCenterGainL = gainR_to_L;
-      this.vocalCenterGainR = gainL_to_R;
-
-      this.sourceNode.connect(bassFilter);
-      bassFilter.connect(bassGain);
-
-      this.sourceNode.connect(airFilter);
-      airFilter.connect(airGain);
-
-      const merger = ctx.createChannelMerger(2);
-      // Left channel out: 1.15*(L - R) + Bass + Air
-      gainL_to_L.connect(merger, 0, 0);
-      gainR_to_L.connect(merger, 0, 0);
-      bassGain.connect(merger, 0, 0);
-      airGain.connect(merger, 0, 0);
-
-      // Right channel out: 1.15*(R - L) + Bass + Air
-      gainR_to_R.connect(merger, 0, 1);
-      gainL_to_R.connect(merger, 0, 1);
-      bassGain.connect(merger, 0, 1);
-      airGain.connect(merger, 0, 1);
-
-      // Vocal notch filter to eliminate remaining vocal formant resonance
-      const vocalNotch = ctx.createBiquadFilter();
-      vocalNotch.type = 'notch';
-      vocalNotch.frequency.value = 1600;
-      vocalNotch.Q.value = 1.4;
-      this.vocalNotchFilter = vocalNotch;
-
-      // Makeup amplifier so volume never drops when turning on Minusovka
-      const makeupGain = ctx.createGain();
-      makeupGain.gain.value = 1.28;
+      this.vocalBandGain = vocalBandGain;
+      this.vocalNotchFilter1 = vocalNotch1;
+      this.vocalNotchFilter2 = vocalNotch2;
       this.vocalMakeupGain = makeupGain;
-
-      merger.connect(vocalNotch);
-      vocalNotch.connect(makeupGain);
-      makeupGain.connect(this.vocalWetGain);
-      this.sourceNode.connect(this.vocalDryGain);
 
       const postVocal = ctx.createGain();
       this.vocalDryGain.connect(postVocal);
@@ -988,44 +1026,52 @@
       this.vocalWetGain.gain.cancelScheduledValues(t);
 
       let cfg = {
-        bassFreq: 160,
-        bassGain: 0.72,
-        airFreq: 8800,
-        airGain: 0.24,
+        bassFreq: 135,
+        bassGain: 0.95,
+        airFreq: 9000,
+        airGain: 0.30,
         depth: 100,
-        notchFreq: 1600,
+        notchFreq: 1500,
         notchQ: 1.4,
-        makeupGain: 1.28
+        makeupGain: 1.15
       };
 
       if (configOrMode && typeof configOrMode === 'object') {
         if (configOrMode.bassFreq !== undefined) cfg.bassFreq = Number(configOrMode.bassFreq);
+        if (configOrMode.bassGain !== undefined) cfg.bassGain = Number(configOrMode.bassGain);
         if (configOrMode.airFreq !== undefined) cfg.airFreq = Number(configOrMode.airFreq);
+        if (configOrMode.airGain !== undefined) cfg.airGain = Number(configOrMode.airGain);
         if (configOrMode.depth !== undefined) cfg.depth = Number(configOrMode.depth);
         if (configOrMode.notchFreq !== undefined) cfg.notchFreq = Number(configOrMode.notchFreq);
         if (configOrMode.notchQ !== undefined) cfg.notchQ = Number(configOrMode.notchQ);
         if (configOrMode.makeupGain !== undefined) cfg.makeupGain = Number(configOrMode.makeupGain);
       } else if (typeof configOrMode === 'string') {
-        if (configOrMode === 'aggressive') {
-          cfg = { bassFreq: 115, bassGain: 0.5, airFreq: 10500, airGain: 0.12, depth: 100, notchFreq: 1800, notchQ: 1.8, makeupGain: 1.4 };
+        if (configOrMode === 'aggressive' || configOrMode === 'maximum') {
+          cfg = { bassFreq: 110, bassGain: 0.90, airFreq: 11000, airGain: 0.20, depth: 100, notchFreq: 1650, notchQ: 2.0, makeupGain: 1.30 };
         } else if (configOrMode === 'soft') {
-          cfg = { bassFreq: 220, bassGain: 0.9, airFreq: 7500, airGain: 0.45, depth: 75, notchFreq: 1400, notchQ: 1.0, makeupGain: 1.15 };
+          cfg = { bassFreq: 160, bassGain: 1.0, airFreq: 8000, airGain: 0.40, depth: 75, notchFreq: 1400, notchQ: 1.0, makeupGain: 1.10 };
+        } else if (configOrMode === 'trap' || configOrMode === 'hiphop') {
+          cfg = { bassFreq: 145, bassGain: 1.10, airFreq: 9500, airGain: 0.35, depth: 100, notchFreq: 1750, notchQ: 1.6, makeupGain: 1.20 };
         }
       }
 
-      if (this.vocalBassFilter) this.vocalBassFilter.frequency.setValueAtTime(cfg.bassFreq, t);
-      if (this.vocalBassGain) this.vocalBassGain.gain.setValueAtTime(cfg.bassGain, t);
+      if (this.vocalBassFilter1) this.vocalBassFilter1.frequency.setValueAtTime(cfg.bassFreq, t);
+      if (this.vocalBassFilter2) this.vocalBassFilter2.frequency.setValueAtTime(cfg.bassFreq, t);
+      if (this.vocalBassGain) this.vocalBassGain.gain.setValueAtTime(cfg.bassGain !== undefined ? cfg.bassGain : 0.95, t);
       if (this.vocalAirFilter) this.vocalAirFilter.frequency.setValueAtTime(cfg.airFreq, t);
-      if (this.vocalAirGain) this.vocalAirGain.gain.setValueAtTime(cfg.airGain, t);
+      if (this.vocalAirGain) this.vocalAirGain.gain.setValueAtTime(cfg.airGain !== undefined ? cfg.airGain : 0.30, t);
       if (this.vocalMakeupGain) this.vocalMakeupGain.gain.setValueAtTime(cfg.makeupGain, t);
-      if (this.vocalNotchFilter) {
-        this.vocalNotchFilter.frequency.setValueAtTime(cfg.notchFreq, t);
-        this.vocalNotchFilter.Q.setValueAtTime(cfg.notchQ, t);
+      if (this.vocalNotchFilter1) {
+        this.vocalNotchFilter1.frequency.setValueAtTime(cfg.notchFreq, t);
+        this.vocalNotchFilter1.Q.setValueAtTime(cfg.notchQ, t);
       }
-      if (this.vocalCenterGainL && this.vocalCenterGainR) {
-        const depthVal = cfg.depth / 100;
-        this.vocalCenterGainL.gain.setValueAtTime(-1.15 * depthVal, t);
-        this.vocalCenterGainR.gain.setValueAtTime(-1.15 * depthVal, t);
+      if (this.vocalNotchFilter2) {
+        this.vocalNotchFilter2.frequency.setValueAtTime(Math.min(4200, cfg.notchFreq * 1.8), t);
+      }
+      if (this.vocalBandGain) {
+        const depthVal = Math.max(0, Math.min(100, cfg.depth));
+        const vocalPassGain = Math.max(0, 1 - (depthVal / 100));
+        this.vocalBandGain.gain.setValueAtTime(vocalPassGain, t);
       }
 
       if (active) {
@@ -4236,14 +4282,14 @@
 
     function getStudioDSPConfig() {
       return {
-        bassFreq: sBass ? Number(sBass.value) : 160,
-        bassGain: 0.72,
-        airFreq: sAir ? Number(sAir.value) : 8500,
-        airGain: 0.24,
+        bassFreq: sBass ? Number(sBass.value) : 135,
+        bassGain: 0.95,
+        airFreq: sAir ? Number(sAir.value) : 9000,
+        airGain: 0.30,
         depth: sDepth ? Number(sDepth.value) : 100,
-        notchFreq: sNotchFreq ? Number(sNotchFreq.value) : 1600,
+        notchFreq: sNotchFreq ? Number(sNotchFreq.value) : 1500,
         notchQ: sNotchQ ? Number(sNotchQ.value) : 1.4,
-        makeupGain: sMakeup ? Number(sMakeup.value) : 1.30
+        makeupGain: sMakeup ? Number(sMakeup.value) : 1.15
       };
     }
     window.getStudioDSPConfig = getStudioDSPConfig;
@@ -4259,15 +4305,41 @@
     }
     [sBass, sAir, sDepth, sNotchFreq, sNotchQ, sMakeup].forEach(s => s?.addEventListener('input', updateDSPUI));
 
-    instResetBtn?.addEventListener('click', () => {
-      if (sBass) sBass.value = 160;
-      if (sAir) sAir.value = 8500;
-      if (sDepth) sDepth.value = 100;
-      if (sNotchFreq) sNotchFreq.value = 1600;
-      if (sNotchQ) sNotchQ.value = 1.4;
-      if (sMakeup) sMakeup.value = 1.30;
+    const STUDIO_DSP_PRESETS = {
+      balanced: { bass: 135, air: 9000, depth: 100, notch: 1500, q: 1.4, makeup: 1.15, name: 'Студийный баланс' },
+      aggressive: { bass: 110, air: 11000, depth: 100, notch: 1650, q: 2.0, makeup: 1.30, name: 'Максимум' },
+      soft: { bass: 160, air: 8000, depth: 75, notch: 1400, q: 1.0, makeup: 1.10, name: 'Мягкое' },
+      trap: { bass: 145, air: 9500, depth: 100, notch: 1750, q: 1.6, makeup: 1.20, name: 'Хип-хоп / Трэп' }
+    };
+
+    function applyStudioPreset(presetKey) {
+      const p = STUDIO_DSP_PRESETS[presetKey];
+      if (!p) return;
+      if (sBass) sBass.value = p.bass;
+      if (sAir) sAir.value = p.air;
+      if (sDepth) sDepth.value = p.depth;
+      if (sNotchFreq) sNotchFreq.value = p.notch;
+      if (sNotchQ) sNotchQ.value = p.q;
+      if (sMakeup) sMakeup.value = p.makeup;
       updateDSPUI();
-      showToast('Параметры сброшены до студийных значений');
+      document.querySelectorAll('.studio-preset-btn').forEach(btn => {
+        const isThis = btn.getAttribute('data-preset') === presetKey;
+        btn.classList.toggle('active', isThis);
+        btn.style.borderColor = isThis ? 'rgba(139, 92, 246, 0.65)' : 'rgba(255, 255, 255, 0.15)';
+        btn.style.background = isThis ? 'rgba(139, 92, 246, 0.25)' : '';
+      });
+      showToast(`Применен пресет «${p.name}»`);
+    }
+
+    document.querySelectorAll('.studio-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pk = btn.getAttribute('data-preset');
+        applyStudioPreset(pk);
+      });
+    });
+
+    instResetBtn?.addEventListener('click', () => {
+      applyStudioPreset('balanced');
     });
 
     instToggle?.addEventListener('change', () => {
@@ -4296,27 +4368,40 @@
     let previewStartTime = 0;
     let previewAnimId = null;
 
-    let dspBassFilter = null;
+    let dspBassFilter1 = null;
+    let dspBassFilter2 = null;
+    let dspBassGain = null;
     let dspAirFilter = null;
-    let dspNotchFilter = null;
-    let dspCenterGainL = null;
-    let dspCenterGainR = null;
+    let dspAirGain = null;
+    let dspNotchFilter1 = null;
+    let dspNotchFilter2 = null;
+    let dspVocalBandGain = null;
     let dspMakeupGain = null;
     let dspDryGain = null;
     let dspWetGain = null;
 
     function applyLiveDSPNodes() {
-      if (!previewAudioCtx || !dspBassFilter) return;
+      if (!previewAudioCtx || !dspBassFilter1) return;
       const cfg = getStudioDSPConfig();
       const t = previewAudioCtx.currentTime;
-      dspBassFilter.frequency.setValueAtTime(cfg.bassFreq, t);
-      dspAirFilter.frequency.setValueAtTime(cfg.airFreq, t);
-      dspNotchFilter.frequency.setValueAtTime(cfg.notchFreq, t);
-      dspNotchFilter.Q.setValueAtTime(cfg.notchQ, t);
-      dspMakeupGain.gain.setValueAtTime(cfg.makeupGain, t);
-      const depthVal = cfg.depth / 100;
-      dspCenterGainL.gain.setValueAtTime(-1.15 * depthVal, t);
-      dspCenterGainR.gain.setValueAtTime(-1.15 * depthVal, t);
+      if (dspBassFilter1) dspBassFilter1.frequency.setValueAtTime(cfg.bassFreq, t);
+      if (dspBassFilter2) dspBassFilter2.frequency.setValueAtTime(cfg.bassFreq, t);
+      if (dspBassGain) dspBassGain.gain.setValueAtTime(cfg.bassGain || 0.95, t);
+      if (dspAirFilter) dspAirFilter.frequency.setValueAtTime(cfg.airFreq, t);
+      if (dspAirGain) dspAirGain.gain.setValueAtTime(cfg.airGain || 0.30, t);
+      if (dspNotchFilter1) {
+        dspNotchFilter1.frequency.setValueAtTime(cfg.notchFreq, t);
+        dspNotchFilter1.Q.setValueAtTime(cfg.notchQ, t);
+      }
+      if (dspNotchFilter2) {
+        dspNotchFilter2.frequency.setValueAtTime(Math.min(4200, cfg.notchFreq * 1.8), t);
+      }
+      if (dspMakeupGain) dspMakeupGain.gain.setValueAtTime(cfg.makeupGain, t);
+      if (dspVocalBandGain) {
+        const depthVal = Math.max(0, Math.min(100, cfg.depth));
+        const vocalPassGain = Math.max(0, 1 - (depthVal / 100));
+        dspVocalBandGain.gain.setValueAtTime(vocalPassGain, t);
+      }
     }
 
     function stopStudioPreview() {
@@ -4366,54 +4451,86 @@
       previewSource = ctx.createBufferSource();
       previewSource.buffer = buffer;
 
-      // Stereo Difference Matrix (L - R)
+      // High-Fidelity Mid-Side Studio Preview Matrix (M-Core DSP v2)
       const splitter = ctx.createChannelSplitter(2);
-      const merger = ctx.createChannelMerger(2);
+      previewSource.connect(splitter);
 
-      const gainL_to_L = ctx.createGain(); gainL_to_L.gain.value = 1.15;
-      dspCenterGainR = ctx.createGain();
-      const gainR_to_R = ctx.createGain(); gainR_to_R.gain.value = 1.15;
-      dspCenterGainL = ctx.createGain();
+      // Mid Channel: M = 0.5 * L + 0.5 * R
+      const gainL_to_M = ctx.createGain(); gainL_to_M.gain.value = 0.5;
+      const gainR_to_M = ctx.createGain(); gainR_to_M.gain.value = 0.5;
+      const midNode = ctx.createGain();
+      splitter.connect(gainL_to_M, 0);
+      splitter.connect(gainR_to_M, 1);
+      gainL_to_M.connect(midNode);
+      gainR_to_M.connect(midNode);
 
-      splitter.connect(gainL_to_L, 0);
-      splitter.connect(dspCenterGainR, 1);
-      splitter.connect(gainR_to_R, 1);
-      splitter.connect(dspCenterGainL, 0);
+      // Side Channel: S = 0.5 * L - 0.5 * R (Vocals are 100% eliminated!)
+      const gainL_to_S = ctx.createGain(); gainL_to_S.gain.value = 0.5;
+      const gainR_to_S = ctx.createGain(); gainR_to_S.gain.value = -0.5;
+      const sideNode = ctx.createGain();
+      splitter.connect(gainL_to_S, 0);
+      splitter.connect(gainR_to_S, 1);
+      gainL_to_S.connect(sideNode);
+      gainR_to_S.connect(sideNode);
 
-      // Bass LowPass filter
-      dspBassFilter = ctx.createBiquadFilter();
-      dspBassFilter.type = 'lowpass';
-      const bassGain = ctx.createGain(); bassGain.gain.value = 0.72;
-      previewSource.connect(dspBassFilter);
-      dspBassFilter.connect(bassGain);
+      // Processed Mid Stream
+      const mProcessedNode = ctx.createGain();
 
-      // Air HighPass filter
+      // Bass 24 dB/octave lowpass (cascaded 4th order)
+      dspBassFilter1 = ctx.createBiquadFilter();
+      dspBassFilter1.type = 'lowpass';
+      dspBassFilter1.Q.value = 0.707;
+      dspBassFilter2 = ctx.createBiquadFilter();
+      dspBassFilter2.type = 'lowpass';
+      dspBassFilter2.Q.value = 0.707;
+      dspBassGain = ctx.createGain();
+      dspBassGain.gain.value = 0.95;
+
+      midNode.connect(dspBassFilter1);
+      dspBassFilter1.connect(dspBassFilter2);
+      dspBassFilter2.connect(dspBassGain);
+      dspBassGain.connect(mProcessedNode);
+
+      // Air highpass for cymbals and brilliance
       dspAirFilter = ctx.createBiquadFilter();
       dspAirFilter.type = 'highpass';
-      const airGain = ctx.createGain(); airGain.gain.value = 0.24;
-      previewSource.connect(dspAirFilter);
-      dspAirFilter.connect(airGain);
+      dspAirFilter.Q.value = 0.707;
+      dspAirGain = ctx.createGain();
+      dspAirGain.gain.value = 0.30;
 
-      // Merge into stereo channels
-      gainL_to_L.connect(merger, 0, 0);
-      dspCenterGainR.connect(merger, 0, 0);
-      bassGain.connect(merger, 0, 0);
-      airGain.connect(merger, 0, 0);
+      midNode.connect(dspAirFilter);
+      dspAirFilter.connect(dspAirGain);
+      dspAirGain.connect(mProcessedNode);
 
-      gainR_to_R.connect(merger, 0, 1);
-      dspCenterGainL.connect(merger, 0, 1);
-      bassGain.connect(merger, 0, 1);
-      airGain.connect(merger, 0, 1);
+      // Vocal Notch & Depth
+      dspNotchFilter1 = ctx.createBiquadFilter();
+      dspNotchFilter1.type = 'notch';
+      dspNotchFilter2 = ctx.createBiquadFilter();
+      dspNotchFilter2.type = 'notch';
+      dspNotchFilter2.Q.value = 2.0;
 
-      // Vocal Notch Filter
-      dspNotchFilter = ctx.createBiquadFilter();
-      dspNotchFilter.type = 'notch';
+      dspVocalBandGain = ctx.createGain();
+      dspVocalBandGain.gain.value = 0.0;
 
-      // Makeup Gain
+      midNode.connect(dspNotchFilter1);
+      dspNotchFilter1.connect(dspNotchFilter2);
+      dspNotchFilter2.connect(dspVocalBandGain);
+      dspVocalBandGain.connect(mProcessedNode);
+
+      // High-Fidelity Stereo Reconstruction
+      const merger = ctx.createChannelMerger(2);
+      const sideInverter = ctx.createGain();
+      sideInverter.gain.value = -1.0;
+      sideNode.connect(sideInverter);
+
+      mProcessedNode.connect(merger, 0, 0);
+      sideNode.connect(merger, 0, 0);
+
+      mProcessedNode.connect(merger, 0, 1);
+      sideInverter.connect(merger, 0, 1);
+
       dspMakeupGain = ctx.createGain();
-
-      merger.connect(dspNotchFilter);
-      dspNotchFilter.connect(dspMakeupGain);
+      merger.connect(dspMakeupGain);
 
       // Instant A/B Crossfade Gains
       dspDryGain = ctx.createGain();
@@ -4520,11 +4637,14 @@
       const isExplicitChecked = !!document.getElementById('studio-explicit-toggle')?.checked;
       const isInstChecked = !!instToggle?.checked;
       const dspConfig = isInstChecked ? getStudioDSPConfig() : null;
+      const activeChips = Array.from(document.querySelectorAll('#studio-genres-chips .chip.active')).map(c => c.textContent.trim());
+      const selectedGenres = activeChips.length > 0 ? activeChips : ['Pop', 'Electronic', 'Indie'];
 
       try {
         const oump3Blob = await buildOump3Container({
           title,
           artist,
+          genres: selectedGenres,
           duration: activeStudioBuffer ? activeStudioBuffer.duration : (studioAudioBuf ? studioAudioBuf.duration : 180),
           hasLyrics: !!lrcText,
           isExplicit: isExplicitChecked,
