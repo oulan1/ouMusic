@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.20">
-  <link rel="stylesheet" href="css/main.css?v=2.7.20">
-  <link rel="stylesheet" href="css/components.css?v=2.7.20">
-  <link rel="stylesheet" href="css/player.css?v=2.7.20">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.21">
+  <link rel="stylesheet" href="css/main.css?v=2.7.21">
+  <link rel="stylesheet" href="css/components.css?v=2.7.21">
+  <link rel="stylesheet" href="css/player.css?v=2.7.21">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.20"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.21"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -684,6 +684,69 @@
         <div class="switch-track"><div class="switch-thumb"></div></div>
       </label>
 
+      <!-- Hardware Acceleration & Compute Profile Selector -->
+      <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 16px; margin-top: 14px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px;">
+            <svg class="svg-icon" style="width: 18px; height: 18px; color: var(--md-sys-color-primary);" viewBox="0 0 24 24"><path fill="currentColor" d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"/></svg>
+            <span>Аппаратное ускорение</span>
+          </div>
+          <span class="badge-beta" id="accel-mode-current-badge" style="background: rgba(139, 92, 246, 0.2); color: var(--md-sys-color-primary); border: 1px solid rgba(139, 92, 246, 0.4); font-size: 0.72rem; padding: 2px 8px; font-weight: 700;">GPU + CPU</span>
+        </div>
+
+        <div style="font-size: 0.78rem; color: var(--md-sys-color-outline); margin-bottom: 12px; line-height: 1.45;">
+          Выберите, куда пойдёт основной вычислительный упор приложения: на видеокарту (GPU), центральный процессор (CPU) или сбалансированный гибрид (GPU+CPU).
+        </div>
+
+        <!-- 3 Interactive Acceleration Segment Cards -->
+        <div class="accel-options-grid">
+          <!-- GPU Option -->
+          <button type="button" class="accel-mode-card" data-accel-target="gpu">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--md-sys-color-on-surface);">GPU</span>
+              <span class="accel-radio-indicator"></span>
+            </div>
+            <div style="font-size: 0.76rem; color: var(--md-sys-color-primary); font-weight: 700;">Упор на видеочип</div>
+            <div style="font-size: 0.7rem; color: var(--md-sys-color-outline); margin-top: 2px; line-height: 1.35;">
+              Аппаратный WebGL рендеринг, разгрузка процессора
+            </div>
+          </button>
+
+          <!-- CPU Option -->
+          <button type="button" class="accel-mode-card" data-accel-target="cpu">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--md-sys-color-on-surface);">CPU</span>
+              <span class="accel-radio-indicator"></span>
+            </div>
+            <div style="font-size: 0.76rem; color: #10B981; font-weight: 700;">Упор на процессор</div>
+            <div style="font-size: 0.7rem; color: var(--md-sys-color-outline); margin-top: 2px; line-height: 1.35;">
+              Энергоэффективный режим, защита от перегрева GPU
+            </div>
+          </button>
+
+          <!-- GPU + CPU Option (Default/Recommended) -->
+          <button type="button" class="accel-mode-card active" data-accel-target="hybrid">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--md-sys-color-on-surface);">GPU + CPU</span>
+              <span class="accel-radio-indicator"></span>
+            </div>
+            <div style="font-size: 0.76rem; color: var(--md-sys-color-primary); font-weight: 700;">Гибрид (Рекомендуется)</div>
+            <div style="font-size: 0.7rem; color: var(--md-sys-color-outline); margin-top: 2px; line-height: 1.35;">
+              Параллельная работа: 120 FPS UI + быстрый DSP
+            </div>
+          </button>
+        </div>
+
+        <!-- Hardware Telemetry Info Bar -->
+        <div id="accel-telemetry-box" style="background: rgba(0, 0, 0, 0.35); border-radius: 10px; padding: 8px 12px; font-size: 0.75rem; color: var(--md-sys-color-outline); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10B981;"></span>
+            <span id="accel-hardware-gpu-label">Видеочип: Определение...</span>
+          </div>
+          <div id="accel-hardware-cpu-label">Процессор: Вычисление...</div>
+        </div>
+      </div>
+
       <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <div>
           <div style="font-weight: 600; font-size: 0.9rem;">Тест совместимости (Антуту)</div>
@@ -881,7 +944,7 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.20</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.21</span> • Разработчик: oulan1
             </div>
           </div>
 
@@ -913,7 +976,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.7.20 • All Rights Reserved
+              Версия 2.7.21 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -2541,8 +2604,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.20"></script>
-  <script src="playlists/playlists.js?v=2.7.20"></script>
-  <script src="js/app.standalone.js?v=2.7.20"></script>
+  <script src="tracks/catalog.js?v=2.7.21"></script>
+  <script src="playlists/playlists.js?v=2.7.21"></script>
+  <script src="js/app.standalone.js?v=2.7.21"></script>
 </body>
 </html>

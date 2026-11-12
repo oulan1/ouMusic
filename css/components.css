@@ -1800,3 +1800,103 @@ input[type="range"].eq-band {
   color: #FFFFFF !important;
   fill: #FFFFFF !important;
 }
+
+/* =======================================================
+   HARDWARE ACCELERATION & COMPUTE PROFILE (GPU / CPU / GPU+CPU)
+   ======================================================= */
+.accel-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.accel-mode-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  outline: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.accel-mode-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.accel-mode-card:active {
+  transform: scale(0.98);
+}
+
+.accel-mode-card.active {
+  background: rgba(139, 92, 246, 0.12) !important;
+  border-color: var(--md-sys-color-primary) !important;
+  box-shadow: 0 4px 18px rgba(139, 92, 246, 0.22) !important;
+}
+
+.accel-mode-card .accel-radio-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.accel-mode-card.active .accel-radio-indicator {
+  border: 4px solid var(--md-sys-color-primary) !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 0 8px var(--md-sys-color-primary);
+}
+
+/* Light Theme overrides */
+[data-theme="light"] .accel-mode-card {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .accel-mode-card:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+[data-theme="light"] .accel-mode-card.active {
+  background: rgba(139, 92, 246, 0.1) !important;
+}
+[data-theme="light"] .accel-mode-card .accel-radio-indicator {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Acceleration Mode Dynamic Pipeline Styling */
+[data-accel-mode="gpu"] .wave-sphere-canvas,
+[data-accel-mode="gpu"] #cover-wave-canvas,
+[data-accel-mode="gpu"] .fullscreen-player,
+[data-accel-mode="gpu"] .bottom-nav-bar {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+[data-accel-mode="cpu"] * {
+  will-change: auto !important;
+}
+
+[data-accel-mode="cpu"] .wave-ambient-glow,
+[data-accel-mode="cpu"] .player-glow-bg {
+  opacity: 0.25 !important;
+  filter: none !important;
+}
+
+[data-accel-mode="hybrid"] .wave-sphere-canvas,
+[data-accel-mode="hybrid"] #cover-wave-canvas {
+  transform: translateZ(0);
+  will-change: transform;
+}

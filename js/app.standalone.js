@@ -3098,8 +3098,10 @@
     function render(now) {
       requestAnimationFrame(render);
 
-      // Throttling for 240Hz screens: clamp redraws to smooth 60-70 FPS maximum
-      if (now && now - lastCoverRenderTime < 14) return;
+      // Adaptive throttling based on acceleration mode: GPU (120 FPS), Hybrid (60 FPS), CPU (30 FPS)
+      const accel = window._currentAccelMode || 'hybrid';
+      const minInterval = accel === 'gpu' ? 8 : (accel === 'cpu' ? 32 : 14);
+      if (now && now - lastCoverRenderTime < minInterval) return;
       lastCoverRenderTime = now || 0;
 
       // Only draw when fullscreen player is active and lyrics overlay is closed
@@ -3287,7 +3289,10 @@
       let lastWaveFpsTime = 0;
       function renderWave(now) {
         animFrameId = requestAnimationFrame(renderWave);
-        if (now && now - lastWaveFpsTime < 14) return;
+        // Adaptive throttling: GPU (120 FPS), Hybrid (60 FPS), CPU (30 FPS)
+        const accel = window._currentAccelMode || 'hybrid';
+        const minInterval = accel === 'gpu' ? 8 : (accel === 'cpu' ? 32 : 14);
+        if (now && now - lastWaveFpsTime < minInterval) return;
         lastWaveFpsTime = now || 0;
 
         // Mobile performance throttling:
@@ -4944,6 +4949,107 @@
     });
   }
 
+  /* ==========================================================================
+     HARDWARE ACCELERATION & COMPUTE PROFILE (GPU / CPU / GPU+CPU)
+     ========================================================================== */
+  function initAccelModeUI() {
+    const cards = document.querySelectorAll('.accel-mode-card');
+    const badge = document.getElementById('accel-mode-current-badge');
+    const gpuLabel = document.getElementById('accel-hardware-gpu-label');
+    const cpuLabel = document.getElementById('accel-hardware-cpu-label');
+
+    // Real Hardware Detection via WebGL
+    let detectedGPU = 'Аппаратный видеочип';
+    try {
+      const testCanvas = document.createElement('canvas');
+      const gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+      if (gl) {
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        if (dbg) {
+          const rawGpu = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+          if (rawGpu) {
+            detectedGPU = rawGpu
+              .replace(/ANGLE \((.*?), (.*?),.*?\)/, '$2')
+              .replace(/Direct3D.*/, '')
+              .replace(/OpenGL Engine.*/, '')
+              .trim();
+          }
+        }
+      }
+    } catch (e) {}
+
+    const threads = navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} потоков` : 'Многопоточный';
+
+    if (gpuLabel) gpuLabel.textContent = `Видеочип: ${detectedGPU.slice(0, 36)}`;
+    if (cpuLabel) cpuLabel.textContent = `Процессор: ${threads}`;
+
+    // Read stored setting (default: hybrid)
+    let currentMode = 'hybrid';
+    try {
+      const saved = localStorage.getItem('oumusic_accel_mode');
+      if (saved === 'gpu' || saved === 'cpu' || saved === 'hybrid') {
+        currentMode = saved;
+      }
+    } catch (e) {}
+
+    function applyAccelMode(mode, showNotification = false) {
+      currentMode = mode;
+      window._currentAccelMode = mode;
+      document.documentElement.setAttribute('data-accel-mode', mode);
+
+      cards.forEach(card => {
+        const target = card.getAttribute('data-accel-target');
+        const isActive = target === mode;
+        card.classList.toggle('active', isActive);
+      });
+
+      if (badge) {
+        if (mode === 'gpu') {
+          badge.textContent = 'GPU';
+          badge.style.color = 'var(--md-sys-color-primary)';
+          badge.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+          badge.style.background = 'rgba(139, 92, 246, 0.2)';
+        } else if (mode === 'cpu') {
+          badge.textContent = 'CPU';
+          badge.style.color = '#10B981';
+          badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+          badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        } else {
+          badge.textContent = 'GPU + CPU';
+          badge.style.color = 'var(--md-sys-color-primary)';
+          badge.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+          badge.style.background = 'rgba(139, 92, 246, 0.2)';
+        }
+      }
+
+      try {
+        localStorage.setItem('oumusic_accel_mode', mode);
+      } catch (e) {}
+
+      if (showNotification) {
+        if (mode === 'gpu') {
+          showToast('Аппаратное ускорение: упор на GPU (видеочип)');
+        } else if (mode === 'cpu') {
+          showToast('Аппаратное ускорение: упор на CPU (энергосбережение)');
+        } else {
+          showToast('Аппаратное ускорение: упор на GPU + CPU (гибрид)');
+        }
+      }
+    }
+
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        const target = card.getAttribute('data-accel-target');
+        if (target && target !== currentMode) {
+          applyAccelMode(target, true);
+        }
+      });
+    });
+
+    // Initial setup
+    applyAccelMode(currentMode, false);
+  }
+
   function initBenchmarkUI() {
     const openBtn = document.getElementById('open-benchmark-btn');
     const backdrop = document.getElementById('benchmark-modal-backdrop');
@@ -5189,9 +5295,11 @@
         const statStability = document.getElementById('benchmark-stat-stability');
         if (statStability) statStability.textContent = `${stabilityPct}% (${droppedFrames} пропусков)`;
 
+        const accel = window._currentAccelMode || 'hybrid';
+        const accelText = accel === 'gpu' ? 'GPU' : (accel === 'cpu' ? 'CPU' : 'GPU+CPU');
         const verdictMsg = document.getElementById('benchmark-verdict-msg');
         if (verdictMsg) {
-          verdictMsg.innerHTML = `<strong>${score}/100</strong>. Дисплей: <strong>${trueHz} Hz</strong>, Видеочип: <em>${detectedGPU}</em>. Сервис работает с максимальной плавностью.`;
+          verdictMsg.innerHTML = `<strong>${score}/100</strong>. Дисплей: <strong>${trueHz} Hz</strong>, Видеочип: <em>${detectedGPU}</em>, Упор: <strong>${accelText}</strong>. Сервис работает с максимальной плавностью.`;
         }
       };
     };
@@ -7258,6 +7366,7 @@
     initPlaylistViewHandlers();
     initHomeTabsUI();
     initPerfModeUI();
+    initAccelModeUI();
     initBenchmarkUI();
     initOulistImporter();
     initWaveGesturesAndCenterFab();
