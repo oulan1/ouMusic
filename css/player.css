@@ -140,10 +140,12 @@
 }
 
 .fullscreen-player.active {
-  transform: translateY(0);
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
 }
 
 .fullscreen-player:not(.active) {
+  transform: translateY(100%) !important;
   pointer-events: none !important;
 }
 

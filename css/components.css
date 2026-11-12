@@ -1878,11 +1878,31 @@ input[type="range"].eq-band {
 /* Acceleration Mode Dynamic Pipeline Styling */
 [data-accel-mode="gpu"] .wave-sphere-canvas,
 [data-accel-mode="gpu"] #cover-wave-canvas,
-[data-accel-mode="gpu"] .fullscreen-player,
-[data-accel-mode="gpu"] .bottom-nav-bar {
+[data-accel-mode="gpu"] #wave-visualizer-container {
   transform: translateZ(0);
   will-change: transform;
   backface-visibility: hidden;
+}
+
+/* Guard: Fullscreen player and lyrics overlay must NEVER be forced onto screen when inactive */
+.fullscreen-player:not(.active) {
+  transform: translateY(100%) !important;
+  pointer-events: none !important;
+}
+
+.fullscreen-player.active {
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.lyrics-overlay:not(.active) {
+  transform: translateY(100%) !important;
+  pointer-events: none !important;
+}
+
+.lyrics-overlay.active {
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
 }
 
 [data-accel-mode="cpu"] * {
