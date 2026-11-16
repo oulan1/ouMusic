@@ -1334,9 +1334,6 @@
     return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   }
 
-    return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-  }
-
   /* Universal App URL Resolver for GitHub Pages, Subfolders and file:// */
   function resolveAppUrl(relPath) {
     const cleanRel = relPath.replace(/^\.?\//, '');
