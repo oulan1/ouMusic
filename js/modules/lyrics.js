@@ -129,7 +129,7 @@ function updateActiveLyric(currentTime) {
   if (currentTime < firstTime && firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
     const remaining = Math.ceil(firstTime - currentTime);
     if (countdownBanner) {
-      countdownBanner.textContent = `${remaining}...`;
+      countdownBanner.textContent = `${remaining}`;
       countdownBanner.classList.add('visible');
     }
   } else if (countdownBanner) {

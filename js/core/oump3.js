@@ -105,11 +105,23 @@ export async function unpackOump3Full(arrayBufferOrBlob) {
     lyricsText = await lyricsFile.async('text');
   }
 
+  // 5. Studio Instrumental (Lazy Loader)
+  const instFile = zip.file('instrumental.mp3') || zip.file('instrumental.wav') || zip.file(/instrumental\.(mp3|wav|ogg|m4a)$/i)[0];
+  const hasStudioInstrumental = !!instFile || !!(meta && meta.hasStudioInstrumental);
+
   return {
     meta: meta || {},
     audioBlob,
     coverBlob,
-    lyricsText
+    lyricsText,
+    hasStudioInstrumental,
+    getInstrumentalBlob: async () => {
+      if (!instFile) return null;
+      const ext = instFile.name.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg';
+      const b = await instFile.async('blob');
+      return new Blob([b], { type: ext });
+    },
+    rawZip: zip
   };
 }
 
@@ -122,8 +134,15 @@ export async function buildOump3Container({
   genres = [],
   duration = 0,
   hasLyrics = false,
+  isExplicit = false,
+  explicit = false,
+  hasInstrumental = false,
+  hasStudioInstrumental = false,
+  instrumentalConfig = null,
+  aiFact = '',
   thumbBase64 = null,
   audioBlob,
+  instrumentalBlob = null,
   coverBlob = null,
   lyricsText = ''
 }) {
@@ -138,8 +157,14 @@ export async function buildOump3Container({
     artist: artist.trim(),
     genres: Array.isArray(genres) ? genres : [],
     duration: Math.round(duration),
-    version: '1.0',
+    version: '2.0',
     hasLyrics: !!lyricsText || hasLyrics,
+    isExplicit: !!(isExplicit || explicit),
+    explicit: !!(isExplicit || explicit),
+    hasInstrumental: !!(hasInstrumental || instrumentalBlob || hasStudioInstrumental),
+    hasStudioInstrumental: !!(instrumentalBlob || hasStudioInstrumental),
+    instrumentalConfig: instrumentalConfig || null,
+    aiFact: aiFact || '',
     thumbBase64: thumbBase64 || null
   };
 
@@ -155,6 +180,15 @@ export async function buildOump3Container({
   if (audioBlob) {
     const audioName = audioBlob.type.includes('wav') ? 'audio.wav' : 'audio.mp3';
     zip.file(audioName, audioBlob, {
+      binary: true,
+      date: new Date()
+    });
+  }
+
+  // Studio Instrumental file (if provided)
+  if (instrumentalBlob) {
+    const instName = instrumentalBlob.type.includes('wav') ? 'instrumental.wav' : 'instrumental.mp3';
+    zip.file(instName, instrumentalBlob, {
       binary: true,
       date: new Date()
     });

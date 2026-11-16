@@ -146,7 +146,11 @@ export async function playTrack(track, autoPlay = true) {
   }
 
   if (!audioSource) {
-    alert(`Не удалось загрузить аудиофайл трека: ${track.title}`);
+    if (!navigator.onLine) {
+      alert(`Трек "${track.title}" не скачан для прослушивания без интернета.`);
+    } else {
+      alert(`Не удалось загрузить аудиофайл трека: ${track.title}`);
+    }
     return;
   }
 

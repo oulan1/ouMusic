@@ -177,7 +177,7 @@
     });
   }
 
-  async function saveOfflineTrack(id, audioBlob, coverBlob = null, lrcText = '', meta = null) {
+  async function saveOfflineTrack(id, audioBlob, coverBlob = null, lrcText = '', meta = null, instrumentalBlob = null, oump3Blob = null) {
     return new Promise((resolve) => {
       const store = getStore('offline_tracks', 'readwrite');
       if (!store) return resolve(false);
@@ -188,6 +188,8 @@
         lrcText: lrcText || '',
         lyricsText: lrcText || '',
         meta: meta || null,
+        instrumentalBlob: instrumentalBlob || null,
+        oump3Blob: oump3Blob || null,
         cachedAt: new Date().toISOString()
       });
       req.onsuccess = () => resolve(true);
@@ -789,6 +791,8 @@
     async loadTrack(track, audioSource, autoPlay = true) {
       this.ensureContext();
       this.currentTrack = track;
+      this.isUsingStudioInstrumental = false;
+      this.vocalRemoverActive = false;
 
       let src = '';
       if (typeof audioSource === 'string') {
@@ -1083,6 +1087,59 @@
       }
     }
 
+    async switchToInstrumental(instrumentalBlob) {
+      if (!this.audioElement || !instrumentalBlob) return;
+      const curTime = this.audioElement.currentTime;
+      const wasPlaying = !this.audioElement.paused;
+
+      // Ensure DSP filter remains dry for pre-rendered instrumental
+      if (this.vocalDryGain && this.vocalWetGain && this.audioCtx) {
+        const t = this.audioCtx.currentTime;
+        this.vocalDryGain.gain.cancelScheduledValues(t);
+        this.vocalWetGain.gain.cancelScheduledValues(t);
+        this.vocalDryGain.gain.setValueAtTime(1.0, t);
+        this.vocalWetGain.gain.setValueAtTime(0.0, t);
+      }
+
+      this.isUsingStudioInstrumental = true;
+      this.vocalRemoverActive = true;
+
+      const instUrl = URL.createObjectURL(instrumentalBlob);
+      this.audioElement.src = instUrl;
+      this.audioElement.currentTime = curTime;
+      this.applyActiveFX();
+
+      if (wasPlaying) {
+        await this.softPlay();
+      }
+    }
+
+    async switchToOriginal(originalBlob) {
+      if (!this.audioElement) return;
+      const curTime = this.audioElement.currentTime;
+      const wasPlaying = !this.audioElement.paused;
+
+      this.isUsingStudioInstrumental = false;
+      this.vocalRemoverActive = false;
+
+      let src = '';
+      if (typeof originalBlob === 'string') {
+        src = originalBlob;
+      } else if (originalBlob instanceof Blob) {
+        src = URL.createObjectURL(originalBlob);
+      }
+
+      if (src) {
+        this.audioElement.src = src;
+        this.audioElement.currentTime = curTime;
+        this.applyActiveFX();
+      }
+
+      if (wasPlaying) {
+        await this.softPlay();
+      }
+    }
+
     setNormalizer(active, levelPercent = 85) {
       if (!this.compressorNode || !this.normalizerGainNode || !this.audioCtx) return;
       if (!active) {
@@ -1184,7 +1241,9 @@
 
     let meta = {};
     const hFile = zip.file('header.json') || zip.file('meta.json');
-    if (hFile) meta = JSON.parse(await hFile.async('text'));
+    if (hFile) {
+      try { meta = JSON.parse(await hFile.async('text')); } catch (e) {}
+    }
 
     let audioBlob = null;
     const aFile = zip.file('audio.mp3') || zip.file('audio.wav') || zip.file(/audio\.(mp3|wav|ogg)$/i)[0];
@@ -1204,10 +1263,27 @@
     const lFile = zip.file('lyrics.lrc');
     if (lFile) lyricsText = await lFile.async('text');
 
-    return { meta, audioBlob, coverBlob, lyricsText };
+    // Studio Instrumental (Lazy Loader)
+    const instFile = zip.file('instrumental.mp3') || zip.file('instrumental.wav') || zip.file(/instrumental\.(mp3|wav|ogg|m4a)$/i)[0];
+    const hasStudioInstrumental = !!instFile || !!(meta && meta.hasStudioInstrumental);
+
+    return {
+      meta,
+      audioBlob,
+      coverBlob,
+      lyricsText,
+      hasStudioInstrumental,
+      getInstrumentalBlob: async () => {
+        if (!instFile) return null;
+        const type = instFile.name.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg';
+        const b = await instFile.async('blob');
+        return new Blob([b], { type });
+      },
+      rawZip: zip
+    };
   }
 
-    async function buildOump3Container(params) {
+  async function buildOump3Container(params) {
     if (typeof window.JSZip === 'undefined') throw new Error('JSZip не подключен');
     const zip = new window.JSZip();
 
@@ -1217,6 +1293,7 @@
     const duration = params.duration || 0;
     const lyricsText = params.lyricsText || '';
     const audioBlob = params.audioBlob;
+    const instrumentalBlob = params.instrumentalBlob || null;
     const coverBlob = params.coverBlob || null;
     const thumbBase64 = params.thumbBase64 || null;
 
@@ -1228,8 +1305,10 @@
       version: '2.0',
       hasLyrics: !!lyricsText || !!params.hasLyrics,
       isExplicit: !!(params.isExplicit || params.explicit),
-      hasInstrumental: !!params.hasInstrumental,
+      hasInstrumental: !!(params.hasInstrumental || instrumentalBlob || params.hasStudioInstrumental),
+      hasStudioInstrumental: !!(instrumentalBlob || params.hasStudioInstrumental),
       instrumentalConfig: params.instrumentalConfig || null,
+      aiFact: params.aiFact || '',
       thumbBase64
     };
 
@@ -1240,6 +1319,10 @@
       const name = audioBlob.type.includes('wav') ? 'audio.wav' : 'audio.mp3';
       zip.file(name, audioBlob, { binary: true, date: new Date() });
     }
+    if (instrumentalBlob) {
+      const name = instrumentalBlob.type.includes('wav') ? 'instrumental.wav' : 'instrumental.mp3';
+      zip.file(name, instrumentalBlob, { binary: true, date: new Date() });
+    }
     if (coverBlob) {
       const name = coverBlob.type.includes('png') ? 'cover.png' : 'cover.jpg';
       zip.file(name, coverBlob, { binary: true, date: new Date() });
@@ -1247,6 +1330,9 @@
     if (lyricsText) {
       zip.file('lyrics.lrc', lyricsText.trim(), { compression: 'STORE', date: new Date() });
     }
+
+    return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  }
 
     return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   }
@@ -2075,8 +2161,10 @@
 
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
-    currentTrack = track;
-    updatePlayerMeta(track); // Instantly update player UI, cover, title, artist & avatar
+
+    // Save current state in case the target track cannot be loaded (e.g. offline / not downloaded)
+    const previousTrack = currentTrack;
+    const previousQueueIndex = queueIndex;
 
     // Check offline store first
     const offlineRecord = await getOfflineTrack(track.id);
@@ -2084,6 +2172,26 @@
 
     if (offlineRecord && offlineRecord.audioBlob) {
       audioSrc = offlineRecord.audioBlob;
+      track.originalAudioBlob = offlineRecord.audioBlob;
+      if (offlineRecord.instrumentalBlob) {
+        track.instrumentalBlob = offlineRecord.instrumentalBlob;
+        track.hasStudioInstrumental = true;
+      }
+      if (offlineRecord.oump3Blob) {
+        track.rawOump3Blob = offlineRecord.oump3Blob;
+        track.getInstrumentalBlob = async () => {
+          if (track.instrumentalBlob) return track.instrumentalBlob;
+          try {
+            const unp = await unpackOump3Full(offlineRecord.oump3Blob);
+            if (unp && unp.getInstrumentalBlob) {
+              const b = await unp.getInstrumentalBlob();
+              track.instrumentalBlob = b;
+              return b;
+            }
+          } catch (e) {}
+          return null;
+        };
+      }
       if (offlineRecord.coverBlob) {
         track.coverUrl = URL.createObjectURL(offlineRecord.coverBlob);
       }
@@ -2092,8 +2200,10 @@
       }
       if (offlineRecord.meta) {
         if (offlineRecord.meta.hasInstrumental !== undefined) track.hasInstrumental = offlineRecord.meta.hasInstrumental;
+        if (offlineRecord.meta.hasStudioInstrumental !== undefined) track.hasStudioInstrumental = offlineRecord.meta.hasStudioInstrumental;
         if (offlineRecord.meta.instrumentalConfig) track.instrumentalConfig = offlineRecord.meta.instrumentalConfig;
         if (offlineRecord.meta.isExplicit !== undefined) track.isExplicit = offlineRecord.meta.isExplicit;
+        if (offlineRecord.meta.aiFact) track.aiFact = offlineRecord.meta.aiFact;
       }
     } else if (track.filename) {
       try {
@@ -2121,12 +2231,19 @@
             const unpacked = await unpackOump3Full(buf);
             if (unpacked && unpacked.audioBlob) {
               audioSrc = unpacked.audioBlob;
+              track.originalAudioBlob = unpacked.audioBlob;
+              track.hasStudioInstrumental = unpacked.hasStudioInstrumental;
+              track.getInstrumentalBlob = unpacked.getInstrumentalBlob;
+              track.rawZip = unpacked.rawZip;
+              track.rawOump3Blob = new Blob([buf], { type: 'application/octet-stream' });
               if (unpacked.coverBlob) track.coverUrl = URL.createObjectURL(unpacked.coverBlob);
               if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
               if (unpacked.meta) {
                 if (unpacked.meta.hasInstrumental !== undefined) track.hasInstrumental = unpacked.meta.hasInstrumental;
+                if (unpacked.meta.hasStudioInstrumental !== undefined) track.hasStudioInstrumental = unpacked.meta.hasStudioInstrumental;
                 if (unpacked.meta.instrumentalConfig) track.instrumentalConfig = unpacked.meta.instrumentalConfig;
                 if (unpacked.meta.isExplicit !== undefined) track.isExplicit = unpacked.meta.isExplicit;
+                if (unpacked.meta.aiFact) track.aiFact = unpacked.meta.aiFact;
               }
             }
           } catch (err) {
@@ -2139,14 +2256,23 @@
     }
 
     if (!audioSrc) {
-      if (window.location.protocol === 'file:') {
+      // Revert queue index and preserve active track display
+      queueIndex = previousQueueIndex;
+      if (previousTrack) {
+        currentTrack = previousTrack;
+        updatePlayerMeta(previousTrack);
+      }
+      if (!navigator.onLine) {
+        showToast(`Трек "${track.title}" не скачан для прослушивания без интернета`, 4000);
+      } else if (window.location.protocol === 'file:') {
         showToast('Для воспроизведения из tracks запустите start_server.bat или используйте "Загрузить свой .oump3"', 4500);
       } else {
-        alert(`Трек "${track.title}" недоступен для воспроизведения (файл не найден).`);
+        showToast(`Трек "${track.title}" недоступен для воспроизведения`, 3500);
       }
       return;
     }
 
+    currentTrack = track;
     updatePlayerMeta(track);
     updateMediaSession(track);
     document.querySelectorAll('.track-row').forEach((r) => {
@@ -2675,12 +2801,16 @@
     });
 
     document.getElementById('sheet-chip-vocal')?.addEventListener('click', () => {
-      const next = !engine.isVocalRemoverEnabled;
-      engine.setVocalRemover(next);
+      const vocalToggle = document.getElementById('lyrics-vocal-remover-toggle');
+      if (vocalToggle) {
+        vocalToggle.click();
+      } else {
+        const next = !engine.vocalRemoverActive;
+        engine.setVocalRemover(next);
+      }
       const vocalChip = document.getElementById('sheet-chip-vocal');
       if (vocalChip) {
-        if (next) vocalChip.classList.add('active');
-        else vocalChip.classList.remove('active');
+        vocalChip.classList.toggle('active', engine.vocalRemoverActive);
       }
     });
 
@@ -2927,7 +3057,7 @@
       const blob = await resp.blob();
       const unpacked = await unpackOump3Full(blob);
 
-      await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta);
+      await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta, null, blob);
       if (unpacked.meta) {
         track.hasInstrumental = unpacked.meta.hasInstrumental ?? track.hasInstrumental;
         track.instrumentalConfig = unpacked.meta.instrumentalConfig ?? track.instrumentalConfig;
@@ -3034,7 +3164,7 @@
     updateSheetDownloadChip(track);
     const vocalChip = document.getElementById('sheet-chip-vocal');
     if (vocalChip) {
-      if (engine.isVocalRemoverEnabled) vocalChip.classList.add('active');
+      if (engine.vocalRemoverActive) vocalChip.classList.add('active');
       else vocalChip.classList.remove('active');
     }
 
@@ -4769,7 +4899,7 @@
     if (firstTime !== null && currentTime < firstTime && firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
       const remaining = Math.ceil(firstTime - currentTime);
       if (countdownBanner) {
-        countdownBanner.textContent = `${remaining}...`;
+        countdownBanner.textContent = `${remaining}`;
         countdownBanner.classList.add('visible');
       }
     } else if (countdownBanner) {
@@ -5437,7 +5567,7 @@
       if (explicitBadge) explicitBadge.style.display = (track.isExplicit || track.explicit) ? 'inline-block' : 'none';
 
       // Instrumental / Vocal remover availability
-      const hasInst = track.hasInstrumental || track.id === 'seroga_pirat_prosti' || track.id === 'sqwore_barry_dylan';
+      const hasInst = track.hasStudioInstrumental || track.hasInstrumental || track.id === 'seroga_pirat_prosti' || track.id === 'sqwore_barry_dylan';
       if (vocalBtn) {
         if (!hasInst) {
           vocalBtn.style.opacity = '0.45';
@@ -5448,7 +5578,8 @@
         } else {
           vocalBtn.style.opacity = '1';
           vocalBtn.style.cursor = 'pointer';
-          vocalBtn.title = 'Отключить / Включить голос исполнителя';
+          vocalBtn.title = track.hasStudioInstrumental ? 'Студийная минусовка (AI Demucs)' : 'Отключить / Включить голос исполнителя';
+          vocalBtn.classList.toggle('active', engine.vocalRemoverActive);
         }
       }
 
@@ -5470,20 +5601,51 @@
     }
     window.updateKaraokeTrackUI = updateKaraokeTrackUI;
 
-    // Vocal Remover Toggle with Creator Check
+    // Vocal Remover Toggle with Studio Instrumental & M-Core DSP Fallback
     const vocalBtn = document.getElementById('lyrics-vocal-remover-toggle');
-    vocalBtn?.addEventListener('click', (e) => {
+    vocalBtn?.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const hasInst = !!(currentTrack?.hasInstrumental || currentTrack?.instrumentalConfig || currentTrack?.id === 'seroga_pirat_prosti' || currentTrack?.id === 'sqwore_barry_dylan');
+      const hasInst = !!(currentTrack?.hasStudioInstrumental || currentTrack?.hasInstrumental || currentTrack?.instrumentalConfig || currentTrack?.id === 'seroga_pirat_prosti' || currentTrack?.id === 'sqwore_barry_dylan');
       if (!hasInst) {
         showToast('Для этого трека автор не настроил минусовку');
         return;
       }
-      const isAct = !engine.vocalRemoverActive;
+
+      const willBeActive = !engine.vocalRemoverActive;
+
+      // Studio Instrumental branch (Pre-rendered AI Demucs)
+      if (currentTrack?.hasStudioInstrumental || typeof currentTrack?.getInstrumentalBlob === 'function' || currentTrack?.instrumentalBlob) {
+        if (willBeActive) {
+          if (!currentTrack.instrumentalBlob && typeof currentTrack.getInstrumentalBlob === 'function') {
+            showToast('Подгрузка студийной минусовки...', 1500);
+            try {
+              currentTrack.instrumentalBlob = await currentTrack.getInstrumentalBlob();
+            } catch (err) {
+              console.warn('[ouMusic] Error unpacking instrumental stem:', err);
+            }
+          }
+
+          if (currentTrack.instrumentalBlob) {
+            await engine.switchToInstrumental(currentTrack.instrumentalBlob);
+            vocalBtn.classList.add('active');
+            showToast('Студийная минусовка (AI Demucs)');
+            return;
+          }
+        } else {
+          if (engine.isUsingStudioInstrumental && (currentTrack.originalAudioBlob || currentTrack.audioBlob)) {
+            await engine.switchToOriginal(currentTrack.originalAudioBlob || currentTrack.audioBlob);
+            vocalBtn.classList.remove('active');
+            showToast('Оригинал с голосом');
+            return;
+          }
+        }
+      }
+
+      // Fallback to M-Core DSP
       const config = currentTrack?.instrumentalConfig || 'balanced';
-      engine.setVocalRemover(isAct, config);
-      vocalBtn.classList.toggle('active', isAct);
-      showToast(isAct ? 'Минусовка включена (M-Core DSP)' : 'Оригинал с голосом');
+      engine.setVocalRemover(willBeActive, config);
+      vocalBtn.classList.toggle('active', willBeActive);
+      showToast(willBeActive ? 'Минусовка включена (M-Core DSP)' : 'Оригинал с голосом');
     });
 
     // Karaoke Cover Controls: Play/Pause, Prev, Next
@@ -7064,12 +7226,12 @@
       };
 
       await saveTrackMetadata(meta);
-      await saveOfflineTrack(id, modUnpackedData.audioBlob, modUnpackedData.coverBlob, modUnpackedData.lyricsText);
+      await saveOfflineTrack(id, modUnpackedData.audioBlob, modUnpackedData.coverBlob, modUnpackedData.lyricsText, modUnpackedData.meta);
       catalogTracks.unshift(meta);
       renderCatalogFeed(catalogTracks);
       if (typeof renderManualTracksFeed === 'function') await renderManualTracksFeed();
 
-      showToast(`✅ Трек "${meta.artist} — ${meta.title}" применен в каталог!`);
+      showToast(`Трек "${meta.artist} — ${meta.title}" применен в каталог!`);
       closeMod();
     });
 
@@ -7295,7 +7457,7 @@
               thumbBase64: unp.meta.thumbBase64 || null
             };
             await saveTrackMetadata(meta);
-            await saveOfflineTrack(id, unp.audioBlob, unp.coverBlob, unp.lyricsText);
+            await saveOfflineTrack(id, unp.audioBlob, unp.coverBlob, unp.lyricsText, unp.meta, null, f);
             catalogTracks.push(meta);
             renderCatalogFeed(catalogTracks);
             renderManualTracksFeed();

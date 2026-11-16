@@ -9,11 +9,11 @@ and generates tracks/catalog.json and tracks/catalog.js.
 
 import os
 import sys
+import re
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
-import sys
 import json
 import zipfile
 from datetime import datetime, timezone
@@ -131,10 +131,13 @@ def index_tracks():
         mod_time = datetime.fromtimestamp(stats.st_mtime, timezone.utc).isoformat()
 
         meta = {}
+        has_studio_inst = False
         try:
             with zipfile.ZipFile(filepath, 'r') as zf:
-                if 'header.json' in zf.namelist():
+                namelist = zf.namelist()
+                if 'header.json' in namelist:
                     meta = json.loads(zf.read('header.json').decode('utf-8'))
+                has_studio_inst = any('instrumental.' in n.lower() for n in namelist)
         except Exception as e:
             print(f"[Warn] Could not read header.json from {filename}: {e}")
 
@@ -155,22 +158,45 @@ def index_tracks():
             track_id = track_id.strip('_')
 
         is_explicit = meta.get('isExplicit', meta.get('explicit', False))
-        has_instrumental = meta.get('hasInstrumental', False)
+        has_instrumental = meta.get('hasInstrumental', False) or has_studio_inst
+        has_studio_instrumental = bool(meta.get('hasStudioInstrumental', False) or has_studio_inst)
         instrumental_config = meta.get('instrumentalConfig', None)
         thumb_base64 = meta.get('thumbBase64', None)
+        ai_fact = meta.get('aiFact', '')
+
+        entry_genres = meta.get('genres') if (meta.get('genres') and len(meta.get('genres')) > 0) else infer_genres(meta.get('artist', default_artist), meta.get('title', default_title))
+
+        categories = meta.get('categories')
+        if not categories:
+            categories = []
+            text = f"{default_artist} {default_title}".lower()
+            if bool(re.search(r'[а-яА-ЯёЁ]', text)):
+                categories.append('lang:ru')
+            else:
+                categories.append('lang:en')
+            cur_genres = [g.lower() for g in entry_genres]
+            if any(x in ' '.join(cur_genres) for x in ['hyperpop', 'phonk', 'trap', 'rock', 'electronic']):
+                categories.append('mood:energy')
+            elif any(x in ' '.join(cur_genres) for x in ['emo rap', 'post-punk', 'indie', 'melancholy']):
+                categories.append('mood:melancholy')
+            else:
+                categories.append('mood:energy')
 
         entry = {
             "id": track_id,
             "filename": filename,
             "title": meta.get('title', default_title),
             "artist": meta.get('artist', default_artist),
-            "genres": meta.get('genres') if (meta.get('genres') and len(meta.get('genres')) > 0) else infer_genres(meta.get('artist', default_artist), meta.get('title', default_title)),
+            "genres": entry_genres,
+            "categories": categories,
             "duration": meta.get('duration', 0),
             "hasLyrics": meta.get('hasLyrics', True),
             "isExplicit": bool(is_explicit),
             "explicit": bool(is_explicit),
             "hasInstrumental": bool(has_instrumental),
+            "hasStudioInstrumental": bool(has_studio_instrumental),
             "instrumentalConfig": instrumental_config,
+            "aiFact": ai_fact,
             "thumbBase64": thumb_base64,
             "size": stats.st_size,
             "updatedAt": mod_time
