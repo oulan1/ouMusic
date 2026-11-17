@@ -22,7 +22,7 @@ export function initLyricsModule() {
     });
   }
 
-  // Vocal Remover BETA button
+  // Vocal Remover button
   const vocalBtn = document.getElementById('lyrics-vocal-remover-toggle');
   if (vocalBtn) {
     vocalBtn.addEventListener('click', () => {
@@ -126,11 +126,18 @@ function updateActiveLyric(currentTime) {
   // 1. 3-2-1 Countdown Logic
   const countdownBanner = document.getElementById('lyrics-countdown-banner');
   const firstTime = parsedLyrics[0]?.time || 0;
-  if (currentTime < firstTime && firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
-    const remaining = Math.ceil(firstTime - currentTime);
-    if (countdownBanner) {
-      countdownBanner.textContent = `${remaining}`;
-      countdownBanner.classList.add('visible');
+  if (currentTime < firstTime) {
+    if (firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
+      const remaining = Math.ceil(firstTime - currentTime);
+      if (countdownBanner) {
+        countdownBanner.textContent = `${remaining}`;
+        countdownBanner.classList.add('visible');
+      }
+    } else if (countdownBanner) {
+      countdownBanner.classList.remove('visible');
+    }
+    if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+      window.updateOUMusicRPC({ currentLyric: '', currentTime: currentTime });
     }
   } else if (countdownBanner) {
     countdownBanner.classList.remove('visible');
@@ -148,6 +155,10 @@ function updateActiveLyric(currentTime) {
 
   if (newIdx !== activeLineIndex && newIdx >= 0) {
     activeLineIndex = newIdx;
+    const activeText = (parsedLyrics[newIdx] && parsedLyrics[newIdx].text) ? parsedLyrics[newIdx].text.trim() : '';
+    if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+      window.updateOUMusicRPC({ currentLyric: activeText, currentTime: currentTime });
+    }
     const container = document.getElementById('lyrics-scroll-container');
     const lines = container.querySelectorAll('.lyric-line');
 

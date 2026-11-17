@@ -226,12 +226,35 @@ class MCoreEngine {
       this.isPlaying = true;
       if (this.onPlayStateChange) this.onPlayStateChange(true);
       this.updateMediaSessionState();
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          paused: false,
+          currentTime: this.audioElement.currentTime,
+          duration: this.audioElement.duration || 0
+        });
+      }
     });
 
     this.audioElement.addEventListener('pause', () => {
       this.isPlaying = false;
       if (this.onPlayStateChange) this.onPlayStateChange(false);
       this.updateMediaSessionState();
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          paused: true,
+          currentTime: this.audioElement.currentTime,
+          duration: this.audioElement.duration || 0
+        });
+      }
+    });
+
+    this.audioElement.addEventListener('seeked', () => {
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          currentTime: this.audioElement.currentTime,
+          duration: this.audioElement.duration || 0
+        });
+      }
     });
 
     // Mobile background continuous support
@@ -310,6 +333,12 @@ class MCoreEngine {
       this.audioElement.currentTime = Math.max(0, Math.min(seconds, this.audioElement.duration));
       if (typeof syncMediaSessionPosition === 'function') {
         syncMediaSessionPosition(true);
+      }
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          currentTime: this.audioElement.currentTime,
+          duration: this.audioElement.duration || 0
+        });
       }
     }
   }

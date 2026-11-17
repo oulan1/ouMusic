@@ -13,6 +13,57 @@
   window.SVG_PLAYLIST_COVER = SVG_PLAYLIST_COVER;
   window.SVG_ARTIST_AVATAR = SVG_ARTIST_AVATAR;
 
+  /* ==========================================================================
+     OUMUSIC RPC BRIDGE (Discord Rich Presence & PreMiD Integration)
+     ========================================================================== */
+  window.OUMUSIC_RPC = {
+    title: '',
+    artist: '',
+    artistUrl: '',
+    duration: 0,
+    currentTime: 0,
+    paused: true,
+    currentLyric: '',
+    coverUrl: ''
+  };
+
+  function updateOUMusicRPC(patch = {}) {
+    if (!window.OUMUSIC_RPC) {
+      window.OUMUSIC_RPC = {
+        title: '',
+        artist: '',
+        artistUrl: '',
+        duration: 0,
+        currentTime: 0,
+        paused: true,
+        currentLyric: '',
+        coverUrl: ''
+      };
+    }
+    Object.assign(window.OUMUSIC_RPC, patch);
+
+    // Sync state to DOM element for extension content scripts / PreMiD
+    try {
+      let bridgeEl = document.getElementById('oumusic-rpc-bridge');
+      if (!bridgeEl) {
+        bridgeEl = document.createElement('div');
+        bridgeEl.id = 'oumusic-rpc-bridge';
+        bridgeEl.style.display = 'none';
+        bridgeEl.setAttribute('aria-hidden', 'true');
+        if (document.body) {
+          document.body.appendChild(bridgeEl);
+        } else if (document.documentElement) {
+          document.documentElement.appendChild(bridgeEl);
+        }
+      }
+      if (bridgeEl) {
+        bridgeEl.dataset.rpc = JSON.stringify(window.OUMUSIC_RPC);
+      }
+      window.dispatchEvent(new CustomEvent('oumusic:rpc', { detail: window.OUMUSIC_RPC }));
+    } catch (err) {}
+  }
+  window.updateOUMusicRPC = updateOUMusicRPC;
+
 
   /* ==========================================================================
      1. DICTIONARY & I18N
@@ -781,10 +832,32 @@
         this.isPlaying = true;
         this.applyActiveFX();
         if (this.onPlayStateChange) this.onPlayStateChange(true);
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            paused: false,
+            currentTime: this.audioElement.currentTime,
+            duration: this.audioElement.duration || 0
+          });
+        }
       });
       this.audioElement.addEventListener('pause', () => {
         this.isPlaying = false;
         if (this.onPlayStateChange) this.onPlayStateChange(false);
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            paused: true,
+            currentTime: this.audioElement.currentTime,
+            duration: this.audioElement.duration || 0
+          });
+        }
+      });
+      this.audioElement.addEventListener('seeked', () => {
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            currentTime: this.audioElement.currentTime,
+            duration: this.audioElement.duration || 0
+          });
+        }
       });
     }
 
@@ -869,6 +942,12 @@
         this.audioElement.currentTime = Math.max(0, Math.min(sec, this.audioElement.duration));
         if (typeof syncMediaSessionPosition === 'function') {
           syncMediaSessionPosition(true);
+        }
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            currentTime: this.audioElement.currentTime,
+            duration: this.audioElement.duration || 0
+          });
         }
       }
     }
@@ -2545,6 +2624,29 @@
     if (fsShare) fsShare.style.display = track.isLocal ? 'none' : 'flex';
 
     updateLikeDislikeState(track.id);
+
+    // Update Discord / PreMiD Rich Presence
+    if (typeof updateOUMusicRPC === 'function') {
+      const artistName = (track.artist || '').trim();
+      const titleName = (track.title || '').trim();
+      const siteBase = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
+      const artistUrl = artistName ? `${siteBase}#artist=${encodeURIComponent(artistName)}` : siteBase;
+      const coverUrl = track.coverUrl || track.thumbBase64 || '';
+      const curDur = (window.engine && window.engine.audioElement && window.engine.audioElement.duration) || track.duration || 0;
+      const curTime = (window.engine && window.engine.audioElement && window.engine.audioElement.currentTime) || 0;
+      const isPaused = (window.engine && window.engine.audioElement) ? window.engine.audioElement.paused : true;
+
+      updateOUMusicRPC({
+        title: titleName,
+        artist: artistName,
+        artistUrl: artistUrl,
+        duration: curDur,
+        currentTime: curTime,
+        paused: isPaused,
+        currentLyric: '',
+        coverUrl: coverUrl
+      });
+    }
 
     // If karaoke overlay is currently active, seamlessly reload lyrics and ambient tint
     if (document.getElementById('lyrics-overlay')?.classList.contains('active')) {
@@ -5125,6 +5227,9 @@
           container.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
+      if (typeof updateOUMusicRPC === 'function') {
+        updateOUMusicRPC({ currentLyric: '', currentTime: currentTime });
+      }
       return;
     }
 
@@ -5147,6 +5252,16 @@
 
     if (newIdx !== activeLyricIndex || forceScroll) {
       activeLyricIndex = newIdx;
+      const currentLyricText = (newIdx >= 0 && currentParsedLyrics[newIdx])
+        ? (currentParsedLyrics[newIdx].text || '').trim()
+        : '';
+      if (typeof updateOUMusicRPC === 'function') {
+        updateOUMusicRPC({
+          currentLyric: currentLyricText,
+          currentTime: currentTime
+        });
+      }
+
       const lines = container.querySelectorAll('.lyric-line[data-index]');
       if (!lines || lines.length === 0) return;
 

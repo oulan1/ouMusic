@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.26">
-  <link rel="stylesheet" href="css/main.css?v=2.7.26">
-  <link rel="stylesheet" href="css/components.css?v=2.7.26">
-  <link rel="stylesheet" href="css/player.css?v=2.7.26">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.27">
+  <link rel="stylesheet" href="css/main.css?v=2.7.27">
+  <link rel="stylesheet" href="css/components.css?v=2.7.27">
+  <link rel="stylesheet" href="css/player.css?v=2.7.27">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -1770,11 +1770,10 @@
       
 
       <div style="display: flex; align-items: center; gap: 8px;">
-        <!-- Vocal Remover BETA Button -->
+        <!-- Vocal Remover Button -->
         <button class="vocal-remover-btn" id="lyrics-vocal-remover-toggle" title="Отключить / включить голос исполнителя">
           <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-mic"></use></svg>
           <span>Минусовка</span>
-          <span class="badge-beta">BETA</span>
         </button>
 
         <button class="btn btn-tonal" id="lyrics-share-quote-btn" style="padding: 7px 14px; font-size: 0.82rem; border-radius: 9999px;">
@@ -2147,7 +2146,7 @@
         <br>
         <p><strong>1. Гибридный звуковой граф:</strong> В качестве источника используется нативный потоковый тег с отключенной коррекцией высоты тона (<code>preservesPitch = false</code>), заведенный в Web Audio API через <code>MediaElementAudioSourceNode</code>. Это обеспечивает 100% работу в фоне и островках iOS/Android, а также натуральный эффект Slowed / Nightcore.</p>
         <br>
-        <p><strong>2. Vocal Remover BETA:</strong> Узел разделения стереоканалов с противофазным вычитанием вокала (<code>L - R</code>) и параллельным НЧ-фильтром 200 Гц для сохранения плотности баса.</p>
+        <p><strong>2. Vocal Remover:</strong> Узел разделения стереоканалов с противофазным вычитанием вокала (<code>L - R</code>) и параллельным НЧ-фильтром 200 Гц для сохранения плотности баса.</p>
         <br>
         <p><strong>3. Формат контейнера .oump3:</strong> ZIP-архив с предварительным сохранением <code>header.json</code> (с обложкой <code>thumbBase64</code>) в первых 64 КБ без сжатия (метод <code>STORE</code>). Это позволяет клиенту мгновенно извлекать обложку и метаданные через Range-запрос без выкачивания всего аудиофайла.</p>
       </div>
@@ -2611,9 +2610,12 @@
   <!-- Hidden file input for .oulist Import -->
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
+  <!-- Discord Rich Presence / PreMiD Extension State Bridge -->
+  <div id="oumusic-rpc-bridge" style="display: none;" aria-hidden="true"></div>
+
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.26"></script>
-  <script src="playlists/playlists.js?v=2.7.26"></script>
-  <script src="js/app.standalone.js?v=2.7.26"></script>
+  <script src="tracks/catalog.js?v=2.7.27"></script>
+  <script src="playlists/playlists.js?v=2.7.27"></script>
+  <script src="js/app.standalone.js?v=2.7.27"></script>
 </body>
 </html>

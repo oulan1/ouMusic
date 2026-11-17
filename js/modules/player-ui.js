@@ -75,6 +75,29 @@ export function updatePlayerDisplay(track) {
       row.classList.remove('active');
     }
   });
+
+  // Update Discord / PreMiD Rich Presence
+  if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+    const artistName = (track.artist || '').trim();
+    const titleName = (track.title || '').trim();
+    const siteBase = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
+    const artistUrl = artistName ? `${siteBase}#artist=${encodeURIComponent(artistName)}` : siteBase;
+    const coverUrl = track.coverUrl || track.thumbBase64 || '';
+    const curDur = (engine && engine.audioElement && engine.audioElement.duration) || track.duration || 0;
+    const curTime = (engine && engine.audioElement && engine.audioElement.currentTime) || 0;
+    const isPaused = (engine && engine.audioElement) ? engine.audioElement.paused : true;
+
+    window.updateOUMusicRPC({
+      title: titleName,
+      artist: artistName,
+      artistUrl: artistUrl,
+      duration: curDur,
+      currentTime: curTime,
+      paused: isPaused,
+      currentLyric: '',
+      coverUrl: coverUrl
+    });
+  }
 }
 
 export function updatePlayPauseButtons(isPlaying) {
