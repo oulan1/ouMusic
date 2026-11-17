@@ -1712,6 +1712,8 @@ input[type="range"].eq-band {
 #screen-settings:not([data-active-tab]) [data-settings-group]:not([data-settings-group="sound"]),
 #screen-settings[data-active-tab="sound"] [data-settings-group]:not([data-settings-group="sound"]),
 #screen-settings[data-active-tab="appearance"] [data-settings-group]:not([data-settings-group="appearance"]),
+#screen-settings[data-active-tab="studio"] [data-settings-group]:not([data-settings-group="studio"]),
+#screen-settings[data-active-tab="importer"] [data-settings-group]:not([data-settings-group="importer"]),
 #screen-settings[data-active-tab="perf"] [data-settings-group]:not([data-settings-group="perf"]),
 #screen-settings[data-active-tab="about"] [data-settings-group]:not([data-settings-group="about"]) {
   display: none !important;

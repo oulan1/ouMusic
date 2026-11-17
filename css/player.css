@@ -503,51 +503,99 @@
   transform: scale(1.08);
 }
 
-.lyrics-countdown-banner {
-  position: absolute;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  height: 48px;
+/* Inline Karaoke Intro Row (4 Pulsing Dots -> 3, 2, 1 Countdown) */
+.lyric-intro-row {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+  transition: opacity 0.35s ease, transform 0.35s ease, height 0.35s ease;
+  user-select: none;
+}
+
+.lyric-intro-row.past {
+  opacity: 0.15 !important;
+  transform: translateY(-8px) scale(0.96);
+  pointer-events: none;
+}
+
+.intro-dots {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.85rem;
-  font-weight: 900;
-  color: #FFFFFF;
-  letter-spacing: 4px;
-  opacity: 0;
-  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
-  padding: 4px 24px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
-  text-shadow: 0 0 20px var(--md-sys-color-primary, #A855F7), 0 2px 8px rgba(0, 0, 0, 0.9);
+  gap: 10px;
+  padding: 6px 0;
+  transition: opacity 0.3s ease;
 }
 
-.lyrics-countdown-banner.visible {
-  opacity: 1;
-  transform: translateX(-50%) scale(1.05);
+.intro-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary, #A855F7);
+  box-shadow: 0 0 14px var(--md-sys-color-primary, #A855F7);
+  animation: introDotWave 1.4s ease-in-out infinite;
+  display: inline-block;
 }
 
-/* PC / Desktop: Large, bold, ultra-visible countdown numbers */
-@media (min-width: 861px) {
-  .lyrics-countdown-banner {
-    top: 36px;
-    height: 74px;
-    font-size: 3.4rem;
-    font-weight: 950;
-    letter-spacing: 8px;
-    padding: 8px 42px;
-    border: 1.5px solid rgba(255, 255, 255, 0.22);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 35px rgba(168, 85, 247, 0.45);
-    text-shadow: 0 0 30px var(--md-sys-color-primary, #A855F7), 0 0 50px rgba(168, 85, 247, 0.6), 0 4px 16px rgba(0, 0, 0, 0.9);
+.intro-dot:nth-child(1) { animation-delay: 0.0s; }
+.intro-dot:nth-child(2) { animation-delay: 0.22s; }
+.intro-dot:nth-child(3) { animation-delay: 0.44s; }
+.intro-dot:nth-child(4) { animation-delay: 0.66s; }
+
+@keyframes introDotWave {
+  0%, 100% {
+    transform: scale(0.75);
+    opacity: 0.35;
+    box-shadow: 0 0 4px var(--md-sys-color-primary, #A855F7);
   }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+    box-shadow: 0 0 20px var(--md-sys-color-primary, #A855F7), 0 0 35px var(--md-sys-color-primary, #A855F7);
+  }
+}
+
+.intro-count {
+  font-size: 2.6rem;
+  font-weight: 950;
+  color: #FFFFFF;
+  line-height: 1;
+  text-shadow: 0 0 24px var(--md-sys-color-primary, #A855F7), 0 0 40px rgba(168, 85, 247, 0.7);
+  animation: introCountPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  letter-spacing: 2px;
+}
+
+@keyframes introCountPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 861px) {
+  .lyric-intro-row {
+    min-height: 64px;
+  }
+  .intro-dot {
+    width: 15px;
+    height: 15px;
+  }
+  .intro-count {
+    font-size: 3.6rem;
+  }
+}
+
+.lyrics-countdown-banner {
+  display: none !important;
 }
 
 /* 2-Column Responsive Split Layout */

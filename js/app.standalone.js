@@ -1946,7 +1946,7 @@
     const isVer = isArtistVerified(track.artist);
     const artists = (track.artist || 'Неизвестный исполнитель').split(',').map((a) => a.trim());
     const artistsHtml = artists
-      .map((a) => `<a href="#artist=${encodeURIComponent(a)}" onclick="event.stopPropagation();">${a}</a>`)
+      .map((a) => `<span>${a}</span>`)
       .join(', ');
 
     row.innerHTML = `
@@ -1978,42 +1978,26 @@
     return row;
   }
 
-  function filterTracksFeed(query) {
+  let currentSearchTab = 'artists';
+
+  function renderCurrentSearchTab(query) {
     const list = document.getElementById('home-tracks-list');
-    const waveSection = document.getElementById('wave-home-section');
+    const plView = document.getElementById('home-shared-playlists-view');
+    const tracksContainer = document.getElementById('home-tracks-container');
     if (!list) return;
 
-    if (!query) {
-      if (waveSection) waveSection.style.display = '';
-      renderCatalogFeed(catalogTracks);
-      return;
-    }
+    if (tracksContainer) tracksContainer.style.display = 'block';
+    if (plView) plView.style.display = 'none';
 
-    // Hide Моя Волна when searching so search results take full prominence
-    if (waveSection) waveSection.style.display = 'none';
-
-    // If searching while on another tab, navigate to Home screen
-    const activeScreen = document.querySelector('.screen.active');
-    if (activeScreen && activeScreen.id !== 'screen-home' && window.navigateTo) {
-      window.navigateTo('home', false);
-    }
-
-    const filtered = catalogTracks.filter((t) => {
-      const titleMatch = (t.title || '').toLowerCase().includes(query);
-      const artistMatch = (t.artist || '').toLowerCase().includes(query);
-      const genreMatch = Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(query));
-      return titleMatch || artistMatch || genreMatch;
-    });
-
-    if (filtered.length === 0) {
-      const escaped = query.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const escaped = (query || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const renderEmpty = (typeMsg) => {
       list.innerHTML = `
         <div class="search-empty-state">
           <div class="search-empty-icon">
             <svg class="svg-icon"><use href="#icon-search"></use></svg>
           </div>
           <div class="search-empty-title">Ничего не найдено</div>
-          <div class="search-empty-subtitle">По запросу «${escaped}» подходящих треков или артистов не найдено. Попробуйте изменить формулировку.</div>
+          <div class="search-empty-subtitle">По запросу «${escaped}» ${typeMsg} не найдено. Попробуйте изменить формулировку.</div>
           <button class="btn btn-tonal" id="clear-search-btn">
             <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-close"></use></svg>
             <span>Очистить поиск</span>
@@ -2026,13 +2010,177 @@
           s.value = '';
           s.focus();
         }
-        if (waveSection) waveSection.style.display = '';
-        renderCatalogFeed(catalogTracks);
+        filterTracksFeed('');
       });
+    };
+
+    if (currentSearchTab === 'artists') {
+      const artistMap = new Map();
+      catalogTracks.forEach((t) => {
+        const fullArtist = (t.artist || '').trim();
+        if (!fullArtist) return;
+        const splits = fullArtist.split(',').map(s => s.trim()).filter(Boolean);
+        splits.forEach(art => {
+          if (!artistMap.has(art)) {
+            artistMap.set(art, []);
+          }
+          artistMap.get(art).push(t);
+        });
+      });
+
+      const matchedArtists = [];
+      artistMap.forEach((tracks, art) => {
+        const artMatches = art.toLowerCase().includes(query);
+        const trackMatches = tracks.some(t => (t.title || '').toLowerCase().includes(query) || (Array.isArray(t.genres) && t.genres.some(g => g.toLowerCase().includes(query))));
+        if (artMatches || trackMatches) {
+          matchedArtists.push({ name: art, tracks, isExact: art.toLowerCase().startsWith(query) });
+        }
+      });
+
+      matchedArtists.sort((a, b) => {
+        if (a.isExact && !b.isExact) return -1;
+        if (!a.isExact && b.isExact) return 1;
+        return b.tracks.length - a.tracks.length;
+      });
+
+      if (matchedArtists.length === 0) {
+        renderEmpty('подходящих артистов');
+        return;
+      }
+
+      list.innerHTML = '';
+      const artistsList = document.createElement('div');
+      artistsList.className = 'search-artists-list';
+      artistsList.style.display = 'flex';
+      artistsList.style.flexDirection = 'column';
+      artistsList.style.gap = '8px';
+      artistsList.style.width = '100%';
+
+      matchedArtists.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'search-artist-card';
+        card.setAttribute('data-artist', item.name);
+        card.style.cursor = 'pointer';
+        const isVer = isArtistVerified(item.name);
+        const avatarSrc = (item.tracks[0] && (item.tracks[0].thumbBase64 || item.tracks[0].coverUrl)) || 'assets/oumusic.png';
+        const count = item.tracks.length;
+        const decl = (count === 1) ? 'трек' : (count >= 2 && count <= 4) ? 'трека' : 'треков';
+
+        card.innerHTML = `
+          <img class="search-artist-avatar" src="${avatarSrc}" alt="">
+          <div class="search-artist-info">
+            <div class="search-artist-name">
+              <span>${item.name}</span>
+              ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon"><use href="#icon-verified"></use></svg></span>' : ''}
+            </div>
+            <div class="search-artist-sub">${count} ${decl}</div>
+          </div>
+          <svg class="svg-icon" style="width: 20px; height: 20px; fill: rgba(255,255,255,0.4);"><use href="#icon-chevron-right"></use></svg>
+        `;
+
+        card.addEventListener('click', () => {
+          openArtistProfile(item.name);
+        });
+
+        artistsList.appendChild(card);
+      });
+
+      list.appendChild(artistsList);
+
+    } else if (currentSearchTab === 'tracks') {
+      const filtered = catalogTracks.filter((t) => {
+        const titleMatch = (t.title || '').toLowerCase().includes(query);
+        const artistMatch = (t.artist || '').toLowerCase().includes(query);
+        const genreMatch = Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(query));
+        return titleMatch || artistMatch || genreMatch;
+      });
+
+      if (filtered.length === 0) {
+        renderEmpty('подходящих треков');
+        return;
+      }
+      renderCatalogFeed(filtered);
+
+    } else if (currentSearchTab === 'playlists') {
+      const allPlaylists = (window.userPlaylists && Array.isArray(window.userPlaylists)) ? window.userPlaylists : [];
+      const filteredPl = allPlaylists.filter((pl) => (pl.title || '').toLowerCase().includes(query));
+
+      if (filteredPl.length === 0) {
+        renderEmpty('подходящих плейлистов');
+        return;
+      }
+
+      list.innerHTML = '';
+      filteredPl.forEach((pl) => {
+        const row = document.createElement('div');
+        row.className = 'track-row';
+        row.style.cursor = 'pointer';
+        row.innerHTML = `
+          <div class="track-cover-wrap">
+            <img class="track-cover-img" src="assets/oumusic.png" alt="">
+          </div>
+          <div class="track-info">
+            <div class="track-title">${pl.title || 'Плейлист'}</div>
+            <div class="track-artist">Плейлист - ${(pl.trackIds || []).length} треков</div>
+          </div>
+        `;
+        row.addEventListener('click', () => {
+          if (window.openPlaylistView) window.openPlaylistView(pl.id);
+        });
+        list.appendChild(row);
+      });
+    }
+  }
+
+  function filterTracksFeed(query) {
+    const list = document.getElementById('home-tracks-list');
+    const waveSection = document.getElementById('wave-home-section');
+    const searchTabs = document.getElementById('search-category-tabs');
+    const homeNormalTabs = document.getElementById('home-normal-tabs-row');
+    if (!list) return;
+
+    if (!query) {
+      if (waveSection) waveSection.style.display = '';
+      if (searchTabs) searchTabs.style.display = 'none';
+      if (homeNormalTabs) homeNormalTabs.style.display = 'flex';
+      currentSearchTab = 'artists';
+      if (searchTabs) {
+        searchTabs.querySelectorAll('.search-tab-pill').forEach((btn) => {
+          btn.classList.toggle('active', btn.getAttribute('data-tab') === 'artists');
+        });
+      }
+      renderCatalogFeed(catalogTracks);
       return;
     }
 
-    renderCatalogFeed(filtered);
+    if (waveSection) waveSection.style.display = 'none';
+    if (homeNormalTabs) homeNormalTabs.style.display = 'none';
+    if (searchTabs) searchTabs.style.display = 'flex';
+
+    // If searching while on another tab, navigate to Home screen
+    const activeScreen = document.querySelector('.screen.active');
+    if (activeScreen && activeScreen.id !== 'screen-home' && window.navigateTo) {
+      window.navigateTo('home', false);
+    }
+
+    renderCurrentSearchTab(query.toLowerCase());
+  }
+
+  function initSearchTabsUI() {
+    const tabsContainer = document.getElementById('search-category-tabs');
+    if (!tabsContainer) return;
+    tabsContainer.querySelectorAll('.search-tab-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.search-tab-pill').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSearchTab = btn.getAttribute('data-tab') || 'artists';
+        const s = document.getElementById('global-search-input');
+        const q = (s?.value || '').trim().toLowerCase();
+        if (q) {
+          renderCurrentSearchTab(q);
+        }
+      });
+    });
   }
 
   /* Playback & Track Loader */
@@ -2688,18 +2836,19 @@
     function openCoverLightbox(src) {
       const modal = document.getElementById('cover-lightbox-modal');
       const img = document.getElementById('cover-lightbox-img');
+      const dlBtn = document.getElementById('cover-lightbox-download-btn');
       if (!modal) return;
       const finalSrc = src || (currentTrack && (currentTrack.coverUrl || currentTrack.thumbBase64)) || document.getElementById('fs-cover-img')?.getAttribute('src') || document.getElementById('mini-cover-img')?.getAttribute('src') || 'assets/oumusic.png';
       if (img) img.src = finalSrc;
+      if (dlBtn) {
+        dlBtn.href = finalSrc;
+        const fname = currentTrack ? `${currentTrack.artist || 'Artist'} - ${currentTrack.title || 'Track'}.jpg` : 'cover.jpg';
+        dlBtn.setAttribute('download', fname);
+      }
+      modal.style.display = 'flex';
       modal.classList.add('active');
     }
     window.openCoverLightbox = openCoverLightbox;
-
-    document.getElementById('player-artist-pill')?.addEventListener('click', () => {
-      if (currentTrack && currentTrack.artist) {
-        renderArtistScreen(currentTrack.artist);
-      }
-    });
 
     const coverSelectors = '#player-cover-clickable, .player-cover-box, #fs-cover-img, .lyrics-cover-card, #lyrics-cover-img, .mini-cover, #mini-cover-img';
     document.querySelectorAll(coverSelectors).forEach((el) => {
@@ -2713,13 +2862,17 @@
 
     const lightboxModal = document.getElementById('cover-lightbox-modal');
     const lightboxClose = document.getElementById('cover-lightbox-close-btn');
+    const closeLightbox = () => {
+      lightboxModal?.classList.remove('active');
+      if (lightboxModal) lightboxModal.style.display = 'none';
+    };
     lightboxClose?.addEventListener('click', (e) => {
       e.stopPropagation();
-      lightboxModal?.classList.remove('active');
+      closeLightbox();
     });
     lightboxModal?.addEventListener('click', (e) => {
       if (e.target === lightboxModal || e.target.closest('#cover-lightbox-close-btn') || !e.target.closest('.cover-lightbox-content')) {
-        lightboxModal?.classList.remove('active');
+        closeLightbox();
       }
     });
   }
@@ -3598,10 +3751,14 @@
           const cats = t.categories || [];
           const genres = (t.genres || []).map((g) => g.toLowerCase());
           if (cats.includes(`mood:${theme.mood}`)) return true;
-          if (theme.mood === 'energetic' && (genres.includes('hyperpop') || genres.includes('dance') || genres.includes('electronic'))) return true;
-          if (theme.mood === 'calm' && (genres.includes('ambient') || genres.includes('lo-fi') || genres.includes('acoustic'))) return true;
-          if (theme.mood === 'sad' && (genres.includes('melancholy') || genres.includes('sad') || genres.includes('indie'))) return true;
-          if (theme.mood === 'drive' && (genres.includes('rock') || genres.includes('phonk') || genres.includes('rap'))) return true;
+          if (theme.mood === 'sad' && (cats.includes('mood:sad') || cats.includes('mood:melancholy') || genres.includes('sad') || genres.includes('melancholy') || genres.includes('emo rap') || genres.includes('indie'))) return true;
+          if (theme.mood === 'melancholy' && (cats.includes('mood:melancholy') || cats.includes('mood:sad') || genres.includes('melancholy') || genres.includes('sad') || genres.includes('emo rap'))) return true;
+          if (theme.mood === 'energy' && (cats.includes('mood:energy') || cats.includes('mood:drive') || genres.includes('hyperpop') || genres.includes('phonk') || genres.includes('trap') || genres.includes('rock'))) return true;
+          if (theme.mood === 'work' && (cats.includes('mood:work') || genres.includes('lo-fi') || genres.includes('ambient') || genres.includes('jazz'))) return true;
+          if (theme.mood === 'rest' && (cats.includes('mood:rest') || genres.includes('chillhop') || genres.includes('lo-fi') || genres.includes('ambient'))) return true;
+          if (theme.mood === 'workout' && (cats.includes('mood:workout') || genres.includes('phonk') || genres.includes('trap') || genres.includes('drill'))) return true;
+          if (theme.mood === 'road' && (cats.includes('mood:road') || genres.includes('synthwave') || genres.includes('rock'))) return true;
+          if (theme.mood === 'sleep' && (cats.includes('mood:sleep') || genres.includes('ambient') || genres.includes('classical'))) return true;
           return false;
         });
         if (moodMatches.length > 0) pool = moodMatches;
@@ -4890,6 +5047,23 @@
       return;
     }
 
+    const firstTimed = currentParsedLyrics.find((l) => l.time !== null);
+    if (firstTimed && firstTimed.time > 1.0) {
+      const introRow = document.createElement('div');
+      introRow.className = 'lyric-line lyric-intro-row active';
+      introRow.id = 'lyrics-intro-row';
+      introRow.innerHTML = `
+        <div class="intro-dots" id="intro-dots">
+          <span class="intro-dot"></span>
+          <span class="intro-dot"></span>
+          <span class="intro-dot"></span>
+          <span class="intro-dot"></span>
+        </div>
+        <div class="intro-count" id="intro-count" style="display: none;"></div>
+      `;
+      container.appendChild(introRow);
+    }
+
     currentParsedLyrics.forEach((item, index) => {
       const line = document.createElement('div');
       line.className = 'lyric-line';
@@ -4902,6 +5076,8 @@
         } else if (item.time !== null) {
           engine.seek(item.time);
           engine.softPlay();
+          window.isLyricsUserScrolling = false;
+          updateActiveLyric(item.time, true);
         }
       });
 
@@ -4909,24 +5085,57 @@
     });
   }
 
-  function updateActiveLyric(currentTime) {
+  function updateActiveLyric(currentTime, forceScroll = false) {
     if (currentParsedLyrics.length === 0) return;
 
-    // 3-2-1 Countdown visual before first vocal
-    const countdownBanner = document.getElementById('lyrics-countdown-banner');
+    const container = document.getElementById('lyrics-scroll-container');
+    if (!container) return;
+
+    const introRow = document.getElementById('lyrics-intro-row');
+    const introDots = document.getElementById('intro-dots');
+    const introCount = document.getElementById('intro-count');
+
     const firstTimed = currentParsedLyrics.find((l) => l.time !== null);
     const firstTime = firstTimed ? firstTimed.time : null;
-    if (firstTime !== null && currentTime < firstTime && firstTime >= 3.0 && firstTime - currentTime <= 3.0) {
-      const remaining = Math.ceil(firstTime - currentTime);
-      if (countdownBanner) {
-        countdownBanner.textContent = `${remaining}`;
-        countdownBanner.classList.add('visible');
+
+    // 1. Before first vocal (Intro state)
+    if (firstTime !== null && currentTime < firstTime) {
+      const diff = firstTime - currentTime;
+      if (introRow) {
+        introRow.classList.remove('past');
+        introRow.classList.add('active');
       }
-    } else if (countdownBanner) {
-      countdownBanner.classList.remove('visible');
+      if (diff <= 3.0 && diff > 0) {
+        if (introDots) introDots.style.display = 'none';
+        if (introCount) {
+          introCount.style.display = 'block';
+          introCount.textContent = `${Math.ceil(diff)}`;
+        }
+      } else {
+        if (introDots) introDots.style.display = 'flex';
+        if (introCount) introCount.style.display = 'none';
+      }
+
+      if (activeLyricIndex !== -1 || forceScroll) {
+        activeLyricIndex = -1;
+        container.querySelectorAll('.lyric-line[data-index]').forEach((el) => {
+          el.classList.remove('active', 'past', 'near-1', 'near-2', 'distant');
+        });
+        if (!window.isLyricsUserScrolling || forceScroll) {
+          container.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+      return;
     }
 
-    // Locate active index matching current millisecond audio time
+    // 2. Vocals started or active
+    if (introRow) {
+      introRow.classList.remove('active');
+      introRow.classList.add('past');
+      if (introDots) introDots.style.display = 'none';
+      if (introCount) introCount.style.display = 'none';
+    }
+
     let newIdx = -1;
     for (let i = 0; i < currentParsedLyrics.length; i++) {
       if (currentParsedLyrics[i].time !== null && currentTime >= currentParsedLyrics[i].time) {
@@ -4936,36 +5145,26 @@
       }
     }
 
-    if (newIdx !== activeLyricIndex && newIdx >= 0) {
+    if (newIdx !== activeLyricIndex || forceScroll) {
       activeLyricIndex = newIdx;
-      const container = document.getElementById('lyrics-scroll-container');
-      if (!container) return;
-      const lines = container.children;
+      const lines = container.querySelectorAll('.lyric-line[data-index]');
       if (!lines || lines.length === 0) return;
-
-      // Cleanly remove active, near, and past classes from all lines
-      container.querySelectorAll('.active, .near-1, .near-2, .distant, .past').forEach((el) => {
-        el.classList.remove('active', 'near-1', 'near-2', 'distant', 'past');
-      });
 
       const isMobile = window.innerWidth <= 860;
 
-      // Consistent Yandex-Music style hierarchy on both Desktop & Mobile:
-      // Past lines (above active) get .past (smooth fade out & shrink upwards)
-      // Active line gets .active (bright white, headline font)
-      // Line immediately below gets .near-1 (tier 2 brightness)
-      // All subsequent lines remain dark (tier 3)
-      for (let i = 0; i < lines.length; i++) {
+      lines.forEach((lineEl) => {
+        const i = parseInt(lineEl.getAttribute('data-index'), 10);
+        lineEl.classList.remove('active', 'past', 'near-1', 'near-2', 'distant');
         if (i < newIdx) {
-          lines[i].classList.add('past');
+          lineEl.classList.add('past');
         } else if (i === newIdx) {
-          lines[i].classList.add('active');
+          lineEl.classList.add('active');
         } else if (i === newIdx + 1) {
-          lines[i].classList.add('near-1');
+          lineEl.classList.add('near-1');
         }
-      }
+      });
 
-      if (!window.isLyricsUserScrolling && lines[newIdx]) {
+      if ((!window.isLyricsUserScrolling || forceScroll) && lines[newIdx]) {
         const lineEl = lines[newIdx];
         const targetY = isMobile
           ? Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.28) + (lineEl.clientHeight / 2))
@@ -5006,6 +5205,7 @@
     // Initial state: show music tracks
     showMusic();
     renderSharedPlaylists();
+    initSearchTabsUI();
 
     document.getElementById('home-import-oulist-btn')?.addEventListener('click', () => {
       document.getElementById('oulist-file-input')?.click();
@@ -5545,30 +5745,16 @@
     document.getElementById('lyrics-mini-open-player')?.addEventListener('click', () => {
       overlay?.classList.remove('active');
     });
-    document.getElementById('lyrics-bottom-artist')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (currentTrack && currentTrack.artist) {
-        overlay?.classList.remove('active');
-        document.getElementById('fullscreen-player')?.classList.remove('active');
-        openArtistProfile(currentTrack.artist);
-      }
-    });
-    document.getElementById('lyrics-track-artist')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (currentTrack && currentTrack.artist) {
-        overlay?.classList.remove('active');
-        document.getElementById('fullscreen-player')?.classList.remove('active');
-        openArtistProfile(currentTrack.artist);
-      }
-    });
-
     // Seeking on minimalist progress track under cover info
     const progressTrack = document.getElementById('lyrics-progress-track');
     progressTrack?.addEventListener('click', (e) => {
       const rect = progressTrack.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       if (engine.audioElement.duration) {
-        engine.seek(ratio * engine.audioElement.duration);
+        const targetTime = ratio * engine.audioElement.duration;
+        engine.seek(targetTime);
+        window.isLyricsUserScrolling = false;
+        updateActiveLyric(targetTime, true);
       }
     });
 
@@ -5715,6 +5901,12 @@
         updateActiveLyric(cur);
       }
     });
+
+    engine.audioElement.addEventListener('seeked', () => {
+      window.isLyricsUserScrolling = false;
+      const cur = engine.audioElement.currentTime;
+      updateActiveLyric(cur, true);
+    });
   }
 
   /* Profile & Settings UI */
@@ -5785,7 +5977,7 @@
       showToast(`Имя сохранено: "${val}"`);
       syncRecapVisibility();
       if (val.toLowerCase() === 'oulan') {
-        showToast('🎉 Итоги года ouMusic разблокированы для oulan!');
+        showToast('Итоги года ouMusic разблокированы для oulan!');
       }
     };
 
@@ -6748,7 +6940,7 @@
       if (artistRecord && artistRecord.monthlyWins > 0) {
         const w = artistRecord.monthlyWins;
         const word = w === 1 ? 'раз' : (w >= 2 && w <= 4 ? 'раза' : 'раз');
-        winsCont.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.82rem; font-weight: 750; color: #FBBF24;">🏆 Победитель треков месяца: ${w} ${word}</span>`;
+        winsCont.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.82rem; font-weight: 750; color: #FBBF24;">Победитель треков месяца: ${w} ${word}</span>`;
       } else {
         winsCont.innerHTML = `<span style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.65);">Дебютный артист медиатеки ouMusic</span>`;
       }
@@ -7015,244 +7207,148 @@
       if (e.target === releaseModal) releaseModal.classList.remove('active');
     });
 
-    // 4.2 Secret Moderation Room (20 Rapid Taps on Studio) - Point 7
-    let studioSecretTapCount = 0;
-    let studioSecretTimer = null;
-    const triggerStudioSecret = () => {
-      const curMod = document.getElementById('moderation-modal');
-      if (curMod && curMod.classList.contains('active')) return;
-      studioSecretTapCount++;
-      clearTimeout(studioSecretTimer);
-      studioSecretTimer = setTimeout(() => { studioSecretTapCount = 0; }, 1000);
-      if (studioSecretTapCount >= 20) {
-        studioSecretTapCount = 0;
-        openModerationPanel();
-      }
-    };
-
-    document.querySelectorAll('[data-nav="studio"], #tab-studio, #studio-header-title').forEach((el) => {
-      el.addEventListener('click', triggerStudioSecret);
+    // 4.2 Settings: My Studio & Transfer Playlists from Other Services
+    const openStudioWizardBtn = document.getElementById('settings-open-studio-wizard-btn');
+    openStudioWizardBtn?.addEventListener('click', () => {
+      if (window.navigateTo) window.navigateTo('studio');
     });
 
-    function openModerationPanel() {
-      const modModal = document.getElementById('moderation-modal');
-      if (modModal) {
-        modModal.style.display = 'flex';
-        modModal.classList.add('active');
-      }
+    const aiSpeechToggle = document.getElementById('wave-setting-ai-speech-toggle');
+    if (aiSpeechToggle) {
+      const storedPref = localStorage.getItem('oumusic_wave_speech_enabled');
+      aiSpeechToggle.checked = storedPref !== 'false';
+      aiSpeechToggle.addEventListener('change', () => {
+        localStorage.setItem('oumusic_wave_speech_enabled', aiSpeechToggle.checked ? 'true' : 'false');
+        showToast(aiSpeechToggle.checked ? 'Озвучка от ИИ в «Моя волна» включена' : 'Озвучка от ИИ в «Моя волна» отключена');
+      });
     }
 
-    const modModal = document.getElementById('moderation-modal');
-    const modFileInput = document.getElementById('mod-file-input');
-    const modDropzone = document.getElementById('mod-dropzone');
-    const modCloseBtn = document.getElementById('mod-close-btn');
-    const modCloseIconBtn = document.getElementById('mod-close-icon-btn');
-    const modReviewArea = document.getElementById('mod-review-area');
-    const modDownloadBtn = document.getElementById('mod-download-repack-btn');
-    const modApplyBtn = document.getElementById('mod-apply-catalog-btn');
-
-    let modUnpackedData = null;
-    let modAudioElement = new Audio();
-
-    modDropzone?.addEventListener('click', () => modFileInput?.click());
-
-    const closeMod = () => {
-      modAudioElement.pause();
-      modModal?.classList.remove('active');
-      if (modModal) modModal.style.display = 'none';
-    };
-
-    modCloseBtn?.addEventListener('click', closeMod);
-    modCloseIconBtn?.addEventListener('click', closeMod);
-
-    modFileInput?.addEventListener('change', async (e) => {
-      if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        try {
-          const buf = await file.arrayBuffer();
-          modUnpackedData = await unpackOump3Full(buf);
-          if (modReviewArea) modReviewArea.style.display = 'block';
-          if (modDownloadBtn) modDownloadBtn.style.display = 'inline-flex';
-          if (modApplyBtn) modApplyBtn.style.display = 'inline-flex';
-
-          const editTitle = document.getElementById('mod-edit-title');
-          const editArtist = document.getElementById('mod-edit-artist');
-          const editGenres = document.getElementById('mod-edit-genres');
-          const editExplicit = document.getElementById('mod-edit-explicit');
-          const editAiFact = document.getElementById('mod-edit-ai-fact');
-          const coverImg = document.getElementById('mod-cover-img');
-
-          if (editTitle) editTitle.value = modUnpackedData.meta.title || file.name.replace(/\.oump3$/i, '');
-          if (editArtist) editArtist.value = modUnpackedData.meta.artist || 'Неизвестный исполнитель';
-          if (editGenres) editGenres.value = (modUnpackedData.meta.genres || []).join(', ');
-          if (editExplicit) editExplicit.checked = !!modUnpackedData.meta.isExplicit;
-          if (editAiFact) editAiFact.value = modUnpackedData.meta.aiFact || '';
-
-          if (coverImg) {
-            coverImg.src = modUnpackedData.coverBlob ? URL.createObjectURL(modUnpackedData.coverBlob) : (modUnpackedData.meta.thumbBase64 || 'assets/oumusic.png');
-          }
-
-          // Category chips
-          const cats = modUnpackedData.meta.categories || [];
-          document.querySelectorAll('#mod-categories-chips input').forEach((inp) => {
-            inp.checked = cats.includes(inp.value);
-          });
-
-          // Audio
-          if (modUnpackedData.audioBlob) {
-            modAudioElement.src = URL.createObjectURL(modUnpackedData.audioBlob);
-            modAudioElement.load();
-          }
-
-          // Lyrics stream
-          const parsedLrc = parseLRC(modUnpackedData.lyricsText || '');
-          const stream = document.getElementById('mod-lyrics-stream');
-          if (stream) {
-            stream.innerHTML = '';
-            if (parsedLrc.length === 0) {
-              stream.innerHTML = '<span style="color: var(--md-sys-color-outline); padding: 12px;">Текст песни отсутствует в контейнере</span>';
-            } else {
-              parsedLrc.forEach((l) => {
-                const row = document.createElement('div');
-                row.className = 'mod-lyric-row';
-                row.setAttribute('data-time', l.time);
-                row.style.padding = '4px 8px';
-                row.style.borderRadius = '6px';
-                row.style.cursor = 'pointer';
-                row.style.transition = 'background 0.2s, color 0.2s';
-                row.innerHTML = `<span style="color: var(--md-sys-color-primary); margin-right: 8px;">[${formatLrcTime(l.time)}]</span><span>${l.text}</span>`;
-                row.addEventListener('click', () => {
-                  if (l.time !== null) {
-                    modAudioElement.currentTime = l.time;
-                    modAudioElement.play();
-                  }
-                });
-                stream.appendChild(row);
-              });
-            }
-          }
-        } catch (err) {
-          alert('Ошибка чтения .oump3 контейнера: ' + err.message);
-        }
-      }
-    });
-
-    const modPlayBtn = document.getElementById('mod-play-btn');
-    const modTime = document.getElementById('mod-time');
-    const modSeeker = document.getElementById('mod-seeker');
-
-    modPlayBtn?.addEventListener('click', () => {
-      if (modAudioElement.paused) {
-        modAudioElement.play();
-        modPlayBtn.innerHTML = '<svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-pause"></use></svg><span>Пауза</span>';
-      } else {
-        modAudioElement.pause();
-        modPlayBtn.innerHTML = '<svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg><span>Слушать</span>';
-      }
-    });
-
-    modAudioElement.addEventListener('timeupdate', () => {
-      const cur = modAudioElement.currentTime;
-      const dur = modAudioElement.duration || 1;
-      if (modTime) modTime.textContent = `${formatSec(cur)} / ${formatSec(dur)}`;
-      if (modSeeker) modSeeker.value = (cur / dur) * 100;
-
-      const rows = document.querySelectorAll('#mod-lyrics-stream .mod-lyric-row');
-      let activeRow = null;
-      rows.forEach((r) => {
-        const t = parseFloat(r.getAttribute('data-time'));
-        if (!isNaN(t) && t <= cur) activeRow = r;
-        r.style.background = 'transparent';
-        r.style.color = 'inherit';
-        r.style.fontWeight = 'normal';
+    // Genre filter chips in studio settings
+    document.querySelectorAll('#studio-setting-genres-chips .genre-filter-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('active');
       });
-      if (activeRow) {
-        activeRow.style.background = 'rgba(139, 92, 246, 0.25)';
-        activeRow.style.color = '#FFFFFF';
-        activeRow.style.fontWeight = 'bold';
-        activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // Category filter chips in studio settings
+    document.querySelectorAll('#studio-setting-categories-chips .cat-filter-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('active');
+      });
+    });
+
+    // Settings Importer (TuneMyMusic / CSV / TXT)
+    const importerFileInput = document.getElementById('settings-importer-file-input');
+    const importerChooseBtn = document.getElementById('settings-importer-choose-file-btn');
+    const importerReportContainer = document.getElementById('settings-importer-report-container');
+    const importerReportList = document.getElementById('settings-importer-report-list');
+    const importerSaveBtn = document.getElementById('settings-importer-save-btn');
+
+    let importedMatchedTrackIds = [];
+
+    importerChooseBtn?.addEventListener('click', () => {
+      importerFileInput?.click();
+    });
+
+    importerFileInput?.addEventListener('change', async (e) => {
+      if (!e.target.files || !e.target.files[0]) return;
+      const file = e.target.files[0];
+      const text = await file.text();
+
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const parsedItems = [];
+
+      for (let rawLine of lines) {
+        if (/^track\s*name/i.test(rawLine) || /^artist\s*name/i.test(rawLine) || /^title,/i.test(rawLine)) continue;
+        if (rawLine.includes(',')) {
+          const parts = rawLine.split(',').map(s => s.replace(/^["']|["']$/g, '').trim());
+          if (parts.length >= 2) {
+            parsedItems.push({ artist: parts[1] || parts[0], title: parts[0] || parts[1] });
+            continue;
+          }
+        }
+        if (rawLine.includes(' - ') || rawLine.includes(' — ')) {
+          const parts = rawLine.split(/\s*[-—]\s*/);
+          if (parts.length >= 2) {
+            parsedItems.push({ artist: parts[0], title: parts[1] });
+            continue;
+          }
+        }
+        parsedItems.push({ artist: '', title: rawLine });
+      }
+
+      importedMatchedTrackIds = [];
+      if (importerReportList) importerReportList.innerHTML = '';
+
+      parsedItems.forEach((item) => {
+        const itemArtist = (item.artist || '').toLowerCase();
+        const itemTitle = (item.title || '').toLowerCase();
+
+        const match = catalogTracks.find((t) => {
+          const tArtist = (t.artist || '').toLowerCase();
+          const tTitle = (t.title || '').toLowerCase();
+          if (itemArtist && tArtist.includes(itemArtist) && tTitle.includes(itemTitle)) return true;
+          if (itemTitle && tTitle.includes(itemTitle)) return true;
+          return false;
+        });
+
+        const row = document.createElement('div');
+        row.className = 'track-row';
+        row.style.padding = '8px 12px';
+
+        if (match) {
+          importedMatchedTrackIds.push(match.id);
+          row.innerHTML = `
+            <div class="track-cover-wrap" style="width: 38px; height: 38px;">
+              <img class="track-cover-img" src="${match.thumbBase64 || 'assets/oumusic.png'}" alt="">
+            </div>
+            <div class="track-info" style="flex: 1; min-width: 0;">
+              <div class="track-title" style="font-size: 0.88rem;">${match.title}</div>
+              <div class="track-artist" style="font-size: 0.78rem;">${match.artist}</div>
+            </div>
+            <span style="font-size: 0.75rem; color: #10B981; font-weight: 700; background: rgba(16,185,129,0.15); padding: 4px 8px; border-radius: 9999px;">Найдено</span>
+          `;
+        } else {
+          row.innerHTML = `
+            <div class="track-cover-wrap" style="width: 38px; height: 38px; opacity: 0.5;">
+              <img class="track-cover-img" src="assets/oumusic.png" alt="">
+            </div>
+            <div class="track-info" style="flex: 1; min-width: 0; opacity: 0.6;">
+              <div class="track-title" style="font-size: 0.88rem;">${item.title}</div>
+              <div class="track-artist" style="font-size: 0.78rem;">${item.artist || 'Не найден'}</div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--md-sys-color-outline); padding: 4px 8px;">Не в каталоге</span>
+          `;
+        }
+        importerReportList?.appendChild(row);
+      });
+
+      if (importerReportContainer) importerReportContainer.style.display = 'block';
+      if (importerSaveBtn) {
+        importerSaveBtn.style.display = importedMatchedTrackIds.length > 0 ? 'flex' : 'none';
+        importerSaveBtn.textContent = `Сохранить найденные (${importedMatchedTrackIds.length}) в новый плейлист`;
       }
     });
 
-    modSeeker?.addEventListener('input', () => {
-      if (modAudioElement.duration) {
-        modAudioElement.currentTime = (modSeeker.value / 100) * modAudioElement.duration;
-      }
-    });
-
-    // Repack and download .oump3
-    modDownloadBtn?.addEventListener('click', async () => {
-      if (!modUnpackedData || typeof window.JSZip === 'undefined') return;
-      const editTitle = document.getElementById('mod-edit-title')?.value.trim() || modUnpackedData.meta.title;
-      const editArtist = document.getElementById('mod-edit-artist')?.value.trim() || modUnpackedData.meta.artist;
-      const genresVal = document.getElementById('mod-edit-genres')?.value.trim();
-      const editGenres = genresVal ? genresVal.split(',').map(s => s.trim()).filter(Boolean) : (modUnpackedData.meta.genres || []);
-      const editExplicit = !!document.getElementById('mod-edit-explicit')?.checked;
-      const editAiFact = document.getElementById('mod-edit-ai-fact')?.value.trim() || '';
-
-      const selectedCats = [];
-      document.querySelectorAll('#mod-categories-chips input:checked').forEach(inp => selectedCats.push(inp.value));
-
-      const updatedMeta = {
-        ...modUnpackedData.meta,
-        title: editTitle,
-        artist: editArtist,
-        genres: editGenres,
-        isExplicit: editExplicit,
-        aiFact: editAiFact,
-        categories: selectedCats
+    importerSaveBtn?.addEventListener('click', async () => {
+      if (importedMatchedTrackIds.length === 0) return;
+      const plId = 'imported_' + Date.now();
+      const newPl = {
+        id: plId,
+        title: 'Импортированный плейлист (TuneMyMusic)',
+        trackIds: [...new Set(importedMatchedTrackIds)],
+        coverUrl: 'assets/oumusic.png',
+        createdAt: new Date().toISOString()
       };
+      if (!window.userPlaylists) window.userPlaylists = [];
+      window.userPlaylists.push(newPl);
+      try {
+        localStorage.setItem('oumusic_user_playlists', JSON.stringify(window.userPlaylists));
+      } catch (e) {}
 
-      const zip = new window.JSZip();
-      zip.file('header.json', JSON.stringify(updatedMeta, null, 2));
-      if (modUnpackedData.audioBlob) zip.file('audio.mp3', modUnpackedData.audioBlob);
-      if (modUnpackedData.coverBlob) zip.file('cover.jpg', modUnpackedData.coverBlob);
-      if (modUnpackedData.lyricsText) zip.file('lyrics.lrc', modUnpackedData.lyricsText);
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${editArtist} - ${editTitle}.oump3`;
-      a.click();
-      showToast(`Файл "${editArtist} — ${editTitle}.oump3" успешно упакован и скачан!`);
-    });
-
-    // Apply into active session catalog
-    modApplyBtn?.addEventListener('click', async () => {
-      if (!modUnpackedData) return;
-      modAudioElement.pause();
-      const editTitle = document.getElementById('mod-edit-title')?.value.trim() || modUnpackedData.meta.title;
-      const editArtist = document.getElementById('mod-edit-artist')?.value.trim() || modUnpackedData.meta.artist;
-      const genresVal = document.getElementById('mod-edit-genres')?.value.trim();
-      const editGenres = genresVal ? genresVal.split(',').map(s => s.trim()).filter(Boolean) : (modUnpackedData.meta.genres || []);
-      const editExplicit = !!document.getElementById('mod-edit-explicit')?.checked;
-      const editAiFact = document.getElementById('mod-edit-ai-fact')?.value.trim() || '';
-      const selectedCats = [];
-      document.querySelectorAll('#mod-categories-chips input:checked').forEach(inp => selectedCats.push(inp.value));
-
-      const id = 'mod_' + Date.now();
-      const meta = {
-        id,
-        filename: `${editArtist} - ${editTitle}.oump3`,
-        title: editTitle,
-        artist: editArtist,
-        genres: editGenres,
-        categories: selectedCats,
-        aiFact: editAiFact,
-        duration: modUnpackedData.meta.duration || modAudioElement.duration || 180,
-        isLocal: true,
-        isExplicit: editExplicit,
-        thumbBase64: modUnpackedData.meta.thumbBase64 || null
-      };
-
-      await saveTrackMetadata(meta);
-      await saveOfflineTrack(id, modUnpackedData.audioBlob, modUnpackedData.coverBlob, modUnpackedData.lyricsText, modUnpackedData.meta);
-      catalogTracks.unshift(meta);
-      renderCatalogFeed(catalogTracks);
-      if (typeof renderManualTracksFeed === 'function') await renderManualTracksFeed();
-
-      showToast(`Трек "${meta.artist} — ${meta.title}" применен в каталог!`);
-      closeMod();
+      showToast(`Плейлист "${newPl.title}" успешно сохранен в вашу медиатеку!`);
+      if (importerSaveBtn) importerSaveBtn.style.display = 'none';
+      if (importerReportContainer) importerReportContainer.style.display = 'none';
     });
 
     // 5. Year Recap stories dialog
@@ -7712,7 +7808,7 @@
             <div style="flex: 1; max-width: 95px; display: flex; flex-direction: column; align-items: center;">
               <div style="font-size: 0.75rem; font-weight: 800; color: #94A3B8; margin-bottom: 4px;">#2</div>
               <div style="width: 52px; height: 52px; border-radius: 50%; background: #334155; border: 2px solid #94A3B8; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #FFF; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
-                🥈
+                2
               </div>
               <div style="font-size: 0.8rem; font-weight: 700; color: #FFF; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
                 ${arts[1]?.name || 'M-Core'}
@@ -7722,7 +7818,7 @@
             <div style="flex: 1.2; max-width: 120px; display: flex; flex-direction: column; align-items: center;">
               <div style="font-size: 0.85rem; font-weight: 900; color: #FBBF24; margin-bottom: 4px;">#1 КУМИР</div>
               <div style="width: 72px; height: 72px; border-radius: 50%; background: #78350F; border: 3px solid #F59E0B; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #FFF; font-size: 1.6rem; box-shadow: 0 12px 30px rgba(245,158,11,0.45);">
-                👑
+                1
               </div>
               <div style="font-size: 0.95rem; font-weight: 800; color: #FFF; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">
                 ${arts[0]?.name || 'oulan1'}
@@ -7732,7 +7828,7 @@
             <div style="flex: 1; max-width: 95px; display: flex; flex-direction: column; align-items: center;">
               <div style="font-size: 0.75rem; font-weight: 800; color: #D97706; margin-bottom: 4px;">#3</div>
               <div style="width: 52px; height: 52px; border-radius: 50%; background: #451A03; border: 2px solid #D97706; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #FFF; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
-                🥉
+                3
               </div>
               <div style="font-size: 0.8rem; font-weight: 700; color: #FFF; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
                 ${arts[2]?.name || 'Artist'}
@@ -7777,9 +7873,9 @@
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px; text-transform: uppercase;">Всего в музыке</div>
             <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;"></div>
             <div style="text-align: left; font-size: 0.85rem; line-height: 1.6;">
-              <div>🎵 Топ-трек: <strong style="color: #FFF;">${data.topTrack.title}</strong></div>
-              <div>👑 Артист года: <strong style="color: #FFF;">${data.topArtists[0]?.name || 'Artist'}</strong></div>
-              <div>⚡ Вайб: <strong style="color: #34D399;">${data.topGenres[0]?.genre || 'Electronic'}</strong></div>
+              <div>Топ-трек: <strong style="color: #FFF;">${data.topTrack.title}</strong></div>
+              <div>Артист года: <strong style="color: #FFF;">${data.topArtists[0]?.name || 'Artist'}</strong></div>
+              <div>Вайб: <strong style="color: #34D399;">${data.topGenres[0]?.genre || 'Electronic'}</strong></div>
             </div>
           </div>
           <div style="font-size: 0.8rem; color: var(--md-sys-color-outline);">
@@ -7886,10 +7982,10 @@
         ctx.roundRect(covX, covY, covSize, covSize, 18);
         ctx.fill();
         ctx.fillStyle = textColor;
-        ctx.font = '800 44px sans-serif';
+        ctx.font = '800 24px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🎵', covX + covSize / 2, covY + covSize / 2);
+        ctx.fillText('ouMusic', covX + covSize / 2, covY + covSize / 2);
         drawCardDetails();
       }
     };

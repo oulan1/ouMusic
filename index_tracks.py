@@ -194,9 +194,10 @@ def index_tracks():
             cur_genres = [g.lower() for g in entry_genres]
             if any(x in ' '.join(cur_genres) for x in ['hyperpop', 'phonk', 'trap', 'rock', 'electronic']):
                 categories.append('mood:energy')
-            elif any(x in ' '.join(cur_genres) for x in ['emo rap', 'post-punk', 'indie', 'melancholy']):
+            if any(x in ' '.join(cur_genres) for x in ['emo rap', 'post-punk', 'indie', 'melancholy', 'sad']):
                 categories.append('mood:melancholy')
-            else:
+                categories.append('mood:sad')
+            if not categories or len([c for c in categories if c.startswith('mood:')]) == 0:
                 categories.append('mood:energy')
 
         # Existing entry if already in catalog

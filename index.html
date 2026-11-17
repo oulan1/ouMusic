@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.25">
-  <link rel="stylesheet" href="css/main.css?v=2.7.25">
-  <link rel="stylesheet" href="css/components.css?v=2.7.25">
-  <link rel="stylesheet" href="css/player.css?v=2.7.25">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.26">
+  <link rel="stylesheet" href="css/main.css?v=2.7.26">
+  <link rel="stylesheet" href="css/components.css?v=2.7.26">
+  <link rel="stylesheet" href="css/player.css?v=2.7.26">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -370,9 +370,6 @@
         </div>
 
         <div class="top-bar-right">
-          <button class="icon-btn" id="top-studio-btn" title="Моя Студия">
-            <svg class="svg-icon"><use href="#icon-studio"></use></svg>
-          </button>
           <button class="icon-btn profile-avatar-btn" id="top-profile-btn" data-nav="profile" title="Профиль" style="padding: 0; overflow: hidden; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;">
             <img id="top-profile-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='50' fill='%2322232B'/><circle cx='50' cy='38' r='17' fill='%2371717A'/><path d='M22 84c0-15.5 12.5-28 28-28s28 12.5 28 28H22z' fill='%2371717A'/></svg>" alt="Аватар" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%;">
           </button>
@@ -445,8 +442,15 @@
             </div>
           </div> <!-- END OF WAVE-HOME-SECTION -->
 
+          <!-- Search Category Tabs (Shown while search input has text, Artists active by default) -->
+          <div class="search-category-tabs" id="search-category-tabs" style="display: none; justify-content: center; gap: 10px; margin: 20px 0 20px 0;">
+            <button class="search-tab-pill active" data-tab="artists" type="button">Артисты</button>
+            <button class="search-tab-pill" data-tab="tracks" type="button">Треки</button>
+            <button class="search-tab-pill" data-tab="playlists" type="button">Плейлисты</button>
+          </div>
+
           <!-- Home Switch Tabs: Треки / Плейлисты (Under Wave, Outside of its container) -->
-          <div class="home-tab-capsule-row" style="display: flex; justify-content: center; gap: 10px; margin: 26px 0 20px 0;">
+          <div class="home-tab-capsule-row" id="home-normal-tabs-row" style="display: flex; justify-content: center; gap: 10px; margin: 26px 0 20px 0;">
             <button class="chip active home-tab-pill" id="home-tab-music-btn" style="padding: 10px 22px; font-weight: 750; font-size: 0.95rem; border-radius: 9999px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
               <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-music"></use></svg>
               <span>Треки</span>
@@ -513,9 +517,6 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h2 style="font-size: 1.5rem; font-weight: 700;" data-i18n="nav_library">Библиотека</h2>
             <div style="display: flex; gap: 8px;">
-              <button class="btn btn-tonal" id="lib-import-tunemymusic-btn" style="padding: 6px 12px; font-size: 0.8rem;">
-                <span data-i18n="btn_tunemymusic">TuneMyMusic</span>
-              </button>
               <button class="btn btn-primary" id="lib-upload-oump3-btn" style="padding: 6px 12px; font-size: 0.8rem;">
                 <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-download"></use></svg>
                 <span data-i18n="btn_upload_oump3">Загрузить .oump3</span>
@@ -643,6 +644,8 @@
           <div class="settings-tabs-scroll-row">
             <button class="settings-tab-pill active" data-settings-tab="sound" type="button">Звук и эквалайзер</button>
             <button class="settings-tab-pill" data-settings-tab="appearance" type="button">Внешний вид</button>
+            <button class="settings-tab-pill" data-settings-tab="studio" type="button">Моя Студия</button>
+            <button class="settings-tab-pill" data-settings-tab="importer" type="button">Перенос плейлистов</button>
             <button class="settings-tab-pill" data-settings-tab="perf" type="button">Производительность</button>
             <button class="settings-tab-pill" data-settings-tab="about" type="button">О сервисе</button>
           </div>
@@ -662,6 +665,121 @@
         Перейти →
       </div>
     </a>
+
+          <!-- My Studio in Settings -->
+          <div data-settings-group="studio" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 18px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+              <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-studio"></use></svg>
+              <span>Моя Студия (Создание треков)</span>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--md-sys-color-outline); margin-bottom: 16px;">
+              Локальный инструмент для нарезки минусовки, синхронизации караоке и экспорта в контейнер .oump3.
+            </div>
+            <button class="btn btn-primary" id="settings-open-studio-wizard-btn" type="button" style="width: 100%; justify-content: center; padding: 12px 18px; font-weight: 750; font-size: 0.95rem; border-radius: 14px; margin-bottom: 20px;">
+              <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-studio"></use></svg>
+              <span>Открыть мастер создания треков</span>
+            </button>
+
+            <!-- Studio Option: AI Voiceover in Wave -->
+            <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 600; font-size: 0.9rem;">Озвучка от ИИ в «Моя волна»</span>
+                <label class="m3-switch" style="margin: 0;">
+                  <input type="checkbox" id="wave-setting-ai-speech-toggle" checked>
+                  <div class="switch-track"><div class="switch-thumb"></div></div>
+                </label>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-outline);">
+                Воспроизводить голосовой комментарий и факт о треке через синтезатор речи, когда трек закончился.
+              </div>
+            </div>
+
+            <!-- Studio Option: Presets Genres -->
+            <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 14px;">
+              <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px;">Жанры треков студии</div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-outline); margin-bottom: 10px;">
+                Выберите предпочтительные жанры для фильтрации и каталогизации:
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="studio-setting-genres-chips">
+                <button type="button" class="chip active genre-filter-chip" data-genre="Hyperpop">Hyperpop</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Glitchcore">Glitchcore</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Emo Rap">Emo Rap</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Phonk">Phonk</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Drift Phonk">Drift Phonk</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Trap">Trap</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Cloud Rap">Cloud Rap</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Hip-Hop">Hip-Hop</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Rock">Rock</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Alternative Rock">Alternative Rock</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Post-Punk">Post-Punk</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Indie">Indie</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Indie Pop">Indie Pop</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Synthwave">Synthwave</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Witch House">Witch House</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Lo-Fi">Lo-Fi</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Ambient">Ambient</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Electronic">Electronic</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="House">House</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Techno">Techno</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Drum & Bass">Drum & Bass</button>
+                <button type="button" class="chip active genre-filter-chip" data-genre="Pop">Pop</button>
+              </div>
+            </div>
+
+            <!-- Studio Option: Categories -->
+            <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06);">
+              <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px;">Категории Моей Волны</div>
+              <div style="font-size: 0.78rem; color: var(--md-sys-color-outline); margin-bottom: 10px;">
+                Категории для фильтрации и подбора треков под настроение:
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="studio-setting-categories-chips">
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:sad">Грущу (mood:sad)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:energy">Драйв (mood:energy)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:melancholy">Меланхолия (mood:melancholy)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:work">Для работы (mood:work)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:rest">Отдых (mood:rest)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:workout">Тренировка (mood:workout)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:road">В дороге (mood:road)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="mood:sleep">Сон (mood:sleep)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="lang:ru">На русском (lang:ru)</button>
+                <button type="button" class="chip active cat-filter-chip" data-cat="lang:foreign">Иностранное (lang:foreign)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transfer Playlist from Other Services -->
+          <div data-settings-group="importer" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 18px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+              <svg class="svg-icon" style="width: 20px; height: 20px; fill: var(--md-sys-color-primary);"><use href="#icon-playlist"></use></svg>
+              <span>Перенести плейлист из других сервисов</span>
+            </div>
+            
+            <!-- Quick Tutorial / Guide -->
+            <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px;">
+              <div style="font-weight: 750; font-size: 0.88rem; color: #FFFFFF; margin-bottom: 8px;">Краткая инструкция по переносу:</div>
+              <ol style="margin: 0; padding-left: 18px; font-size: 0.82rem; color: rgba(255,255,255,0.8); line-height: 1.6;">
+                <li>Откройте сервис переноса (например, <strong>tunemymusic.com</strong>) и укажите источник (Яндекс Музыка, Spotify, VK или Apple Music).</li>
+                <li>Выберите нужный плейлист и экспортируйте его в виде <strong>Текстового файла (.txt)</strong> или <strong>CSV (.csv)</strong>.</li>
+                <li>Нажмите кнопку ниже и выберите скачанный файл. ouMusic сопоставит треки с каталогом и сохранит готовый плейлист в медиатеке.</li>
+              </ol>
+            </div>
+
+            <input type="file" id="settings-importer-file-input" accept=".txt,.csv" style="display: none;">
+            <button class="btn btn-primary" id="settings-importer-choose-file-btn" type="button" style="width: 100%; justify-content: center; padding: 12px 18px; font-weight: 750; font-size: 0.95rem; border-radius: 14px; margin-bottom: 14px;">
+              <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-upload"></use></svg>
+              <span>Выбрать файл плейлиста (.txt, .csv)</span>
+            </button>
+
+            <!-- Results container -->
+            <div id="settings-importer-report-container" style="display: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 12px; margin-bottom: 14px; max-height: 240px; overflow-y: auto;">
+              <div class="tracks-list" id="settings-importer-report-list"></div>
+            </div>
+
+            <button class="btn btn-primary" id="settings-importer-save-btn" type="button" style="width: 100%; justify-content: center; display: none; background: #10B981; color: #FFFFFF; padding: 10px 18px; font-weight: 750; border-radius: 14px;">
+              <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-check"></use></svg>
+              <span>Сохранить как плейлист в медиатеке</span>
+            </button>
+          </div>
 
     <!-- Performance & Eco Mode Block -->
     <div data-settings-group="perf" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 20px;">
@@ -1521,10 +1639,6 @@
           <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-library"></use></svg></div>
           <span class="tab-label" data-i18n="nav_library">Библиотека</span>
         </button>
-        <button class="nav-tab" data-nav="studio">
-          <div class="tab-icon-wrap"><svg class="svg-icon"><use href="#icon-studio"></use></svg></div>
-          <span class="tab-label" data-i18n="nav_studio">Студия</span>
-        </button>
         <button class="nav-tab" data-nav="profile">
           <div class="tab-icon-wrap">
             <svg class="svg-icon"><use href="#icon-user"></use></svg>
@@ -1669,9 +1783,6 @@
         </button>
       </div>
     </div>
-
-    <!-- 3-2-1 Countdown visual -->
-    <div class="lyrics-countdown-banner" id="lyrics-countdown-banner">3... 2... 1...</div>
 
     <!-- 2-Column Responsive Layout -->
     <div class="lyrics-split-layout">
@@ -2086,118 +2197,11 @@
     <button class="cover-lightbox-close-fab" id="cover-lightbox-close-btn" title="Закрыть">
       <svg class="svg-icon" style="width: 22px; height: 22px;"><use href="#icon-close"></use></svg>
     </button>
+    <a class="cover-lightbox-download-fab" id="cover-lightbox-download-btn" title="Скачать обложку" download="cover.jpg" href="#">
+      <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-download"></use></svg>
+    </a>
     <div class="cover-lightbox-content">
       <img id="cover-lightbox-img" class="cover-lightbox-img" src="assets/oumusic.png" alt="Cover Fullscreen">
-    </div>
-  </div>
-
-  <!-- SECRET MODERATION ROOM MODAL (20 Rapid Taps on Studio) -->
-  <div class="dialog-backdrop modal-backdrop" id="moderation-modal" style="display: none;">
-    <div class="dialog-card" style="max-width: 820px; width: 95vw; background: #0F0F17; border: 1px solid rgba(139, 92, 246, 0.4); max-height: 90vh; display: flex; flex-direction: column; border-radius: 24px; padding: 22px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.9);">
-      <div class="dialog-title" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-shrink: 0;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <svg class="svg-icon" style="width: 22px; height: 22px; fill: var(--md-sys-color-primary);"><use href="#icon-verified"></use></svg>
-          <span style="font-weight: 800; font-family: var(--font-family-ys), sans-serif; font-size: 1.15rem;">Панель модерации и упаковки ouMusic</span>
-        </div>
-        <button class="icon-btn" id="mod-close-icon-btn" style="width: 32px; height: 32px;"><svg class="svg-icon"><use href="#icon-close"></use></svg></button>
-      </div>
-
-      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
-        <!-- File Drop / Select Area -->
-        <div id="mod-dropzone" style="border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 14px; padding: 18px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color 0.2s; margin-bottom: 14px;">
-          <input type="file" id="mod-file-input" accept=".oump3" style="display: none;">
-          <svg class="svg-icon" style="width: 30px; height: 30px; fill: var(--md-sys-color-primary); margin-bottom: 6px;"><use href="#icon-upload"></use></svg>
-          <div style="font-weight: 600; font-size: 0.95rem;">Нажмите или перетащите контейнер .oump3</div>
-          <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 4px;">Чтение header.json, аудиодорожки, обложки и караоке-текста</div>
-        </div>
-
-        <!-- Inspection Details Area (Hidden until file selected) -->
-        <div id="mod-review-area" style="display: none;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <!-- Left: Editable metadata -->
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-              <div style="display: flex; gap: 12px; align-items: center;">
-                <img id="mod-cover-img" src="assets/oumusic.png" alt="" style="width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #111; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
-                <div style="flex: 1; min-width: 0;">
-                  <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Название трека</label>
-                  <input type="text" id="mod-edit-title" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="Название трека">
-                </div>
-              </div>
-
-              <div>
-                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Исполнитель / Артист</label>
-                <input type="text" id="mod-edit-artist" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="Исполнитель">
-              </div>
-
-              <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;">
-                <div>
-                  <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Жанры (через запятую)</label>
-                  <input type="text" id="mod-edit-genres" class="m3-input" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.9rem;" placeholder="hyperpop, rap, alternative">
-                </div>
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; padding-bottom: 8px;">
-                  <input type="checkbox" id="mod-edit-explicit" style="accent-color: #EF4444; width: 16px; height: 16px;">
-                  <span style="color: #EF4444; font-weight: 700;">18+</span>
-                </label>
-              </div>
-
-              <div>
-                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase;">Факт ИИ для «Моя волна» (aiFact)</label>
-                <textarea id="mod-edit-ai-fact" class="m3-input" rows="2" style="width: 100%; margin-top: 2px; padding: 6px 10px; font-size: 0.82rem; resize: vertical;" placeholder="Интересный факт или описание трека от ИИ..."></textarea>
-              </div>
-
-              <div>
-                <label style="font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-bottom: 4px; display: block;">Категории Волны</label>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="mod-categories-chips">
-                  <label class="mod-cat-chip"><input type="checkbox" value="mood:energetic"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-bolt"></use></svg> <span>Энергичное</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="mood:calm"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-coffee"></use></svg> <span>Спокойное</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="mood:sad"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-rain"></use></svg> <span>Грустное</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="mood:drive"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-fire"></use></svg> <span>Драйв</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="char:dark"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-sleep"></use></svg> <span>Мрачное</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="char:light"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-sparkles"></use></svg> <span>Светлое</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="lang:ru"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-flag"></use></svg> <span>На русском</span></label>
-                  <label class="mod-cat-chip"><input type="checkbox" value="lang:foreign"> <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-globe"></use></svg> <span>Иностранное</span></label>
-                </div>
-              </div>
-
-              <!-- Audio Player Controls -->
-              <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 10px 12px; margin-top: 2px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                  <button class="btn btn-primary" id="mod-play-btn" style="padding: 5px 12px; font-size: 0.8rem;">
-                    <svg class="svg-icon" style="width: 14px; height: 14px;"><use href="#icon-play"></use></svg>
-                    <span id="mod-play-btn-text">Слушать</span>
-                  </button>
-                  <span id="mod-time" style="font-size: 0.8rem; font-family: monospace;">00:00 / 00:00</span>
-                </div>
-                <input type="range" id="mod-seeker" min="0" max="100" value="0" style="width: 100%; accent-color: var(--md-sys-color-primary);">
-              </div>
-            </div>
-
-            <!-- Right: Lyrics Synchronized Stream -->
-            <div style="background: rgba(0, 0, 0, 0.35); border-radius: 14px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; min-height: 260px;">
-              <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--md-sys-color-outline); margin-bottom: 8px;">
-                Синхронизация текста (LRC / Караоке):
-              </div>
-              <div id="mod-lyrics-stream" style="flex: 1; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-family: -apple-system, BlinkMacSystemFont, monospace; font-size: 0.85rem;">
-                <span style="color: var(--md-sys-color-outline);">Текст не загружен</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="dialog-actions" style="margin-top: 14px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <button class="btn btn-outlined" id="mod-close-btn">Закрыть</button>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-tonal" id="mod-download-repack-btn" style="display: none; background: rgba(139, 92, 246, 0.2); color: #C4B5FD; border: 1px solid rgba(139, 92, 246, 0.4);">
-            <svg class="svg-icon" style="width: 16px; height: 16px; margin-right: 4px;"><use href="#icon-download"></use></svg>
-            <span>Скачать .oump3</span>
-          </button>
-          <button class="btn btn-primary" id="mod-apply-catalog-btn" style="display: none; background: #10B981; color: #FFF;">
-            <svg class="svg-icon" style="width: 16px; height: 16px; margin-right: 4px;"><use href="#icon-check"></use></svg>
-            <span>Применить в сессию</span>
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -2244,7 +2248,7 @@
 
         <!-- Fine print note -->
         <div style="background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 12px; font-size: 0.78rem; line-height: 1.5; color: var(--md-sys-color-outline); border: 1px solid rgba(255, 255, 255, 0.08); margin-top: 4px;">
-          💬 <em>А также: если вы хотите получить галочку подтвержденного артиста или просто задать вопрос / отправить найденный баг по поводу сервиса — пишите в бота <a href="https://t.me/ouMusicRobot" target="_blank" style="color: var(--md-sys-color-primary);">@ouMusicRobot</a>, и администрация подробно проконсультирует вас по этому вопросу.</em>
+          <em>А также: если вы хотите получить галочку подтвержденного артиста или просто задать вопрос / отправить найденный баг по поводу сервиса - пишите в бота <a href="https://t.me/ouMusicRobot" target="_blank" style="color: var(--md-sys-color-primary);">@ouMusicRobot</a>, и администрация подробно проконсультирует вас по этому вопросу.</em>
         </div>
       </div>
 
@@ -2355,6 +2359,10 @@
             <button class="chip wave-chip" data-val="melancholy" type="button">
               <svg class="svg-icon"><use href="#icon-rain"></use></svg>
               <span>Меланхолия</span>
+            </button>
+            <button class="chip wave-chip" data-val="sad" type="button">
+              <svg class="svg-icon"><use href="#icon-rain"></use></svg>
+              <span>Грущу</span>
             </button>
             <button class="chip wave-chip" data-val="sleep" type="button">
               <svg class="svg-icon"><use href="#icon-sleep"></use></svg>
@@ -2604,8 +2612,8 @@
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.25"></script>
-  <script src="playlists/playlists.js?v=2.7.25"></script>
-  <script src="js/app.standalone.js?v=2.7.25"></script>
+  <script src="tracks/catalog.js?v=2.7.26"></script>
+  <script src="playlists/playlists.js?v=2.7.26"></script>
+  <script src="js/app.standalone.js?v=2.7.26"></script>
 </body>
 </html>
