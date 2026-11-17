@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 ouMusic Tracks Auto-Indexer
-Scans tracks/*.oump3, extracts full metadata (title, artist, genres, duration,
-cover thumbnail, lyrics flag, explicit tag, instrumental DSP config),
+Scans tracks/*.oump3, preserves existing remote/CDN tracks from tracks/catalog.json,
+extracts full metadata (title, artist, genres, duration, cover thumbnail, lyrics flag,
+explicit tag, instrumental DSP config, storage repo, jsDelivr CDN and fallback URLs),
 and generates tracks/catalog.json and tracks/catalog.js.
 """
 
 import os
 import sys
 import re
+import urllib.parse
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -81,7 +83,7 @@ def index_playlists(catalog):
         if not raw_track_ids and raw_tracks:
             raw_track_ids = [t.get('id') for t in raw_tracks if isinstance(t, dict) and t.get('id')]
 
-        # Strictly filter only tracks that exist in the site catalog (no missing local tracks!)
+        # Strictly filter only tracks that exist in the site catalog
         filtered_ids = [tid for tid in raw_track_ids if tid in catalog_ids]
 
         playlists.append({
@@ -112,6 +114,7 @@ def index_playlists(catalog):
     for pl in playlists:
         print(f"  [Playlist] {pl['name']} by {pl['author']} ({pl['trackCount']} available tracks)")
 
+
 def index_tracks():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     tracks_dir = os.path.join(base_dir, 'tracks')
@@ -119,9 +122,23 @@ def index_tracks():
     if not os.path.exists(tracks_dir):
         os.makedirs(tracks_dir, exist_ok=True)
 
-    catalog = []
-    files = sorted(os.listdir(tracks_dir))
+    json_path = os.path.join(tracks_dir, 'catalog.json')
+    catalog_map = {}
 
+    # 1. Load existing catalog to preserve remote/CDN tracks and their metadata
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                existing_catalog = json.load(f)
+                if isinstance(existing_catalog, list):
+                    for item in existing_catalog:
+                        if isinstance(item, dict) and item.get('id'):
+                            catalog_map[item['id']] = item
+        except Exception as e:
+            print(f"[Warn] Could not read existing catalog.json: {e}")
+
+    # 2. Scan local tracks/ for .oump3 files (if any exist locally)
+    files = sorted(os.listdir(tracks_dir))
     for filename in files:
         if not filename.lower().endswith('.oump3'):
             continue
@@ -182,6 +199,9 @@ def index_tracks():
             else:
                 categories.append('mood:energy')
 
+        # Existing entry if already in catalog
+        existing_entry = catalog_map.get(track_id, {})
+
         entry = {
             "id": track_id,
             "filename": filename,
@@ -189,29 +209,51 @@ def index_tracks():
             "artist": meta.get('artist', default_artist),
             "genres": entry_genres,
             "categories": categories,
-            "duration": meta.get('duration', 0),
+            "duration": meta.get('duration', existing_entry.get('duration', 0)),
             "hasLyrics": meta.get('hasLyrics', True),
             "isExplicit": bool(is_explicit),
             "explicit": bool(is_explicit),
             "hasInstrumental": bool(has_instrumental),
             "hasStudioInstrumental": bool(has_studio_instrumental),
-            "instrumentalConfig": instrumental_config,
-            "aiFact": ai_fact,
-            "thumbBase64": thumb_base64,
+            "instrumentalConfig": instrumental_config or existing_entry.get('instrumentalConfig'),
+            "aiFact": ai_fact or existing_entry.get('aiFact', ''),
+            "thumbBase64": thumb_base64 or existing_entry.get('thumbBase64'),
             "size": stats.st_size,
             "updatedAt": mod_time
         }
-        catalog.append(entry)
 
-    # Sort deterministically by filename
-    catalog.sort(key=lambda x: x["filename"].lower())
+        # Preserve remote CDN / fallback metadata if present
+        if 'storageRepo' in existing_entry:
+            entry['storageRepo'] = existing_entry['storageRepo']
+        if 'cdnUrl' in existing_entry:
+            entry['cdnUrl'] = existing_entry['cdnUrl']
+        if 'fallbackUrl' in existing_entry:
+            entry['fallbackUrl'] = existing_entry['fallbackUrl']
 
-    # 1. Write tracks/catalog.json
-    json_path = os.path.join(tracks_dir, 'catalog.json')
+        catalog_map[track_id] = entry
+
+    # 3. Ensure all tracks have valid CDN and fallback URLs if a storageRepo is specified
+    for tid, entry in catalog_map.items():
+        storage_repo = entry.get('storageRepo')
+        filename = entry.get('filename')
+        if storage_repo and filename:
+            enc_name = urllib.parse.quote(filename)
+            if not entry.get('cdnUrl'):
+                entry['cdnUrl'] = f"https://cdn.jsdelivr.net/gh/{storage_repo}@main/tracks/{enc_name}"
+            if not entry.get('fallbackUrl'):
+                entry['fallbackUrl'] = f"https://raw.githubusercontent.com/{storage_repo}/main/tracks/{enc_name}"
+
+    # 4. Sort catalog deterministically (by artist + title)
+    catalog = sorted(
+        catalog_map.values(),
+        key=lambda x: (x.get("artist", "") + " - " + x.get("title", "")).lower()
+    )
+
+    # 5. Write tracks/catalog.json
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
 
-    # 2. Write tracks/catalog.js (for file:// fallback without CORS errors)
+    # 6. Write tracks/catalog.js (for file:// protocol fallback without CORS errors)
     js_path = os.path.join(tracks_dir, 'catalog.js')
     with open(js_path, 'w', encoding='utf-8') as f:
         f.write("/* Auto-generated by index_tracks.py. Do not edit manually. */\n")
@@ -222,7 +264,8 @@ def index_tracks():
     index_playlists(catalog)
     print(f"[ouMusic] Indexed {len(catalog)} track(s) successfully.")
     for t in catalog:
-        print(f"  - {t['artist']} — {t['title']} ({t['duration']}s, explicit={t['isExplicit']}, inst={t['hasInstrumental']})")
+        storage_info = f" [CDN: {t.get('storageRepo')}]" if t.get('storageRepo') else " [Local]"
+        print(f"  - {t['artist']} — {t['title']} ({t['duration']}s, explicit={t['isExplicit']}, inst={t['hasInstrumental']}){storage_info}")
 
 if __name__ == '__main__':
     index_tracks()

@@ -2156,6 +2156,46 @@
     syncMediaSessionPosition(true);
   }
 
+  function getTrackFetchUrls(track) {
+    if (!track) return [];
+    const rawName = track.filename || `${track.artist || ''} - ${track.title || ''}.oump3`.trim();
+    const encName = encodeURIComponent(rawName);
+    const storageRepo = track.storageRepo || 'oulan1/music-1';
+
+    const urls = [];
+
+    // 1. Primary: jsDelivr CDN
+    if (track.cdnUrl) {
+      urls.push(track.cdnUrl);
+    } else if (storageRepo) {
+      urls.push(`https://cdn.jsdelivr.net/gh/${storageRepo}@main/tracks/${encName}`);
+    }
+
+    // 2. Fallback: Raw GitHub (storage repository)
+    if (track.fallbackUrl) {
+      urls.push(track.fallbackUrl);
+    } else if (storageRepo) {
+      urls.push(`https://raw.githubusercontent.com/${storageRepo}/main/tracks/${encName}`);
+    }
+
+    // 3. Local relative paths
+    if (typeof resolveAppUrl === 'function') {
+      urls.push(resolveAppUrl(`tracks/${encName}`));
+    }
+    urls.push(`./tracks/${encName}`);
+    urls.push(`tracks/${encName}`);
+    urls.push(`./tracks/${rawName}`);
+    urls.push(`tracks/${rawName}`);
+    urls.push(`/ouMusic/tracks/${encName}`);
+    urls.push(`/tracks/${encName}`);
+
+    // 4. Main repo raw fallback (legacy)
+    urls.push(`https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`);
+
+    return Array.from(new Set(urls.filter(Boolean)));
+  }
+  window.getTrackFetchUrls = getTrackFetchUrls;
+
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
 
@@ -2202,19 +2242,9 @@
         if (offlineRecord.meta.isExplicit !== undefined) track.isExplicit = offlineRecord.meta.isExplicit;
         if (offlineRecord.meta.aiFact) track.aiFact = offlineRecord.meta.aiFact;
       }
-    } else if (track.filename) {
+    } else if (track.filename || track.cdnUrl || track.storageRepo) {
       try {
-        const encName = encodeURIComponent(track.filename);
-        const candidates = [
-          resolveAppUrl(`tracks/${encName}`),
-          `./tracks/${encName}`,
-          `tracks/${encName}`,
-          `./tracks/${track.filename}`,
-          `tracks/${track.filename}`,
-          `/ouMusic/tracks/${encName}`,
-          `/tracks/${encName}`,
-          `https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`
-        ];
+        const candidates = getTrackFetchUrls(track);
         let res = null;
         for (const url of candidates) {
           try {
@@ -3035,14 +3065,7 @@
     }
 
     try {
-      const encName = encodeURIComponent(track.filename || `${track.artist} - ${track.title}.oump3`);
-      const candidates = [
-        resolveAppUrl(`tracks/${encName}`),
-        `./tracks/${encName}`,
-        `tracks/${encName}`,
-        `/ouMusic/tracks/${encName}`,
-        `https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`
-      ];
+      const candidates = getTrackFetchUrls(track);
       let resp = null;
       for (const url of candidates) {
         try {

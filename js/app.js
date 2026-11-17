@@ -5,7 +5,7 @@
 
 import { initStorage, saveTrackMetadata, getAllTracksMetadata, saveOfflineTrack, getOfflineTrack, deleteOfflineTrack, isOffline, isLiked, toggleLike, getSetting, saveSetting, getBlacklist, removeDislike, addHistory, getAllLikes, getAllPlaylists } from './core/storage.js';
 import { engine } from './core/engine.js';
-import { unpackOump3Full, parseOump3HeaderFast, unpackOulistContainer } from './core/oump3.js';
+import { unpackOump3Full, parseOump3HeaderFast, unpackOulistContainer, getTrackFetchUrls } from './core/oump3.js';
 import { loadCatalog, getCachedCatalog, initLazyCoversObserver, observeTrackRow } from './modules/github.js';
 import { initPlayerUI, updatePlayerDisplay, updatePlayPauseButtons, setPlaybackQueue, getCurrentTrack, getQueue } from './modules/player-ui.js';
 import { initWaveModule } from './modules/wave.js';
@@ -127,11 +127,17 @@ export async function playTrack(track, autoPlay = true) {
     alert('Локальный трек не найден в памяти устройства.');
     return;
   } else {
-    // Online track from GitHub catalog: unpack entire .oump3 for audio & full cover
+    // Online track from GitHub/jsDelivr CDN: unpack entire .oump3 for audio & full cover
     try {
-      const fileUrl = `./tracks/${encodeURIComponent(track.filename)}`;
-      const res = await fetch(fileUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const candidates = getTrackFetchUrls(track);
+      let res = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetch(url);
+          if (r && r.ok) { res = r; break; }
+        } catch (e) {}
+      }
+      if (!res || !res.ok) throw new Error('Файл не найден');
       const buf = await res.arrayBuffer();
 
       const unpacked = await unpackOump3Full(buf);

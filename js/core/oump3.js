@@ -4,6 +4,48 @@
  */
 
 /* ==========================================================================
+   Track URL Resolver (jsDelivr CDN -> Raw GitHub fallback -> Local)
+   ========================================================================== */
+export function getTrackFetchUrls(track) {
+  if (!track) return [];
+  const rawName = track.filename || `${track.artist || ''} - ${track.title || ''}.oump3`.trim();
+  const encName = encodeURIComponent(rawName);
+  const storageRepo = track.storageRepo || 'oulan1/music-1';
+
+  const urls = [];
+
+  // 1. Primary: jsDelivr CDN
+  if (track.cdnUrl) {
+    urls.push(track.cdnUrl);
+  } else if (storageRepo) {
+    urls.push(`https://cdn.jsdelivr.net/gh/${storageRepo}@main/tracks/${encName}`);
+  }
+
+  // 2. Fallback: Raw GitHub (storage repository)
+  if (track.fallbackUrl) {
+    urls.push(track.fallbackUrl);
+  } else if (storageRepo) {
+    urls.push(`https://raw.githubusercontent.com/${storageRepo}/main/tracks/${encName}`);
+  }
+
+  // 3. Local relative paths
+  if (typeof window !== 'undefined' && typeof window.resolveAppUrl === 'function') {
+    urls.push(window.resolveAppUrl(`tracks/${encName}`));
+  }
+  urls.push(`./tracks/${encName}`);
+  urls.push(`tracks/${encName}`);
+  urls.push(`./tracks/${rawName}`);
+  urls.push(`tracks/${rawName}`);
+  urls.push(`/ouMusic/tracks/${encName}`);
+  urls.push(`/tracks/${encName}`);
+
+  // 4. Main repo raw fallback (legacy)
+  urls.push(`https://raw.githubusercontent.com/oulan1/ouMusic/main/tracks/${encName}`);
+
+  return Array.from(new Set(urls.filter(Boolean)));
+}
+
+/* ==========================================================================
    Fast Binary Header Parser (Range: bytes=0-65535, NO JSZip)
    ========================================================================== */
 export function parseOump3HeaderFast(arrayBuffer) {
