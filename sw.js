@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.31';
+const CACHE_NAME = 'oumusic-shell-v2.7.32';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -21,12 +21,15 @@ const APP_SHELL_ASSETS = [
   './css/player.css',
   './js/vendor/jszip.min.js',
   './js/vendor/liquidglass.js',
+  './js/vendor/qrcode.min.js',
+  './js/vendor/jsqr.min.js',
   './js/i18n.js',
   './js/app.js',
   './js/app.standalone.js',
   './js/core/engine.js',
   './js/core/oump3.js',
   './js/core/storage.js',
+  './js/core/sync.js',
   './js/modules/github.js',
   './js/modules/wave.js',
   './js/modules/player-ui.js',

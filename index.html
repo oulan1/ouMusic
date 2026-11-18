@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.31">
-  <link rel="stylesheet" href="css/main.css?v=2.7.31">
-  <link rel="stylesheet" href="css/components.css?v=2.7.31">
-  <link rel="stylesheet" href="css/player.css?v=2.7.31">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.32">
+  <link rel="stylesheet" href="css/main.css?v=2.7.32">
+  <link rel="stylesheet" href="css/components.css?v=2.7.32">
+  <link rel="stylesheet" href="css/player.css?v=2.7.32">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -603,6 +603,62 @@
             </button>
           </div>
 
+          <!-- GitHub Cloud & Device Sync Card (Profile) -->
+          <div style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-extra-large); padding: 20px; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <span>Облачная синхронизация</span>
+              </div>
+              <span class="badge" id="gh-sync-badge-status" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--md-sys-color-outline);">Не подключено</span>
+            </div>
+
+            <!-- Guest View -->
+            <div class="gh-auth-guest-view" style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start;">
+              <p style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin: 0; line-height: 1.45;">
+                Привяжите GitHub для надежного сохранения плейлистов, лайков и переноса сессии на другие устройства.
+              </p>
+              <button type="button" class="github-login-trigger-btn" id="profile-github-login-btn" style="background: #ffffff; color: #000000; border: none; border-radius: 9999px; padding: 12px 24px; font-weight: 700; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; transition: transform 0.15s, opacity 0.15s; box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);">
+                <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #000000;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <span>Войти с GitHub</span>
+              </button>
+            </div>
+
+            <!-- User View -->
+            <div class="gh-auth-user-view" style="display: none; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 14px 18px; border-radius: var(--md-shape-corner-medium); border: 1px solid rgba(255, 255, 255, 0.05);">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <img class="gh-user-avatar-img" src="" alt="GitHub" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); object-fit: cover;">
+                  <div>
+                    <div class="gh-user-login-text" style="font-weight: 700; font-size: 1rem;">@user</div>
+                    <div class="gh-sync-status-text" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 2px;">Синхронизировано: только что</div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-tonal" id="profile-gh-manual-sync-btn" style="padding: 8px 14px; font-size: 0.82rem; user-select: none;">
+                    <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-refresh"></use></svg>
+                    <span>Синхронизировать сейчас</span>
+                  </button>
+                  <button type="button" class="btn btn-outlined danger" id="profile-gh-logout-btn" style="padding: 8px 14px; font-size: 0.82rem; user-select: none;">
+                    <span>Выйти</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Device Transfer Buttons -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button type="button" class="btn btn-tonal" id="profile-open-qr-transfer-btn" style="justify-content: center; padding: 12px 16px; font-weight: 600; user-select: none;">
+                  <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-share"></use></svg>
+                  <span>QR-код для переноса</span>
+                </button>
+                <button type="button" class="btn btn-tonal" id="profile-open-qr-scanner-btn" style="justify-content: center; padding: 12px 16px; font-weight: 600; user-select: none;">
+                  <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-search"></use></svg>
+                  <span>Сканировать QR-код</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Achievements Shelf -->
           <div class="section-header">
             <h3 class="section-title" data-i18n="achievements_title">Достижения</h3>
@@ -643,11 +699,69 @@
           <!-- Category Navigation Tabs (Point 13 & Point 2) -->
           <div class="settings-tabs-scroll-row">
             <button class="settings-tab-pill active" data-settings-tab="sound" type="button">Звук и эквалайзер</button>
+            <button class="settings-tab-pill" data-settings-tab="account" type="button">Аккаунт и облако</button>
             <button class="settings-tab-pill" data-settings-tab="appearance" type="button">Внешний вид</button>
             <button class="settings-tab-pill" data-settings-tab="studio" type="button">Моя Студия</button>
             <button class="settings-tab-pill" data-settings-tab="importer" type="button">Перенос плейлистов</button>
             <button class="settings-tab-pill" data-settings-tab="perf" type="button">Производительность</button>
             <button class="settings-tab-pill" data-settings-tab="about" type="button">О сервисе</button>
+          </div>
+
+          <!-- Account & GitHub Cloud Sync Section -->
+          <div data-settings-group="account" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 22px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <div style="font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <span>Аккаунт и облачная синхронизация</span>
+              </div>
+              <span class="badge" id="gh-sync-badge-status" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--md-sys-color-outline);">Не подключено</span>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-bottom: 18px; line-height: 1.45;">
+              Синхронизируйте свои плейлисты, лайки, историю и настройки между всеми устройствами через защищенный приватный репозиторий GitHub без сторонних серверов.
+            </p>
+
+            <!-- State A: Not Logged In -->
+            <div class="gh-auth-guest-view" style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start;">
+              <button type="button" class="github-login-trigger-btn" id="settings-github-login-btn" style="background: #ffffff; color: #000000; border: none; border-radius: 9999px; padding: 12px 24px; font-weight: 700; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; transition: transform 0.15s, opacity 0.15s; box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);">
+                <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: #000000;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <span>Войти с GitHub</span>
+              </button>
+            </div>
+
+            <!-- State B: Logged In Card -->
+            <div class="gh-auth-user-view" style="display: none; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 14px 18px; border-radius: var(--md-shape-corner-medium); border: 1px solid rgba(255, 255, 255, 0.05);">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <img class="gh-user-avatar-img" src="" alt="GitHub" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); object-fit: cover;">
+                  <div>
+                    <div class="gh-user-login-text" style="font-weight: 700; font-size: 1rem;">@user</div>
+                    <div class="gh-sync-status-text" style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 2px;">Синхронизировано: только что</div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-tonal" id="gh-manual-sync-btn" style="padding: 8px 14px; font-size: 0.82rem; user-select: none;">
+                    <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-refresh"></use></svg>
+                    <span>Синхронизировать сейчас</span>
+                  </button>
+                  <button type="button" class="btn btn-outlined danger" id="gh-logout-btn" style="padding: 8px 14px; font-size: 0.82rem; user-select: none;">
+                    <span>Выйти</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Device Transfer Buttons -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button type="button" class="btn btn-tonal" id="open-qr-transfer-btn" style="justify-content: center; padding: 12px 16px; font-weight: 600; user-select: none;">
+                  <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-share"></use></svg>
+                  <span>QR-код для переноса</span>
+                </button>
+                <button type="button" class="btn btn-tonal" id="open-qr-scanner-btn" style="justify-content: center; padding: 12px 16px; font-weight: 600; user-select: none;">
+                  <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-search"></use></svg>
+                  <span>Сканировать QR-код</span>
+                </button>
+              </div>
+            </div>
           </div>
 
     <!-- Official Telegram Channel Card -->
@@ -1048,7 +1162,7 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.25</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.32</span> • Разработчик: oulan1
             </div>
           </div>
 
@@ -1080,7 +1194,7 @@
               Создано компанией <span style="color: var(--md-sys-color-primary); font-weight: 800;">ouForge™</span> в 2026 году
             </div>
             <div style="font-size: 0.75rem; margin-top: 6px; opacity: 0.65;">
-              Версия 2.7.25 • All Rights Reserved
+              Версия 2.7.32 • All Rights Reserved
             </div>
           </div>
         </section>
@@ -2617,6 +2731,159 @@
     </div>
   </div>
 
+  <!-- MODAL: GITHUB CLOUD AUTH & TUTORIAL -->
+  <div class="dialog-backdrop modal-backdrop" id="github-auth-modal-backdrop" style="display: none;">
+    <div class="dialog-card" id="github-auth-modal" style="width: 100%; max-width: 520px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: #ffffff;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <h3 style="font-size: 1.25rem; font-weight: 750; margin: 0; color: var(--md-sys-color-on-surface);">Вход в ouMusic Cloud</h3>
+        </div>
+        <button class="icon-btn" id="close-gh-auth-modal-btn" type="button" title="Закрыть">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+
+      <!-- Tabs: Token Tutorial vs QR Scan -->
+      <div style="display: flex; background: rgba(255, 255, 255, 0.06); border-radius: 999px; padding: 4px; margin-bottom: 20px;">
+        <button type="button" class="gh-auth-tab-pill active" id="gh-tab-btn-token" style="flex: 1; padding: 10px 14px; border-radius: 999px; border: none; background: var(--md-sys-color-primary, #A855F7); color: #000; font-weight: 700; font-size: 0.85rem; cursor: pointer; user-select: none; transition: all 0.2s;">
+          По токену (15 сек)
+        </button>
+        <button type="button" class="gh-auth-tab-pill" id="gh-tab-btn-qr" style="flex: 1; padding: 10px 14px; border-radius: 999px; border: none; background: transparent; color: var(--md-sys-color-outline); font-weight: 700; font-size: 0.85rem; cursor: pointer; user-select: none; transition: all 0.2s;">
+          По QR-коду
+        </button>
+      </div>
+
+      <!-- Tab 1: Token Login with 15-second Tutorial -->
+      <div id="gh-auth-tab-content-token" style="display: block;">
+        <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 16px; padding: 16px; margin-bottom: 18px;">
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--md-sys-color-primary); margin-bottom: 8px;">
+            Инструкция: как привязать GitHub за 15 секунд
+          </div>
+          <ol style="margin: 0; padding-left: 20px; font-size: 0.85rem; line-height: 1.55; color: rgba(255, 255, 255, 0.85);">
+            <li style="margin-bottom: 6px;">Нажмите кнопку ниже: откроется страница GitHub с уже выбранными правами <code>repo</code> и описанием <code>ouMusic Sync</code>.</li>
+            <li style="margin-bottom: 6px;">Пролистайте страницу вниз и нажмите зеленую кнопку <strong>«Generate token»</strong>.</li>
+            <li>Скопируйте ключ (начинается с <code>ghp_</code>) и вставьте в поле ниже.</li>
+          </ol>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <a href="https://github.com/settings/tokens/new?scopes=repo&description=ouMusic%20Sync" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="width: 100%; justify-content: center; text-decoration: none; font-weight: 700; padding: 13px; user-select: none; border-radius: 14px; box-sizing: border-box;">
+            <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span>Создать ключ на GitHub (в новой вкладке)</span>
+          </a>
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label for="gh-token-input" style="display: block; font-size: 0.82rem; color: var(--md-sys-color-outline); margin-bottom: 8px;">
+            Персональный токен доступа (Personal Access Token):
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="gh-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false" style="flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 14px; padding: 12px 14px; color: #FFF; font-family: monospace; font-size: 0.95rem; outline: none; box-sizing: border-box;">
+            <button type="button" class="btn btn-tonal" id="gh-paste-token-btn" style="padding: 0 16px; font-weight: 600; user-select: none;" title="Вставить из буфера обмена">Вставить</button>
+          </div>
+          <div id="gh-auth-error-msg" style="color: #F87171; font-size: 0.82rem; margin-top: 8px; display: none; line-height: 1.4;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+          <button type="button" class="btn btn-outlined" id="gh-cancel-login-btn" style="user-select: none;">Отмена</button>
+          <button type="button" class="btn btn-primary" id="gh-submit-token-btn" style="min-width: 140px; justify-content: center; user-select: none;">
+            <span id="gh-submit-btn-text">Подключить</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: QR Scanner Direct Shortcut -->
+      <div id="gh-auth-tab-content-qr" style="display: none; text-align: center; padding: 16px 0;">
+        <p style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.75); margin-bottom: 22px; line-height: 1.5;">
+          Если вы уже вошли на другом компьютере или телефоне, откройте там <strong>Профиль → QR-код для переноса</strong> и отсканируйте его камерой прямо сейчас.
+        </p>
+        <button type="button" class="btn btn-primary" id="gh-auth-open-scanner-direct-btn" style="width: 100%; justify-content: center; padding: 14px; font-weight: 700; user-select: none; border-radius: 14px;">
+          <svg class="svg-icon" style="width: 20px; height: 20px;"><use href="#icon-search"></use></svg>
+          <span>Запустить сканер QR-кода</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QR CODE GENERATOR (DEVICE TRANSFER) -->
+  <div class="dialog-backdrop modal-backdrop" id="qr-transfer-modal-backdrop" style="display: none;">
+    <div class="dialog-card" id="qr-transfer-modal" style="width: 100%; max-width: 420px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <h3 style="font-size: 1.25rem; font-weight: 750; margin: 0; color: var(--md-sys-color-on-surface);">QR-код для переноса</h3>
+        <button class="icon-btn" id="close-qr-transfer-modal-btn" type="button" title="Закрыть">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--md-sys-color-outline); margin-bottom: 16px;">
+        Отсканируйте этот код камерой на втором устройстве для мгновенного входа и синхронизации.
+      </p>
+
+      <!-- Canvas Container -->
+      <div style="background: #ffffff; padding: 14px; border-radius: 16px; display: inline-block; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); margin-bottom: 16px;">
+        <canvas id="qr-transfer-canvas" width="260" height="260" style="display: block; max-width: 100%; height: auto;"></canvas>
+      </div>
+
+      <!-- Security Warning (Strictly zero emojis!) -->
+      <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 18px; text-align: left; font-size: 0.82rem; color: #FCA5A5; line-height: 1.45;">
+        <strong>Внимание:</strong> Не показывайте этот QR-код посторонним — он даёт доступ к вашему облаку ouMusic.
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button type="button" class="btn btn-tonal" id="copy-qr-token-btn" style="flex: 1; justify-content: center; user-select: none;">
+          <span>Скопировать токен</span>
+        </button>
+        <button type="button" class="btn btn-outlined" id="close-qr-transfer-btn-2" style="user-select: none;">
+          <span>Закрыть</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QR CODE SCANNER (CAMERA & GALLERY) -->
+  <div class="dialog-backdrop modal-backdrop" id="qr-scanner-modal-backdrop" style="display: none;">
+    <div class="dialog-card" id="qr-scanner-modal" style="width: 100%; max-width: 440px; background: #16171D; border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <h3 style="font-size: 1.25rem; font-weight: 750; margin: 0; color: var(--md-sys-color-on-surface);">Сканирование QR-кода</h3>
+        <button class="icon-btn" id="close-qr-scanner-modal-btn" type="button" title="Закрыть">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+
+      <div style="position: relative; width: 100%; height: 280px; background: #000000; border-radius: 16px; overflow: hidden; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
+        <video id="qr-video-feed" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <canvas id="qr-scan-offscreen-canvas" style="display: none;"></canvas>
+
+        <!-- Viewfinder overlay with Laser animation -->
+        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <div style="width: 200px; height: 200px; border: 2px dashed rgba(168, 85, 247, 0.85); border-radius: 16px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); position: relative; overflow: hidden;">
+            <div class="qr-laser-scanner-line" style="position: absolute; left: 0; right: 0; height: 2px; background: #A855F7; box-shadow: 0 0 8px #A855F7; animation: qrScanLaser 2s infinite ease-in-out;"></div>
+          </div>
+        </div>
+
+        <div id="qr-camera-status-overlay" style="position: absolute; bottom: 12px; left: 12px; right: 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.7); padding: 6px 10px; border-radius: 8px; color: #FFF;">
+          Наведите камеру на QR-код...
+        </div>
+      </div>
+
+      <!-- Gallery / File Upload Fallback (for Desktop without webcam) -->
+      <div style="margin-bottom: 14px;">
+        <input type="file" id="qr-file-gallery-input" accept="image/*" style="display: none;">
+        <button type="button" class="btn btn-tonal" id="qr-upload-gallery-btn" style="width: 100%; justify-content: center; padding: 12px; user-select: none;">
+          <svg class="svg-icon" style="width: 18px; height: 18px;"><use href="#icon-upload"></use></svg>
+          <span>Загрузить фото / скриншот QR из галереи</span>
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: center;">
+        <button type="button" class="btn btn-outlined" id="close-qr-scanner-btn-2" style="user-select: none; width: 100%; justify-content: center;">
+          <span>Отмена</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Hidden file input for .oulist Import -->
   <input type="file" id="oulist-file-input" accept=".oulist" style="display: none;">
 
@@ -2624,8 +2891,11 @@
   <div id="oumusic-rpc-bridge" style="display: none;" aria-hidden="true"></div>
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.31"></script>
-  <script src="playlists/playlists.js?v=2.7.31"></script>
-  <script src="js/app.standalone.js?v=2.7.31"></script>
+  <script src="js/vendor/qrcode.min.js"></script>
+  <script src="js/vendor/jsqr.min.js"></script>
+  <script src="js/core/sync.js?v=2.7.32"></script>
+  <script src="tracks/catalog.js?v=2.7.32"></script>
+  <script src="playlists/playlists.js?v=2.7.32"></script>
+  <script src="js/app.standalone.js?v=2.7.32"></script>
 </body>
 </html>

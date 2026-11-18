@@ -1724,6 +1724,7 @@ input[type="range"].eq-band {
 
 /* Settings Screen Categorical Tab Filtering (Pure CSS) */
 #screen-settings:not([data-active-tab]) [data-settings-group]:not([data-settings-group="sound"]),
+#screen-settings[data-active-tab="account"] [data-settings-group]:not([data-settings-group="account"]),
 #screen-settings[data-active-tab="sound"] [data-settings-group]:not([data-settings-group="sound"]),
 #screen-settings[data-active-tab="appearance"] [data-settings-group]:not([data-settings-group="appearance"]),
 #screen-settings[data-active-tab="studio"] [data-settings-group]:not([data-settings-group="studio"]),
@@ -1731,6 +1732,20 @@ input[type="range"].eq-band {
 #screen-settings[data-active-tab="perf"] [data-settings-group]:not([data-settings-group="perf"]),
 #screen-settings[data-active-tab="about"] [data-settings-group]:not([data-settings-group="about"]) {
   display: none !important;
+}
+
+/* GitHub Cloud & QR Scanner Styles */
+.github-login-trigger-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+.github-login-trigger-btn:active {
+  transform: scale(0.98);
+}
+@keyframes qrScanLaser {
+  0% { top: 4%; opacity: 0.3; }
+  50% { top: 92%; opacity: 1; }
+  100% { top: 4%; opacity: 0.3; }
 }
 
 /* Wave Theme Chips with SVG Icons */

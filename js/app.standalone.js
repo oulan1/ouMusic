@@ -428,7 +428,12 @@
       const store = getStore('likes', 'readwrite');
       if (!store) return resolve(!cur);
       const req = cur ? store.delete(id) : store.put({ id, likedAt: new Date().toISOString() });
-      req.onsuccess = () => resolve(!cur);
+      req.onsuccess = () => {
+        if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+          window.OUMusicCloudSync.scheduleSync();
+        }
+        resolve(!cur);
+      };
       req.onerror = () => resolve(!cur);
     });
   }
@@ -468,7 +473,12 @@
       const store = getStore('settings', 'readwrite');
       if (!store) return resolve(true);
       const req = store.put({ key, val });
-      req.onsuccess = () => resolve(true);
+      req.onsuccess = () => {
+        if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+          window.OUMusicCloudSync.scheduleSync();
+        }
+        resolve(true);
+      };
       req.onerror = () => resolve(false);
     });
   }
@@ -1587,6 +1597,7 @@
     initStudioUI();
     initLyricsUI();
     initProfileUI();
+    initCloudSyncUI();
     initAdditionalUI();
 
     // 2. Load catalog & manual tracks
@@ -2490,7 +2501,7 @@
   }
   window.getTrackFetchUrls = getTrackFetchUrls;
 
-  async function fetchTrackWithTimeout(url, timeoutMs = 4000) {
+  async function fetchTrackWithTimeout(url, timeoutMs = 15000) {
     if (typeof AbortController === 'undefined') {
       return fetch(url);
     }
@@ -6440,6 +6451,382 @@
     });
   }
 
+  /* ==========================================================================
+     GITHUB CLOUD SYNC & QR TRANSFER UI CONTROLLER
+     ========================================================================== */
+  function initCloudSyncUI() {
+    if (!window.OUMusicCloudSync) return;
+
+    const syncEngine = window.OUMusicCloudSync;
+
+    // Elements: Auth Modal
+    const authBackdrop = document.getElementById('github-auth-modal-backdrop');
+    const authModal = document.getElementById('github-auth-modal');
+    const closeAuthBtn = document.getElementById('close-gh-auth-modal-btn');
+    const cancelAuthBtn = document.getElementById('gh-cancel-login-btn');
+    const tabBtnToken = document.getElementById('gh-tab-btn-token');
+    const tabBtnQr = document.getElementById('gh-tab-btn-qr');
+    const tabContentToken = document.getElementById('gh-auth-tab-content-token');
+    const tabContentQr = document.getElementById('gh-auth-tab-content-qr');
+    const tokenInput = document.getElementById('gh-token-input');
+    const pasteTokenBtn = document.getElementById('gh-paste-token-btn');
+    const submitTokenBtn = document.getElementById('gh-submit-token-btn');
+    const submitBtnText = document.getElementById('gh-submit-btn-text');
+    const authErrorMsg = document.getElementById('gh-auth-error-msg');
+    const directScanFromAuthBtn = document.getElementById('gh-auth-open-scanner-direct-btn');
+
+    // Elements: QR Transfer Modal (Generator)
+    const qrTransferBackdrop = document.getElementById('qr-transfer-modal-backdrop');
+    const qrTransferCanvas = document.getElementById('qr-transfer-canvas');
+    const closeQrTransferBtn = document.getElementById('close-qr-transfer-modal-btn');
+    const closeQrTransferBtn2 = document.getElementById('close-qr-transfer-btn-2');
+    const copyQrTokenBtn = document.getElementById('copy-qr-token-btn');
+
+    // Elements: QR Scanner Modal
+    const qrScannerBackdrop = document.getElementById('qr-scanner-modal-backdrop');
+    const qrVideoFeed = document.getElementById('qr-video-feed');
+    const qrScanOffscreenCanvas = document.getElementById('qr-scan-offscreen-canvas');
+    const closeQrScannerBtn = document.getElementById('close-qr-scanner-modal-btn');
+    const closeQrScannerBtn2 = document.getElementById('close-qr-scanner-btn-2');
+    const qrUploadGalleryBtn = document.getElementById('qr-upload-gallery-btn');
+    const qrFileGalleryInput = document.getElementById('qr-file-gallery-input');
+    const qrCameraStatus = document.getElementById('qr-camera-status-overlay');
+
+    let qrMediaStream = null;
+    let qrScanAnimationId = null;
+
+    // Helper: Open / Close Auth Modal
+    function openAuthModal(defaultTab = 'token') {
+      if (!authBackdrop) return;
+      if (authErrorMsg) authErrorMsg.style.display = 'none';
+      if (tokenInput) tokenInput.value = '';
+      switchAuthTab(defaultTab);
+      authBackdrop.style.display = 'flex';
+      authBackdrop.classList.add('active');
+      authModal?.classList.add('active');
+      if (defaultTab === 'token' && tokenInput) {
+        setTimeout(() => tokenInput.focus(), 150);
+      }
+    }
+
+    function closeAuthModal() {
+      if (!authBackdrop) return;
+      authBackdrop.classList.remove('active');
+      authModal?.classList.remove('active');
+      authBackdrop.style.display = 'none';
+    }
+
+    function switchAuthTab(tab) {
+      if (tab === 'qr') {
+        if (tabBtnQr) {
+          tabBtnQr.classList.add('active');
+          tabBtnQr.style.background = 'var(--md-sys-color-primary)';
+          tabBtnQr.style.color = '#000';
+        }
+        if (tabBtnToken) {
+          tabBtnToken.classList.remove('active');
+          tabBtnToken.style.background = 'transparent';
+          tabBtnToken.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (tabContentQr) tabContentQr.style.display = 'block';
+        if (tabContentToken) tabContentToken.style.display = 'none';
+      } else {
+        if (tabBtnToken) {
+          tabBtnToken.classList.add('active');
+          tabBtnToken.style.background = 'var(--md-sys-color-primary)';
+          tabBtnToken.style.color = '#000';
+        }
+        if (tabBtnQr) {
+          tabBtnQr.classList.remove('active');
+          tabBtnQr.style.background = 'transparent';
+          tabBtnQr.style.color = 'var(--md-sys-color-outline)';
+        }
+        if (tabContentToken) tabContentToken.style.display = 'block';
+        if (tabContentQr) tabContentQr.style.display = 'none';
+      }
+    }
+
+    // Bind triggers to open Auth Modal
+    document.querySelectorAll('.github-login-trigger-btn, #settings-github-login-btn, #profile-github-login-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openAuthModal('token'));
+    });
+
+    closeAuthBtn?.addEventListener('click', closeAuthModal);
+    cancelAuthBtn?.addEventListener('click', closeAuthModal);
+    authBackdrop?.addEventListener('click', (e) => {
+      if (e.target === authBackdrop) closeAuthModal();
+    });
+
+    tabBtnToken?.addEventListener('click', () => switchAuthTab('token'));
+    tabBtnQr?.addEventListener('click', () => switchAuthTab('qr'));
+
+    pasteTokenBtn?.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const txt = await navigator.clipboard.readText();
+          if (txt && tokenInput) {
+            tokenInput.value = txt.trim();
+            showToast('Токен вставлен из буфера');
+          }
+        } else {
+          showToast('Используйте клавиши Ctrl+V для вставки');
+        }
+      } catch (err) {
+        showToast('Используйте клавиши Ctrl+V для вставки');
+      }
+    });
+
+    async function handleTokenSubmission() {
+      const val = tokenInput ? tokenInput.value.trim() : '';
+      if (!val) {
+        if (authErrorMsg) {
+          authErrorMsg.textContent = 'Пожалуйста, вставьте персональный токен доступа GitHub';
+          authErrorMsg.style.display = 'block';
+        }
+        return;
+      }
+
+      if (submitTokenBtn) submitTokenBtn.disabled = true;
+      if (submitBtnText) submitBtnText.textContent = 'Подключение...';
+      if (authErrorMsg) authErrorMsg.style.display = 'none';
+
+      try {
+        const userObj = await syncEngine.loginWithToken(val);
+        closeAuthModal();
+        showToast(`Успешный вход: @${userObj.login}! Облако синхронизировано.`);
+      } catch (err) {
+        if (authErrorMsg) {
+          authErrorMsg.textContent = err.message || 'Ошибка проверки токена. Проверьте права и попробуйте снова.';
+          authErrorMsg.style.display = 'block';
+        }
+      } finally {
+        if (submitTokenBtn) submitTokenBtn.disabled = false;
+        if (submitBtnText) submitBtnText.textContent = 'Подключить';
+      }
+    }
+
+    submitTokenBtn?.addEventListener('click', handleTokenSubmission);
+    tokenInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleTokenSubmission();
+    });
+
+    // Logout handler
+    document.querySelectorAll('#gh-logout-btn, #profile-gh-logout-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (confirm('Вы уверены, что хотите выйти из облачного аккаунта GitHub? Локальная музыка и плейлисты останутся на устройстве.')) {
+          syncEngine.logout();
+        }
+      });
+    });
+
+    // Manual Sync handler
+    document.querySelectorAll('#gh-manual-sync-btn, #profile-gh-manual-sync-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        syncEngine.performSync(true);
+      });
+    });
+
+    // Helper: QR Transfer Modal (Generator)
+    function openQrTransferModal() {
+      const token = syncEngine.getToken();
+      if (!token) {
+        showToast('Сначала войдите в аккаунт');
+        return;
+      }
+      if (qrTransferCanvas) {
+        syncEngine.renderQRCode(qrTransferCanvas, token);
+      }
+      if (qrTransferBackdrop) {
+        qrTransferBackdrop.style.display = 'flex';
+        qrTransferBackdrop.classList.add('active');
+      }
+    }
+
+    function closeQrTransferModal() {
+      if (qrTransferBackdrop) {
+        qrTransferBackdrop.classList.remove('active');
+        qrTransferBackdrop.style.display = 'none';
+      }
+    }
+
+    document.querySelectorAll('#open-qr-transfer-btn, #profile-open-qr-transfer-btn').forEach((btn) => {
+      btn.addEventListener('click', openQrTransferModal);
+    });
+    closeQrTransferBtn?.addEventListener('click', closeQrTransferModal);
+    closeQrTransferBtn2?.addEventListener('click', closeQrTransferModal);
+    qrTransferBackdrop?.addEventListener('click', (e) => {
+      if (e.target === qrTransferBackdrop) closeQrTransferModal();
+    });
+
+    copyQrTokenBtn?.addEventListener('click', async () => {
+      const token = syncEngine.getToken();
+      if (token) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(token);
+            showToast('Токен доступа скопирован в буфер');
+          } else {
+            prompt('Скопируйте токен доступа:', token);
+          }
+        } catch (e) {
+          prompt('Скопируйте токен доступа:', token);
+        }
+      }
+    });
+
+    // Helper: QR Scanner Modal
+    async function startCameraScanner() {
+      if (qrCameraStatus) qrCameraStatus.textContent = 'Подключение к камере...';
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Камера не поддерживается вашим браузером');
+        }
+
+        qrMediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        });
+
+        if (qrVideoFeed) {
+          qrVideoFeed.srcObject = qrMediaStream;
+          await qrVideoFeed.play();
+        }
+
+        if (qrCameraStatus) qrCameraStatus.textContent = 'Наведите камеру на QR-код...';
+
+        // Start scanning loop
+        runScannerLoop();
+      } catch (err) {
+        console.warn('[Scanner] Camera error:', err);
+        if (qrCameraStatus) qrCameraStatus.textContent = 'Камера недоступна. Вы можете загрузить фото QR из галереи.';
+      }
+    }
+
+    function stopCameraScanner() {
+      if (qrScanAnimationId) {
+        cancelAnimationFrame(qrScanAnimationId);
+        qrScanAnimationId = null;
+      }
+      if (qrMediaStream) {
+        try {
+          qrMediaStream.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+        qrMediaStream = null;
+      }
+      if (qrVideoFeed) {
+        qrVideoFeed.srcObject = null;
+      }
+    }
+
+    function openQrScannerModal() {
+      closeAuthModal();
+      if (qrScannerBackdrop) {
+        qrScannerBackdrop.style.display = 'flex';
+        qrScannerBackdrop.classList.add('active');
+      }
+      startCameraScanner();
+    }
+
+    function closeQrScannerModal() {
+      stopCameraScanner();
+      if (qrScannerBackdrop) {
+        qrScannerBackdrop.classList.remove('active');
+        qrScannerBackdrop.style.display = 'none';
+      }
+    }
+
+    document.querySelectorAll('#open-qr-scanner-btn, #profile-open-qr-scanner-btn').forEach((btn) => {
+      btn.addEventListener('click', openQrScannerModal);
+    });
+    directScanFromAuthBtn?.addEventListener('click', openQrScannerModal);
+    closeQrScannerBtn?.addEventListener('click', closeQrScannerModal);
+    closeQrScannerBtn2?.addEventListener('click', closeQrScannerModal);
+    qrScannerBackdrop?.addEventListener('click', (e) => {
+      if (e.target === qrScannerBackdrop) closeQrScannerModal();
+    });
+
+    async function handleDetectedQR(rawString) {
+      const token = syncEngine.parseTokenFromQR(rawString);
+      if (!token) return;
+
+      stopCameraScanner();
+      closeQrScannerModal();
+
+      showToast('QR-код распознан! Авторизация...');
+
+      try {
+        const userObj = await syncEngine.loginWithToken(token);
+        showToast(`Вход по QR-коду выполнен: @${userObj.login}!`);
+      } catch (err) {
+        alert('Ошибка авторизации по QR: ' + err.message);
+      }
+    }
+
+    async function runScannerLoop() {
+      if (!qrVideoFeed || !qrMediaStream) return;
+
+      if (qrVideoFeed.readyState === qrVideoFeed.HAVE_ENOUGH_DATA) {
+        const offCanvas = qrScanOffscreenCanvas || document.createElement('canvas');
+        const vW = qrVideoFeed.videoWidth || 640;
+        const vH = qrVideoFeed.videoHeight || 480;
+        offCanvas.width = vW;
+        offCanvas.height = vH;
+        const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(qrVideoFeed, 0, 0, vW, vH);
+
+        const decoded = await syncEngine.decodeCanvas(offCanvas);
+        if (decoded) {
+          const parsed = syncEngine.parseTokenFromQR(decoded);
+          if (parsed) {
+            handleDetectedQR(parsed);
+            return;
+          }
+        }
+      }
+
+      qrScanAnimationId = requestAnimationFrame(runScannerLoop);
+    }
+
+    // Gallery / File upload fallback
+    qrUploadGalleryBtn?.addEventListener('click', () => qrFileGalleryInput?.click());
+    qrFileGalleryInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const img = new Image();
+          img.onload = async () => {
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = img.width;
+            offCanvas.height = img.height;
+            const ctx = offCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            const decoded = await syncEngine.decodeCanvas(offCanvas);
+            if (decoded) {
+              const parsed = syncEngine.parseTokenFromQR(decoded);
+              if (parsed) {
+                handleDetectedQR(parsed);
+                return;
+              }
+            }
+            alert('Не удалось распознать QR-код на выбранном изображении. Попробуйте сделать более чёткий снимок.');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } catch (err) {
+        alert('Ошибка чтения файла: ' + err.message);
+      } finally {
+        qrFileGalleryInput.value = '';
+      }
+    });
+
+    // Initial UI state update
+    syncEngine.updateUI();
+  }
+
   async function updateProfileStats() {
     const stats = await getStats();
     const m = document.getElementById('stat-month-hours');
@@ -8592,6 +8979,9 @@
       };
       const store = getStore('playlists', 'readwrite');
       if (store) store.put(pl);
+      if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+        window.OUMusicCloudSync.scheduleSync();
+      }
       closeModal();
       showToast(`Плейлист "${name}" создан`);
       renderPlaylistsGrid();
@@ -8675,6 +9065,9 @@
             if (store) store.put(pl);
             showToast(`Трек добавлен в "${pl.name}"`);
           }
+          if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+            window.OUMusicCloudSync.scheduleSync();
+          }
           openAddToPlaylistSheet(t);
           renderPlaylistsGrid();
         });
@@ -8694,6 +9087,9 @@
         newPl.trackIds = [t.id];
         const store = getStore('playlists', 'readwrite');
         if (store) store.put(newPl);
+        if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+          window.OUMusicCloudSync.scheduleSync();
+        }
         showToast(`Трек добавлен в "${newPl.name}"`);
         openAddToPlaylistSheet(t);
       });

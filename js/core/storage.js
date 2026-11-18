@@ -152,11 +152,21 @@ export async function toggleLike(id) {
     const store = getStore('likes', 'readwrite');
     if (currentlyLiked) {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(false);
+      request.onsuccess = () => {
+        if (typeof window !== 'undefined' && window.OUMusicCloudSync) {
+          window.OUMusicCloudSync.scheduleSync();
+        }
+        resolve(false);
+      };
       request.onerror = () => reject(request.error);
     } else {
       const request = store.put({ id, likedAt: new Date().toISOString() });
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = () => {
+        if (typeof window !== 'undefined' && window.OUMusicCloudSync) {
+          window.OUMusicCloudSync.scheduleSync();
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     }
   });
@@ -328,7 +338,12 @@ export async function saveSetting(key, val) {
   return new Promise((resolve, reject) => {
     const store = getStore('settings', 'readwrite');
     const request = store.put({ key, val });
-    request.onsuccess = () => resolve(true);
+    request.onsuccess = () => {
+      if (typeof window !== 'undefined' && window.OUMusicCloudSync) {
+        window.OUMusicCloudSync.scheduleSync();
+      }
+      resolve(true);
+    };
     request.onerror = () => reject(request.error);
   });
 }
