@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.30';
+const CACHE_NAME = 'oumusic-shell-v2.7.31';
 
 const APP_SHELL_ASSETS = [
   './',

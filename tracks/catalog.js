@@ -36,7 +36,7 @@ window.__TRACKS_CATALOG__ = [
     "size": 15300529,
     "updatedAt": "2026-11-16T19:34:13.109062+00:00",
     "storageRepo": "oulan1/music-1",
-    "coverUrl": "https://oulan1.github.io/ouMusic/assets/covers/semmmyq,_shinra_untitled.jpg",
+    "coverUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/covers/semmmyq%2C_shinra_untitled.jpg",
     "cdnUrl": "https://cdn.jsdelivr.net/gh/oulan1/music-1@main/tracks/semmmyq%2C%20shinra%20-%20untitled.oump3",
     "fallbackUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/tracks/semmmyq%2C%20shinra%20-%20untitled.oump3"
   },
@@ -76,7 +76,7 @@ window.__TRACKS_CATALOG__ = [
     "size": 7490688,
     "updatedAt": "2026-11-16T18:18:46.093822+00:00",
     "storageRepo": "oulan1/music-1",
-    "coverUrl": "https://oulan1.github.io/ouMusic/assets/covers/sqwore_barry_dylan.jpg",
+    "coverUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/covers/sqwore_barry_dylan.jpg",
     "cdnUrl": "https://cdn.jsdelivr.net/gh/oulan1/music-1@main/tracks/Sqwore%20-%20Barry%20Dylan.oump3",
     "fallbackUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/tracks/Sqwore%20-%20Barry%20Dylan.oump3"
   }

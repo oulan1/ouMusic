@@ -226,6 +226,8 @@ def index_tracks():
         # Preserve remote CDN / fallback metadata if present
         if 'storageRepo' in existing_entry:
             entry['storageRepo'] = existing_entry['storageRepo']
+        if 'coverUrl' in existing_entry:
+            entry['coverUrl'] = existing_entry['coverUrl']
         if 'cdnUrl' in existing_entry:
             entry['cdnUrl'] = existing_entry['cdnUrl']
         if 'fallbackUrl' in existing_entry:
@@ -233,12 +235,15 @@ def index_tracks():
 
         catalog_map[track_id] = entry
 
-    # 3. Ensure all tracks have valid CDN and fallback URLs if a storageRepo is specified
+    # 3. Ensure all tracks have valid CDN, cover and fallback URLs if a storageRepo is specified
     for tid, entry in catalog_map.items():
         storage_repo = entry.get('storageRepo')
         filename = entry.get('filename')
         if storage_repo and filename:
             enc_name = urllib.parse.quote(filename)
+            enc_tid = urllib.parse.quote(tid)
+            if not entry.get('coverUrl'):
+                entry['coverUrl'] = f"https://raw.githubusercontent.com/{storage_repo}/main/covers/{enc_tid}.jpg"
             if not entry.get('cdnUrl'):
                 entry['cdnUrl'] = f"https://cdn.jsdelivr.net/gh/{storage_repo}@main/tracks/{enc_name}"
             if not entry.get('fallbackUrl'):

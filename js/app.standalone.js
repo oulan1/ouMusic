@@ -2725,7 +2725,8 @@
         if (catTrack && catTrack.coverUrl) {
           publicCoverUrl = catTrack.coverUrl;
         } else if (track.id) {
-          publicCoverUrl = `https://oulan1.github.io/ouMusic/assets/covers/${encodeURIComponent(track.id)}.jpg`;
+          const storageRepo = track.storageRepo || (catTrack && catTrack.storageRepo) || 'oulan1/music-1';
+          publicCoverUrl = `https://raw.githubusercontent.com/${storageRepo}/main/covers/${encodeURIComponent(track.id)}.jpg`;
         }
       }
 
