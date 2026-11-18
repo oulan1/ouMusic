@@ -6628,7 +6628,16 @@
 
     // Helper: QR Transfer Modal (Generator)
     function openQrTransferModal(customToken = '') {
-      let token = (customToken || syncEngine.getToken() || '').trim();
+      let token = (typeof customToken === 'string' && customToken.trim()) ? customToken.trim() : '';
+      if (!token) {
+        token = (syncEngine && typeof syncEngine.getToken === 'function' ? (syncEngine.getToken() || '') : '').trim();
+      }
+      if (!token) {
+        try {
+          const stored = localStorage.getItem('oumusic_gh_token');
+          if (stored && stored.trim()) token = stored.trim();
+        } catch (e) {}
+      }
       if (!token) {
         const inputEl = document.getElementById('gh-token-input');
         if (inputEl && inputEl.value && inputEl.value.trim()) {
@@ -6636,7 +6645,8 @@
         }
       }
       if (!token) {
-        showToast('Сначала войдите в аккаунт или укажите токен');
+        showToast('Сначала войдите в аккаунт через GitHub для переноса данных');
+        openAuthModal('token');
         return;
       }
 
@@ -6646,13 +6656,16 @@
       }
 
       const canvas = document.getElementById('qr-transfer-canvas');
-      if (canvas) {
-        syncEngine.renderQRCode(canvas, token);
+      const activeSync = syncEngine || window.OUMusicCloudSync;
+      if (canvas && activeSync && typeof activeSync.renderQRCode === 'function') {
+        activeSync.renderQRCode(canvas, token);
       }
       // Re-trigger on next animation frame to guarantee render after DOM layout
       requestAnimationFrame(() => {
         const c = document.getElementById('qr-transfer-canvas');
-        if (c) syncEngine.renderQRCode(c, token);
+        if (c && activeSync && typeof activeSync.renderQRCode === 'function') {
+          activeSync.renderQRCode(c, token);
+        }
       });
     }
 
@@ -6663,8 +6676,17 @@
       }
     }
 
+    window.openQrTransferModal = openQrTransferModal;
+    window.closeQrTransferModal = closeQrTransferModal;
+
     document.querySelectorAll('#open-qr-transfer-btn, #profile-open-qr-transfer-btn').forEach((btn) => {
-      btn.addEventListener('click', openQrTransferModal);
+      btn.addEventListener('click', (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        openQrTransferModal();
+      });
     });
     closeQrTransferBtn?.addEventListener('click', closeQrTransferModal);
     closeQrTransferBtn2?.addEventListener('click', closeQrTransferModal);
@@ -6748,8 +6770,17 @@
       }
     }
 
+    window.openQrScannerModal = openQrScannerModal;
+    window.closeQrScannerModal = closeQrScannerModal;
+
     document.querySelectorAll('#open-qr-scanner-btn, #profile-open-qr-scanner-btn').forEach((btn) => {
-      btn.addEventListener('click', openQrScannerModal);
+      btn.addEventListener('click', (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        openQrScannerModal();
+      });
     });
     directScanFromAuthBtn?.addEventListener('click', openQrScannerModal);
     closeQrScannerBtn?.addEventListener('click', closeQrScannerModal);
