@@ -17,6 +17,7 @@
      OUMUSIC RPC BRIDGE (Discord Rich Presence & PreMiD Integration)
      ========================================================================== */
   window.OUMUSIC_RPC = {
+    isIdle: true,
     title: '',
     artist: '',
     artistUrl: '',
@@ -30,6 +31,7 @@
   function updateOUMusicRPC(patch = {}) {
     if (!window.OUMUSIC_RPC) {
       window.OUMUSIC_RPC = {
+        isIdle: true,
         title: '',
         artist: '',
         artistUrl: '',
@@ -58,11 +60,26 @@
       }
       if (bridgeEl) {
         bridgeEl.dataset.rpc = JSON.stringify(window.OUMUSIC_RPC);
+        bridgeEl.dataset.isIdle = String(Boolean(window.OUMUSIC_RPC.isIdle));
+        bridgeEl.dataset.title = window.OUMUSIC_RPC.title || '';
+        bridgeEl.dataset.artist = window.OUMUSIC_RPC.artist || '';
+        bridgeEl.dataset.paused = String(Boolean(window.OUMUSIC_RPC.paused));
+        bridgeEl.dataset.currentTime = String(window.OUMUSIC_RPC.currentTime || 0);
+        bridgeEl.dataset.duration = String(window.OUMUSIC_RPC.duration || 0);
       }
       window.dispatchEvent(new CustomEvent('oumusic:rpc', { detail: window.OUMUSIC_RPC }));
     } catch (err) {}
   }
   window.updateOUMusicRPC = updateOUMusicRPC;
+
+  // Initialize bridge immediately with isIdle = true
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => updateOUMusicRPC({ isIdle: true }));
+    } else {
+      updateOUMusicRPC({ isIdle: true });
+    }
+  }
 
 
   /* ==========================================================================
@@ -537,10 +554,27 @@
     constructor() {
       this.audioCtx = null;
       this.audioElement = new Audio();
+      this.audioElement.id = 'oumusic-core-audio';
       this.audioElement.crossOrigin = 'anonymous';
       this.audioElement.preservesPitch = false;
       this.audioElement.mozPreservesPitch = false;
       this.audioElement.webkitPreservesPitch = false;
+      this.audioElement.style.display = 'none';
+      try {
+        if (typeof document !== 'undefined') {
+          if (document.body) {
+            document.body.appendChild(this.audioElement);
+          } else {
+            document.addEventListener('DOMContentLoaded', () => {
+              try {
+                if (document.body && !document.getElementById('oumusic-core-audio')) {
+                  document.body.appendChild(this.audioElement);
+                }
+              } catch (e) {}
+            });
+          }
+        }
+      } catch (e) {}
 
       this.activePlaybackRate = 1.0;
       this.activeReverbPercent = 0;
@@ -2424,18 +2458,18 @@
 
     const urls = [];
 
-    // 1. Primary: jsDelivr CDN
-    if (track.cdnUrl) {
-      urls.push(track.cdnUrl);
-    } else if (storageRepo) {
-      urls.push(`https://cdn.jsdelivr.net/gh/${storageRepo}@main/tracks/${encName}`);
-    }
-
-    // 2. Fallback: Raw GitHub (storage repository)
+    // 1. Direct GitHub Raw from storage repository (ultra-fast, guaranteed 100% up-to-date)
     if (track.fallbackUrl) {
       urls.push(track.fallbackUrl);
     } else if (storageRepo) {
       urls.push(`https://raw.githubusercontent.com/${storageRepo}/main/tracks/${encName}`);
+    }
+
+    // 2. jsDelivr CDN
+    if (track.cdnUrl) {
+      urls.push(track.cdnUrl);
+    } else if (storageRepo) {
+      urls.push(`https://cdn.jsdelivr.net/gh/${storageRepo}@main/tracks/${encName}`);
     }
 
     // 3. Local relative paths
@@ -2455,6 +2489,24 @@
     return Array.from(new Set(urls.filter(Boolean)));
   }
   window.getTrackFetchUrls = getTrackFetchUrls;
+
+  async function fetchTrackWithTimeout(url, timeoutMs = 4000) {
+    if (typeof AbortController === 'undefined') {
+      return fetch(url);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      try { controller.abort(); } catch (e) {}
+    }, timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      return null;
+    }
+  }
 
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
@@ -2508,7 +2560,7 @@
         let res = null;
         for (const url of candidates) {
           try {
-            const r = await fetch(url);
+            const r = await fetchTrackWithTimeout(url, 4000);
             if (r && r.ok) { res = r; break; }
           } catch (e) {}
         }
@@ -2670,6 +2722,7 @@
       const isPaused = (window.engine && window.engine.audioElement) ? window.engine.audioElement.paused : true;
 
       updateOUMusicRPC({
+        isIdle: false,
         title: titleName,
         artist: artistName,
         artistUrl: artistUrl,

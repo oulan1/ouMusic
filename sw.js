@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.28';
+const CACHE_NAME = 'oumusic-shell-v2.7.29';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -12,6 +12,7 @@ const APP_SHELL_ASSETS = [
   './assets/fonts/YSMusic-HeadlineBold.ttf',
   './assets/icons.svg',
   './assets/oumusic.png',
+  './assets/pause.png',
   './css/tokens.css',
   './css/main.css',
   './css/components.css',
