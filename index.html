@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.27">
-  <link rel="stylesheet" href="css/main.css?v=2.7.27">
-  <link rel="stylesheet" href="css/components.css?v=2.7.27">
-  <link rel="stylesheet" href="css/player.css?v=2.7.27">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.28">
+  <link rel="stylesheet" href="css/main.css?v=2.7.28">
+  <link rel="stylesheet" href="css/components.css?v=2.7.28">
+  <link rel="stylesheet" href="css/player.css?v=2.7.28">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -680,20 +680,6 @@
               <span>Открыть мастер создания треков</span>
             </button>
 
-            <!-- Studio Option: AI Voiceover in Wave -->
-            <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 14px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <span style="font-weight: 600; font-size: 0.9rem;">Озвучка от ИИ в «Моя волна»</span>
-                <label class="m3-switch" style="margin: 0;">
-                  <input type="checkbox" id="wave-setting-ai-speech-toggle" checked>
-                  <div class="switch-track"><div class="switch-thumb"></div></div>
-                </label>
-              </div>
-              <div style="font-size: 0.78rem; color: var(--md-sys-color-outline);">
-                Воспроизводить голосовой комментарий и факт о треке через синтезатор речи, когда трек закончился.
-              </div>
-            </div>
-
             <!-- Studio Option: Presets Genres -->
             <div style="padding: 14px; background: rgba(255,255,255,0.03); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 14px;">
               <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px;">Жанры треков студии</div>
@@ -982,12 +968,12 @@
 
             <!-- Audio Quality Slider (Point 3 - No Checkbox, Slider Only) -->
             <div style="padding: 16px 0 12px 0; border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: 14px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                   <span style="font-weight: 600; font-size: 0.95rem;">Качество звука</span>
-                  <span id="audio-quality-badge" class="badge-beta" style="background: linear-gradient(135deg, #10B981, #06B6D4); color: #FFF; font-size: 0.68rem; padding: 2px 7px; border-radius: 6px; font-weight: 700; letter-spacing: 0.5px;">FLAC LOSSLESS</span>
+                  <span id="audio-quality-badge" class="badge-beta" style="background: linear-gradient(135deg, #10B981, #06B6D4); color: #FFF; font-size: 0.68rem; padding: 2px 7px; border-radius: 6px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0;">FLAC LOSSLESS</span>
                 </div>
-                <span id="audio-quality-label" style="font-size: 0.82rem; font-weight: 700; color: var(--md-sys-color-primary);">Hi-Fi Lossless (Студийное)</span>
+                <span id="audio-quality-label" style="font-size: 0.82rem; font-weight: 700; color: var(--md-sys-color-primary); text-align: right; margin-left: auto; white-space: nowrap;">Hi-Fi Lossless (Студийное)</span>
               </div>
               <input type="range" id="audio-quality-slider" min="1" max="3" step="1" value="3" style="width: 100%; accent-color: var(--md-sys-color-primary); cursor: pointer;">
               <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--md-sys-color-outline); margin-top: 6px;">
@@ -1197,6 +1183,30 @@
                 <div class="chips-scroll-row" id="studio-genres-chips" style="max-height: 120px; flex-wrap: wrap; gap: 6px;">
                   <!-- Extended genres chips injected dynamically -->
                 </div>
+              </div>
+
+              <!-- Mood Multiselect Chips for Wave -->
+              <div style="margin-top: 14px;">
+                <div style="font-size: 0.88rem; font-weight: 700; margin-bottom: 8px;">Настроение для Моей Волны:</div>
+                <div class="chips-scroll-row" id="studio-mood-chips" style="flex-wrap: wrap; gap: 6px;">
+                  <button type="button" class="chip" data-mood="mood:energy">Драйв и бодрость</button>
+                  <button type="button" class="chip" data-mood="mood:sad">Грущу</button>
+                  <button type="button" class="chip" data-mood="mood:melancholy">Меланхолия</button>
+                  <button type="button" class="chip" data-mood="mood:workout">Тренировка</button>
+                  <button type="button" class="chip" data-mood="mood:road">В дороге</button>
+                  <button type="button" class="chip" data-mood="mood:work">Для работы</button>
+                  <button type="button" class="chip" data-mood="mood:rest">Отдых</button>
+                  <button type="button" class="chip" data-mood="mood:sleep">Сон и релакс</button>
+                </div>
+              </div>
+
+              <!-- AI Fact / Track Commentary -->
+              <div style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label style="font-size: 0.88rem; font-weight: 700; color: var(--md-sys-color-on-surface);">ИИ-комментарий / факт о треке:</label>
+                  <button type="button" class="btn btn-tonal" id="studio-generate-aifact-btn" style="padding: 4px 10px; font-size: 0.76rem; border-radius: 8px; cursor: pointer;">Сгенерировать от ИИ</button>
+                </div>
+                <textarea id="studio-aifact-input" rows="2" placeholder="Интересный факт или история создания трека (отображается в карточке трека)..." style="width: 100%; background: var(--md-sys-color-surface-container-high); border: 1.5px solid var(--md-sys-color-outline-variant); border-radius: var(--md-shape-corner-small); padding: 10px 12px; color: var(--md-sys-color-on-surface); font-size: 0.88rem; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
               </div>
 
               <!-- Step 1 Footer Navigation -->
@@ -2614,8 +2624,8 @@
   <div id="oumusic-rpc-bridge" style="display: none;" aria-hidden="true"></div>
 
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
-  <script src="tracks/catalog.js?v=2.7.27"></script>
-  <script src="playlists/playlists.js?v=2.7.27"></script>
-  <script src="js/app.standalone.js?v=2.7.27"></script>
+  <script src="tracks/catalog.js?v=2.7.28"></script>
+  <script src="playlists/playlists.js?v=2.7.28"></script>
+  <script src="js/app.standalone.js?v=2.7.28"></script>
 </body>
 </html>

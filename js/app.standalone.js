@@ -819,6 +819,28 @@
         if (this.onTimeUpdate) {
           this.onTimeUpdate(this.audioElement.currentTime, this.audioElement.duration || 0);
         }
+        if (typeof window !== 'undefined' && window.OUMUSIC_RPC) {
+          window.OUMUSIC_RPC.currentTime = this.audioElement.currentTime || 0;
+          if (this.audioElement.duration && !isNaN(this.audioElement.duration) && this.audioElement.duration > 0) {
+            window.OUMUSIC_RPC.duration = this.audioElement.duration;
+          }
+        }
+      });
+      this.audioElement.addEventListener('durationchange', () => {
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            duration: this.audioElement.duration || 0,
+            currentTime: this.audioElement.currentTime || 0
+          });
+        }
+      });
+      this.audioElement.addEventListener('loadedmetadata', () => {
+        if (typeof updateOUMusicRPC === 'function') {
+          updateOUMusicRPC({
+            duration: this.audioElement.duration || 0,
+            currentTime: this.audioElement.currentTime || 0
+          });
+        }
       });
       this.audioElement.addEventListener('ended', () => {
         if (this.sleepTimerEndTrack) {
@@ -1380,6 +1402,7 @@
       title: title.trim(),
       artist: artist.trim(),
       genres: genres,
+      categories: Array.isArray(params.categories) ? params.categories : [],
       duration: Math.round(duration),
       version: '2.0',
       hasLyrics: !!lyricsText || !!params.hasLyrics,
@@ -2036,7 +2059,7 @@
         <div class="track-title" style="display: flex; align-items: center; gap: 4px;">
           <span>${track.title || 'Безымянный трек'}</span>
           ${(track.isExplicit || track.explicit) ? '<span class="badge-explicit" title="Ненормативная лексика">E</span>' : ''}
-          ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon"><use href="#icon-verified"></use></svg></span>' : ''}
+          ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-verified"></use></svg></span>' : ''}
           ${(track.isLocal || track.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(track.id))) ? '<span class="badge-downloaded" title="Скачан для офлайн-прослушивания"><svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg></span>' : ''}
         </div>
         <div class="track-artist">${artistsHtml}</div>
@@ -2059,13 +2082,23 @@
 
   let currentSearchTab = 'artists';
 
+  function applyTabTransition(el) {
+    if (!el) return;
+    el.classList.remove('tab-view-transition');
+    void el.offsetWidth;
+    el.classList.add('tab-view-transition');
+  }
+
   function renderCurrentSearchTab(query) {
     const list = document.getElementById('home-tracks-list');
     const plView = document.getElementById('home-shared-playlists-view');
     const tracksContainer = document.getElementById('home-tracks-container');
     if (!list) return;
 
-    if (tracksContainer) tracksContainer.style.display = 'block';
+    if (tracksContainer) {
+      tracksContainer.style.display = 'block';
+      applyTabTransition(list);
+    }
     if (plView) plView.style.display = 'none';
 
     const escaped = (query || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -2150,7 +2183,7 @@
           <div class="search-artist-info">
             <div class="search-artist-name">
               <span>${item.name}</span>
-              ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon"><use href="#icon-verified"></use></svg></span>' : ''}
+              ${isVer ? '<span class="badge-verified" title="Верифицирован"><svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-verified"></use></svg></span>' : ''}
             </div>
             <div class="search-artist-sub">${count} ${decl}</div>
           </div>
@@ -2687,7 +2720,94 @@
     }
 
     if (closeFs && fs) {
-      closeFs.addEventListener('click', () => fs.classList.remove('active'));
+      let isDraggingFs = false;
+      let fsStartY = 0;
+      let fsStartX = 0;
+      let fsStartTime = 0;
+      let didMoveFs = false;
+
+      const topBar = fs.querySelector('.player-top-bar') || closeFs;
+
+      const onFsTouchStart = (e) => {
+        if (!fs.classList.contains('active')) return;
+        if (!e.touches || e.touches.length === 0) return;
+        const touch = e.touches[0];
+        fsStartY = touch.clientY;
+        fsStartX = touch.clientX;
+        fsStartTime = Date.now();
+        isDraggingFs = true;
+        didMoveFs = false;
+      };
+
+      const onFsTouchMove = (e) => {
+        if (!isDraggingFs || !e.touches || e.touches.length === 0) return;
+        const touch = e.touches[0];
+        const dy = touch.clientY - fsStartY;
+        const dx = touch.clientX - fsStartX;
+
+        // User pulls down (dy > 0)
+        if (dy > 8 && dy > Math.abs(dx)) {
+          didMoveFs = true;
+          fs.classList.add('dragging');
+          const clampedDy = Math.max(0, dy);
+          fs.style.setProperty('--fs-player-translate-y', `${clampedDy}px`);
+          const r = Math.min(32, Math.round(clampedDy * 0.15));
+          fs.style.borderTopLeftRadius = `${r}px`;
+          fs.style.borderTopRightRadius = `${r}px`;
+          if (e.cancelable) e.preventDefault();
+        }
+      };
+
+      const onFsTouchEnd = (e) => {
+        if (!isDraggingFs) return;
+        isDraggingFs = false;
+        fs.classList.remove('dragging');
+
+        if (!didMoveFs) return;
+
+        const touch = e.changedTouches ? e.changedTouches[0] : null;
+        const dy = touch ? (touch.clientY - fsStartY) : 0;
+        const dt = Math.max(1, Date.now() - fsStartTime);
+        const velocity = dy / dt;
+
+        if (dy > 110 || velocity > 0.42) {
+          // Dismiss fullscreen player
+          fs.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), border-radius 0.28s ease';
+          fs.style.setProperty('--fs-player-translate-y', '100%');
+          setTimeout(() => {
+            fs.classList.remove('active');
+            fs.style.removeProperty('--fs-player-translate-y');
+            fs.style.transition = '';
+            fs.style.borderTopLeftRadius = '';
+            fs.style.borderTopRightRadius = '';
+          }, 280);
+        } else {
+          // Snap back to top
+          fs.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-radius 0.25s ease';
+          fs.style.setProperty('--fs-player-translate-y', '0px');
+          fs.style.borderTopLeftRadius = '0px';
+          fs.style.borderTopRightRadius = '0px';
+          setTimeout(() => {
+            fs.style.removeProperty('--fs-player-translate-y');
+            fs.style.transition = '';
+            fs.style.borderTopLeftRadius = '';
+            fs.style.borderTopRightRadius = '';
+          }, 250);
+        }
+      };
+
+      topBar.addEventListener('touchstart', onFsTouchStart, { passive: false });
+      window.addEventListener('touchmove', onFsTouchMove, { passive: false });
+      window.addEventListener('touchend', onFsTouchEnd, { passive: true });
+      window.addEventListener('touchcancel', onFsTouchEnd, { passive: true });
+
+      closeFs.addEventListener('click', (e) => {
+        if (didMoveFs) {
+          e.preventDefault();
+          return;
+        }
+        fs.classList.remove('active');
+      });
     }
 
     // Play / Pause
@@ -3692,6 +3812,7 @@
       };
 
       let lastWaveFpsTime = 0;
+      let currentFluidOffset = 0;
       function renderWave(now) {
         animFrameId = requestAnimationFrame(renderWave);
         // Adaptive throttling: GPU (120 FPS), Hybrid (60 FPS), CPU (30 FPS)
@@ -3715,6 +3836,10 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
+
+        // Smooth fluid offset interpolation towards drag offset
+        const targetFluidOffset = typeof window._waveFluidOffset === 'number' ? window._waveFluidOffset : 0;
+        currentFluidOffset += (targetFluidOffset - currentFluidOffset) * 0.16;
 
         let targetBass = 0;
         let targetMid = 0;
@@ -3761,19 +3886,20 @@
         const curG = isDisliking ? 68 : tg;
         const curB = isDisliking ? 68 : tb;
 
-        // 1. Ethereal Soft Breathing Radial Nucleus (No muddy shadowBlur)
+        // 1. Ethereal Soft Breathing Radial Nucleus with Fluid Drift
         const coreBloom = baseRadius * 1.35 + smoothBass * 28;
-        const aura = ctx.createRadialGradient(cx, cy, baseRadius * 0.2, cx, cy, coreBloom);
+        const auraX = cx + currentFluidOffset * 0.35;
+        const aura = ctx.createRadialGradient(auraX, cy, baseRadius * 0.2, auraX + currentFluidOffset * 0.25, cy, coreBloom);
         aura.addColorStop(0, `rgba(${curR}, ${curG}, ${curB}, ${0.55 + smoothBass * 0.35})`);
         aura.addColorStop(0.5, `rgba(${curR}, ${curG}, ${curB}, ${0.22 + smoothBass * 0.2})`);
         aura.addColorStop(0.85, `rgba(${curR}, ${curG}, ${curB}, 0.05)`);
         aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = aura;
         ctx.beginPath();
-        ctx.arc(cx, cy, coreBloom, 0, Math.PI * 2);
+        ctx.arc(auraX, cy, coreBloom, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. High-End Concentric Undulating Fluid Waves (5 layered harmonic rings)
+        // 2. High-End Concentric Undulating Fluid Waves (5 layered harmonic rings streaming towards drag)
         const rings = 5;
         for (let k = 0; k < rings; k++) {
           const ringBase = baseRadius * 0.65 + k * 14 + smoothBass * (14 + k * 7);
@@ -3782,14 +3908,16 @@
           ctx.lineWidth = 1.9 - k * 0.25;
           ctx.beginPath();
 
+          const ringCx = cx + currentFluidOffset * ((k + 1) / rings) * 0.75;
           const points = 96;
           const step = (Math.PI * 2) / points;
           for (let p = 0; p <= points; p++) {
             const theta = p * step;
             const wave = Math.sin(theta * 3 + angle * 1.4 + k * 0.7) * (3.0 + smoothBass * 11) +
                          Math.cos(theta * 5 - angle * 0.9 + k * 0.5) * (2.0 + smoothMid * 8);
-            const rad = ringBase + wave;
-            const x = cx + Math.cos(theta) * rad;
+            const fluidStretch = Math.cos(theta) * currentFluidOffset * (0.28 + k * 0.12);
+            const rad = Math.max(10, ringBase + wave + fluidStretch);
+            const x = ringCx + Math.cos(theta) * rad;
             const y = cy + Math.sin(theta) * rad;
 
             if (p === 0) ctx.moveTo(x, y);
@@ -3804,11 +3932,13 @@
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         const innerPoints = 64;
+        const innerCx = cx + currentFluidOffset * 0.25;
         for (let i = 0; i <= innerPoints; i++) {
           const theta = (i / innerPoints) * Math.PI * 2;
           const w = Math.sin(theta * 4 - angle * 1.5) * (2.5 + smoothMid * 6);
-          const r = baseRadius * 0.58 + w;
-          const ix = cx + Math.cos(theta) * r;
+          const fluidStretchInner = Math.cos(theta) * currentFluidOffset * 0.15;
+          const r = Math.max(8, baseRadius * 0.58 + w + fluidStretchInner);
+          const ix = innerCx + Math.cos(theta) * r;
           const iy = cy + Math.sin(theta) * r;
           if (i === 0) ctx.moveTo(ix, iy);
           else ctx.lineTo(ix, iy);
@@ -4174,7 +4304,12 @@
         stopStudioPreview();
       }
 
-      document.getElementById('screen-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const mainView = document.querySelector('.main-view');
+      if (mainView) {
+        mainView.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
     window.goToStudioStep = goToStudioStep;
     window.setStudioAudioBuffer = function(buf, blob) {
@@ -4231,6 +4366,37 @@
         b.textContent = g;
         b.addEventListener('click', () => b.classList.toggle('active'));
         genreBox.appendChild(b);
+      });
+    }
+
+    // Studio Wave Mood Chips
+    const moodBox = document.getElementById('studio-mood-chips');
+    if (moodBox) {
+      moodBox.querySelectorAll('.chip').forEach((b) => {
+        b.addEventListener('click', () => b.classList.toggle('active'));
+      });
+    }
+
+    // Studio AI Commentary Generator Button
+    const aiFactBtn = document.getElementById('studio-generate-aifact-btn');
+    const aiFactInput = document.getElementById('studio-aifact-input');
+    const studioTitleInput = document.getElementById('studio-title-input');
+    const studioArtistInput = document.getElementById('studio-artist-input');
+    if (aiFactBtn && aiFactInput) {
+      aiFactBtn.addEventListener('click', () => {
+        const title = (studioTitleInput?.value || '').trim() || 'Трек';
+        const artist = (studioArtistInput?.value || '').trim() || 'Артист';
+        const activeGenreChips = Array.from(document.querySelectorAll('#studio-genres-chips .chip.active')).map(c => c.textContent.trim());
+        const genreStr = activeGenreChips.length > 0 ? activeGenreChips.slice(0, 2).join(', ') : 'музыкальный';
+        const phrases = [
+          `Атмосферный релиз от ${artist}, сочетающий в себе фирменное звучание жанра ${genreStr} и яркую эмоциональную подачу.`,
+          `Глубокий трек «${title}», раскрывающий узнаваемый авторский почерк ${artist} через многослойный саунд-дизайн и плотный грув.`,
+          `Самобытная композиция от ${artist}, создающая особое погружение и кинематографичное настроение с первых секунд.`,
+          `Мелодичный сингл от ${artist}, идеально подходящий для концентрации, поездок и погружения в атмосферный ритм.`
+        ];
+        const selected = phrases[Math.floor(Math.random() * phrases.length)];
+        aiFactInput.value = selected;
+        showToast('ИИ-комментарий сформирован');
       });
     }
 
@@ -5053,12 +5219,16 @@
       const dspConfig = isInstChecked ? getStudioDSPConfig() : null;
       const activeChips = Array.from(document.querySelectorAll('#studio-genres-chips .chip.active')).map(c => c.textContent.trim());
       const selectedGenres = activeChips.length > 0 ? activeChips : ['Pop', 'Electronic', 'Indie'];
+      const activeMoods = Array.from(document.querySelectorAll('#studio-mood-chips .chip.active')).map(c => c.getAttribute('data-mood')).filter(Boolean);
+      const studioAiFact = (document.getElementById('studio-aifact-input')?.value || '').trim();
 
       try {
         const oump3Blob = await buildOump3Container({
           title,
           artist,
           genres: selectedGenres,
+          categories: activeMoods,
+          aiFact: studioAiFact,
           duration: activeStudioBuffer ? activeStudioBuffer.duration : (studioAudioBuf ? studioAudioBuf.duration : 180),
           hasLyrics: !!lrcText,
           isExplicit: isExplicitChecked,
@@ -5302,7 +5472,10 @@
     const showMusic = () => {
       musicBtn?.classList.add('active');
       plBtn?.classList.remove('active');
-      if (tracksContainer) tracksContainer.style.display = 'block';
+      if (tracksContainer) {
+        tracksContainer.style.display = 'block';
+        applyTabTransition(tracksContainer);
+      }
       if (sharedPlView) sharedPlView.style.display = 'none';
     };
 
@@ -5310,7 +5483,10 @@
       plBtn?.classList.add('active');
       musicBtn?.classList.remove('active');
       if (tracksContainer) tracksContainer.style.display = 'none';
-      if (sharedPlView) sharedPlView.style.display = 'block';
+      if (sharedPlView) {
+        sharedPlView.style.display = 'block';
+        applyTabTransition(sharedPlView);
+      }
       renderSharedPlaylists();
     };
 
@@ -6666,15 +6842,27 @@
       const lvl = parseInt(level, 10);
       if (lvl === 3) {
         if (qualityBadge) qualityBadge.textContent = 'FLAC LOSSLESS';
-        if (qualityLabel) qualityLabel.textContent = 'Hi-Fi Lossless (Студийное)';
+        if (qualityLabel) {
+          qualityLabel.textContent = window.innerWidth <= 480 ? 'Hi-Fi Lossless' : 'Hi-Fi Lossless (Студийное)';
+          qualityLabel.style.textAlign = 'right';
+          qualityLabel.style.marginLeft = 'auto';
+        }
         engine.setLosslessMode(true);
       } else if (lvl === 2) {
         if (qualityBadge) qualityBadge.textContent = '320 KBPS';
-        if (qualityLabel) qualityLabel.textContent = 'Высокое качество (HQ)';
+        if (qualityLabel) {
+          qualityLabel.textContent = 'Высокое качество (HQ)';
+          qualityLabel.style.textAlign = 'right';
+          qualityLabel.style.marginLeft = 'auto';
+        }
         engine.setLosslessMode(false);
       } else {
         if (qualityBadge) qualityBadge.textContent = '192 KBPS';
-        if (qualityLabel) qualityLabel.textContent = 'Стандартное (Эко)';
+        if (qualityLabel) {
+          qualityLabel.textContent = 'Стандартное (Эко)';
+          qualityLabel.style.textAlign = 'right';
+          qualityLabel.style.marginLeft = 'auto';
+        }
         engine.setLosslessMode(false);
       }
     }
@@ -7327,16 +7515,6 @@
     openStudioWizardBtn?.addEventListener('click', () => {
       if (window.navigateTo) window.navigateTo('studio');
     });
-
-    const aiSpeechToggle = document.getElementById('wave-setting-ai-speech-toggle');
-    if (aiSpeechToggle) {
-      const storedPref = localStorage.getItem('oumusic_wave_speech_enabled');
-      aiSpeechToggle.checked = storedPref !== 'false';
-      aiSpeechToggle.addEventListener('change', () => {
-        localStorage.setItem('oumusic_wave_speech_enabled', aiSpeechToggle.checked ? 'true' : 'false');
-        showToast(aiSpeechToggle.checked ? 'Озвучка от ИИ в «Моя волна» включена' : 'Озвучка от ИИ в «Моя волна» отключена');
-      });
-    }
 
     // Genre filter chips in studio settings
     document.querySelectorAll('#studio-setting-genres-chips .genre-filter-chip').forEach((chip) => {
@@ -8984,6 +9162,8 @@
       startX = touch.clientX;
       startY = touch.clientY;
       currentX = startX;
+      window._waveFluidOffset = 0;
+      waveCont.style.transform = 'none';
       waveCont.style.transition = 'none';
     };
 
@@ -8996,7 +9176,8 @@
       // Only determine vertical scroll if movement exceeds minimum touch slop (10px)!
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) && !didHorizontalMove) {
         isVerticalScroll = true;
-        waveCont.style.transform = 'translateX(0px)';
+        window._waveFluidOffset = 0;
+        waveCont.style.transform = 'none';
         return;
       }
 
@@ -9005,16 +9186,17 @@
       if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
         didHorizontalMove = true;
         currentX = touch.clientX;
-        const clamped = Math.max(-65, Math.min(65, dx * 0.35));
-        waveCont.style.transform = `translateX(${clamped}px)`;
+        // Central button remains in center; waves fluidly stretch and stream in swipe direction
+        window._waveFluidOffset = Math.max(-95, Math.min(95, dx * 0.7));
+        waveCont.style.transform = 'none';
       }
     };
 
     const onTouchEnd = (e) => {
       if (!isDragging) return;
       isDragging = false;
-      waveCont.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-      waveCont.style.transform = 'translateX(0px)';
+      window._waveFluidOffset = 0;
+      waveCont.style.transform = 'none';
 
       if (isVerticalScroll) return;
 
@@ -9046,6 +9228,8 @@
       mouseMoved = false;
       mouseStartX = e.clientX;
       mouseCurrentX = mouseStartX;
+      window._waveFluidOffset = 0;
+      waveCont.style.transform = 'none';
       waveCont.style.transition = 'none';
     });
     window.addEventListener('mousemove', (e) => {
@@ -9054,15 +9238,15 @@
       if (Math.abs(dx) > 10) {
         mouseMoved = true;
         mouseCurrentX = e.clientX;
-        const clamped = Math.max(-65, Math.min(65, dx * 0.35));
-        waveCont.style.transform = `translateX(${clamped}px)`;
+        window._waveFluidOffset = Math.max(-95, Math.min(95, dx * 0.7));
+        waveCont.style.transform = 'none';
       }
     });
     window.addEventListener('mouseup', (e) => {
       if (!isMouseDown) return;
       isMouseDown = false;
-      waveCont.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-      waveCont.style.transform = 'translateX(0px)';
+      window._waveFluidOffset = 0;
+      waveCont.style.transform = 'none';
 
       if (!mouseMoved) {
         toggleWavePlay(e);

@@ -245,12 +245,26 @@
 .badge-verified {
   width: 18px;
   height: 18px;
+  max-width: 18px;
+  max-height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
+  line-height: 1;
+}
+
+.badge-verified svg,
+.badge-verified .svg-icon {
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+  fill: var(--md-sys-color-primary, #A855F7);
+  display: block;
+  flex-shrink: 0;
 }
 
 .badge-beta {
@@ -1893,8 +1907,12 @@ input[type="range"].eq-band {
 }
 
 .fullscreen-player.active {
-  transform: translateY(0) !important;
+  transform: translateY(var(--fs-player-translate-y, 0)) !important;
   pointer-events: auto !important;
+}
+
+.fullscreen-player.dragging {
+  transition: none !important;
 }
 
 .lyrics-overlay:not(.active) {

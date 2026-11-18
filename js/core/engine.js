@@ -209,6 +209,30 @@ class MCoreEngine {
         this.onTimeUpdate(this.audioElement.currentTime, this.audioElement.duration || 0);
       }
       this.updateMediaSessionPosition();
+      if (typeof window !== 'undefined' && window.OUMUSIC_RPC) {
+        window.OUMUSIC_RPC.currentTime = this.audioElement.currentTime || 0;
+        if (this.audioElement.duration && !isNaN(this.audioElement.duration) && this.audioElement.duration > 0) {
+          window.OUMUSIC_RPC.duration = this.audioElement.duration;
+        }
+      }
+    });
+
+    this.audioElement.addEventListener('durationchange', () => {
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          duration: this.audioElement.duration || 0,
+          currentTime: this.audioElement.currentTime || 0
+        });
+      }
+    });
+
+    this.audioElement.addEventListener('loadedmetadata', () => {
+      if (typeof window !== 'undefined' && typeof window.updateOUMusicRPC === 'function') {
+        window.updateOUMusicRPC({
+          duration: this.audioElement.duration || 0,
+          currentTime: this.audioElement.currentTime || 0
+        });
+      }
     });
 
     this.audioElement.addEventListener('ended', () => {
