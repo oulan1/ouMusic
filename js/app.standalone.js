@@ -6627,19 +6627,33 @@
     });
 
     // Helper: QR Transfer Modal (Generator)
-    function openQrTransferModal() {
-      const token = syncEngine.getToken();
+    function openQrTransferModal(customToken = '') {
+      let token = (customToken || syncEngine.getToken() || '').trim();
       if (!token) {
-        showToast('Сначала войдите в аккаунт');
+        const inputEl = document.getElementById('gh-token-input');
+        if (inputEl && inputEl.value && inputEl.value.trim()) {
+          token = inputEl.value.trim();
+        }
+      }
+      if (!token) {
+        showToast('Сначала войдите в аккаунт или укажите токен');
         return;
       }
-      if (qrTransferCanvas) {
-        syncEngine.renderQRCode(qrTransferCanvas, token);
-      }
+
       if (qrTransferBackdrop) {
         qrTransferBackdrop.style.display = 'flex';
         qrTransferBackdrop.classList.add('active');
       }
+
+      const canvas = document.getElementById('qr-transfer-canvas');
+      if (canvas) {
+        syncEngine.renderQRCode(canvas, token);
+      }
+      // Re-trigger on next animation frame to guarantee render after DOM layout
+      requestAnimationFrame(() => {
+        const c = document.getElementById('qr-transfer-canvas');
+        if (c) syncEngine.renderQRCode(c, token);
+      });
     }
 
     function closeQrTransferModal() {
