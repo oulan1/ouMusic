@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.29';
+const CACHE_NAME = 'oumusic-shell-v2.7.30';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -13,6 +13,8 @@ const APP_SHELL_ASSETS = [
   './assets/icons.svg',
   './assets/oumusic.png',
   './assets/pause.png',
+  './assets/covers/sqwore_barry_dylan.jpg',
+  './assets/covers/semmmyq,_shinra_untitled.jpg',
   './css/tokens.css',
   './css/main.css',
   './css/components.css',

@@ -2716,7 +2716,19 @@
       const titleName = (track.title || '').trim();
       const siteBase = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
       const artistUrl = artistName ? `${siteBase}#artist=${encodeURIComponent(artistName)}` : siteBase;
-      const coverUrl = track.coverUrl || track.thumbBase64 || '';
+      
+      let publicCoverUrl = '';
+      if (track.coverUrl && track.coverUrl.startsWith('https://')) {
+        publicCoverUrl = track.coverUrl;
+      } else {
+        const catTrack = (window.__TRACKS_CATALOG__ || []).find((c) => c.id === track.id);
+        if (catTrack && catTrack.coverUrl) {
+          publicCoverUrl = catTrack.coverUrl;
+        } else if (track.id) {
+          publicCoverUrl = `https://oulan1.github.io/ouMusic/assets/covers/${encodeURIComponent(track.id)}.jpg`;
+        }
+      }
+
       const curDur = (window.engine && window.engine.audioElement && window.engine.audioElement.duration) || track.duration || 0;
       const curTime = (window.engine && window.engine.audioElement && window.engine.audioElement.currentTime) || 0;
       const isPaused = (window.engine && window.engine.audioElement) ? window.engine.audioElement.paused : true;
@@ -2730,7 +2742,7 @@
         currentTime: curTime,
         paused: isPaused,
         currentLyric: '',
-        coverUrl: coverUrl
+        coverUrl: publicCoverUrl
       });
     }
 
@@ -6242,6 +6254,8 @@
         if (fill) fill.style.width = `${(cur / dur) * 100}%`;
         updateActiveLyric(cur);
       } else if (document.getElementById('fullscreen-player')?.classList.contains('active')) {
+        updateActiveLyric(cur);
+      } else {
         updateActiveLyric(cur);
       }
     });
