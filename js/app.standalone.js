@@ -619,6 +619,7 @@
 
       this.currentTrack = null;
       this.isPlaying = false;
+      this._isSwitchingTrack = false;
       this.sleepTimerId = null;
       this.sleepTimerEndTrack = false;
 
@@ -933,6 +934,7 @@
         }
       });
       this.audioElement.addEventListener('pause', () => {
+        if (this._isSwitchingTrack) return;
         this.isPlaying = false;
         if (this.onPlayStateChange) this.onPlayStateChange(false);
         if (typeof updateOUMusicRPC === 'function') {
@@ -953,7 +955,40 @@
       });
     }
 
+    prepareTrackSwitch(track, autoPlay = true) {
+      this._isSwitchingTrack = true;
+      this.currentTrack = track;
+      this.isUsingStudioInstrumental = false;
+      this.vocalRemoverActive = false;
+      this._preloadedForCurrent = false;
+
+      // Immediately silence and stop previous audio to eliminate audio overlap
+      if (this.audioElement) {
+        try {
+          this.audioElement.pause();
+          this.audioElement.removeAttribute('src');
+          this.audioElement.load();
+        } catch (e) {}
+      }
+
+      this.isPlaying = autoPlay;
+      if (this.onPlayStateChange) {
+        this.onPlayStateChange(autoPlay);
+      }
+      if (typeof updateMediaSessionPlaybackState === 'function') {
+        updateMediaSessionPlaybackState(autoPlay);
+      }
+      if (typeof updateOUMusicRPC === 'function') {
+        updateOUMusicRPC({
+          paused: !autoPlay,
+          currentTime: 0,
+          duration: (track && track.duration) || 0
+        });
+      }
+    }
+
     async loadTrack(track, audioSource, autoPlay = true) {
+      this._isSwitchingTrack = false;
       this.ensureContext();
       this.currentTrack = track;
       this.isUsingStudioInstrumental = false;
@@ -1034,6 +1069,14 @@
     }
 
     togglePlay() {
+      if (this._isSwitchingTrack) {
+        this.isPlaying = !this.isPlaying;
+        if (this.onPlayStateChange) this.onPlayStateChange(this.isPlaying);
+        if (typeof updateMediaSessionPlaybackState === 'function') {
+          updateMediaSessionPlaybackState(this.isPlaying);
+        }
+        return;
+      }
       if (this.audioElement.paused) {
         this.softPlay();
       } else {
@@ -2618,32 +2661,59 @@
       }
     }
 
-    // 2. Prioritize CDN first, then raw GitHub fallback
+    // 2. Prioritize CDN first, then raw GitHub / local fallbacks
     const cdnUrls = candidates.filter(u => u.includes('jsdelivr.net'));
     const otherUrls = candidates.filter(u => !u.includes('jsdelivr.net'));
     const sortedUrls = [...cdnUrls, ...otherUrls];
+    if (sortedUrls.length === 0) return null;
 
-    let winningRes = null;
-    let winningUrl = null;
-
-    for (let i = 0; i < sortedUrls.length; i++) {
-      const url = sortedUrls[i];
+    // Fast staggered fetch: start primary CDN; if no header in 650ms, start mirrors concurrently
+    const tryFetch = async (url, timeoutMs) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
-        const res = await fetchTrackWithTimeout(url, i === 0 ? 4000 : 6000);
+        const res = await fetch(url, { signal: ctrl.signal, cache: 'force-cache' });
+        clearTimeout(timer);
         if (res && res.ok) {
-          winningRes = res;
-          winningUrl = url;
-          break;
+          return { res, url };
         }
-      } catch (e) {}
+      } catch (e) {
+        clearTimeout(timer);
+      }
+      return null;
+    };
+
+    let winner = null;
+    const primaryPromise = tryFetch(sortedUrls[0], 5000);
+
+    if (sortedUrls.length === 1) {
+      winner = await primaryPromise;
+    } else {
+      const secondaryTrigger = new Promise((resolve) => setTimeout(resolve, 650));
+      const firstResult = await Promise.race([
+        primaryPromise,
+        secondaryTrigger.then(() => '__TIMEOUT__')
+      ]);
+
+      if (firstResult && firstResult !== '__TIMEOUT__' && firstResult.res) {
+        winner = firstResult;
+      } else {
+        const fallbackPromises = sortedUrls.slice(1, 3).map(u => tryFetch(u, 6000));
+        const allPending = [primaryPromise, ...fallbackPromises];
+        const results = await Promise.all(allPending.map(p => p.then(
+          val => (val && val.res ? val : Promise.reject(val)),
+          err => Promise.reject(err)
+        ).catch(() => null)));
+        winner = results.find(r => r && r.res) || null;
+      }
     }
 
-    if (winningRes && winningRes.ok) {
-      const buf = await winningRes.arrayBuffer();
-      if (winningUrl) {
-        putToAudioCache(winningUrl, buf.slice(0)).catch(() => {});
+    if (winner && winner.res && winner.res.ok) {
+      const buf = await winner.res.arrayBuffer();
+      if (winner.url) {
+        putToAudioCache(winner.url, buf.slice(0)).catch(() => {});
       }
-      return { buffer: buf, url: winningUrl };
+      return { buffer: buf, url: winner.url };
     }
 
     return null;
@@ -2728,16 +2798,50 @@
   }
   window.scheduleNextTrackPreload = scheduleNextTrackPreload;
 
+  let currentPlaybackSessionId = 0;
+
   async function playTrack(track, autoPlay = true) {
     if (!track) return;
 
+    const thisSessionId = ++currentPlaybackSessionId;
     const previousTrack = currentTrack;
     const previousQueueIndex = queueIndex;
 
-    // 1. Instant Optimistic UI Update (< 16ms instant switch, zero latency)
+    // 1. Instant Track Switch: Stop previous audio immediately, zero progress bars, update UI
     currentTrack = track;
+    engine.prepareTrackSwitch(track, autoPlay);
+
     updatePlayerMeta(track);
     updateMediaSession(track);
+    if (typeof window.updateKaraokeTrackUI === 'function') {
+      window.updateKaraokeTrackUI(track);
+    }
+
+    // Immediately zero progress bars and reset time labels to new track duration
+    const scrubber = document.getElementById('fs-scrubber');
+    const miniProgress = document.getElementById('mini-progress-bar');
+    const curTimeEl = document.getElementById('fs-time-current');
+    const durTimeEl = document.getElementById('fs-time-duration');
+    const lyricsFill = document.getElementById('lyrics-progress-fill');
+
+    if (scrubber) {
+      scrubber.value = 0;
+      scrubber.style.setProperty('--range-progress', '0%');
+    }
+    if (miniProgress) {
+      miniProgress.style.width = '0%';
+    }
+    const miniContainer = document.getElementById('mini-progress-container');
+    if (miniContainer) {
+      miniContainer.style.setProperty('--mini-progress-x', '0%');
+    }
+    if (lyricsFill) {
+      lyricsFill.style.width = '0%';
+    }
+    if (curTimeEl) curTimeEl.textContent = '00:00';
+    if (durTimeEl) durTimeEl.textContent = formatSec(track.duration || 0);
+
+    // Highlight row in list
     document.querySelectorAll('.track-row').forEach((r) => {
       r.classList.toggle('now-playing', r.getAttribute('data-track-id') === track.id);
     });
@@ -2750,9 +2854,16 @@
 
     // 2. High-speed load (0ms if preloaded or in memory cache)
     const data = await fetchAndUnpackTrack(track);
+
+    // Race condition guard: if user switched track while downloading, discard this outdated result!
+    if (thisSessionId !== currentPlaybackSessionId) {
+      return;
+    }
+
     setPlayerBufferingState(false);
 
     if (!data || !data.audioBlob) {
+      engine._isSwitchingTrack = false;
       queueIndex = previousQueueIndex;
       if (previousTrack) {
         currentTrack = previousTrack;
@@ -2790,12 +2901,18 @@
     // Dynamic accent color
     if (localStorage.getItem('oumusic_accent_adaptive') === 'true' && window.applyAccentColor) {
       extractCoverDominantColor(track.coverUrl || track.thumbBase64).then((dom) => {
-        window.applyAccentColor(dom, true);
+        if (thisSessionId === currentPlaybackSessionId) {
+          window.applyAccentColor(dom, true);
+        }
       }).catch(() => {});
     }
 
     // 3. Audio Engine Playback with Soft Crossfade
-    await engine.loadTrack(track, data.audioBlob, autoPlay);
+    await engine.loadTrack(track, data.audioBlob, autoPlay && engine.isPlaying);
+
+    // Final check before logging history
+    if (thisSessionId !== currentPlaybackSessionId) return;
+
     await addHistory(track.id, track.duration || 180);
     await updateProfileStats();
 
@@ -3143,9 +3260,30 @@
       requestAnimationFrame(smoothScrubberTick);
       if (now && now - lastScrubberTickTime < 14) return;
       lastScrubberTickTime = now || 0;
-      if (!engine.isPlaying || isScrubberDragging) return;
+      if (isScrubberDragging) return;
+
+      if (engine._isSwitchingTrack) {
+        if (scrubber) {
+          scrubber.value = 0;
+          scrubber.style.setProperty('--range-progress', '0%');
+        }
+        if (miniProgress) miniProgress.style.width = '0%';
+        if (curTimeEl && curTimeEl.textContent !== '00:00') curTimeEl.textContent = '00:00';
+        const targetDur = (currentTrack && currentTrack.duration) ? currentTrack.duration : 0;
+        if (targetDur > 0 && durTimeEl) {
+          const fDur = formatSec(targetDur);
+          if (durTimeEl.textContent !== fDur) durTimeEl.textContent = fDur;
+        }
+        return;
+      }
+
+      if (!engine.isPlaying) return;
+
       const cur = engine.audioElement.currentTime || 0;
-      const dur = engine.audioElement.duration || 1;
+      const dur = (!isNaN(engine.audioElement.duration) && engine.audioElement.duration > 0)
+        ? engine.audioElement.duration
+        : ((currentTrack && currentTrack.duration) ? currentTrack.duration : 0);
+
       if (dur > 0) {
         const pct = (cur / dur) * 100;
         if (scrubber) {
