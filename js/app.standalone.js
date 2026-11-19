@@ -551,6 +551,12 @@
       }
     });
 
+    // Factor in cloud-synced cumulative hours if greater than local history
+    const extraSecs = parseInt(localStorage.getItem('oumusic_total_seconds') || '0', 10);
+    if (!isNaN(extraSecs) && extraSecs > allSeconds) {
+      allSeconds = extraSecs;
+    }
+
     return {
       monthHours: (monthSeconds / 3600).toFixed(1),
       allTimeHours: (allSeconds / 3600).toFixed(1)
@@ -5363,6 +5369,9 @@
               : Math.max(0, lineEl.offsetTop - (container.clientHeight * 0.38) + (lineEl.clientHeight / 2));
             container.scrollTo({ top: targetY, behavior: 'smooth' });
           }
+        } else {
+          // Spring back to top intro / 4 pulsing dots when activeLyricIndex < 0
+          container.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }, 3000);
     };
@@ -5384,6 +5393,13 @@
   function renderLyricsDisplay() {
     const container = document.getElementById('lyrics-scroll-container');
     if (!container) return;
+    if (lyricsInactivityTimer) {
+      clearTimeout(lyricsInactivityTimer);
+      lyricsInactivityTimer = null;
+    }
+    window.isLyricsUserScrolling = false;
+    container.classList.remove('user-scrolling');
+    container.scrollTop = 0;
     container.innerHTML = '';
     activeLyricIndex = -1;
 
@@ -6157,6 +6173,19 @@
         }
       }
 
+      // Reset lyrics scroll container to top for new track
+      const lyricsContainer = document.getElementById('lyrics-scroll-container');
+      if (lyricsContainer) {
+        if (lyricsInactivityTimer) {
+          clearTimeout(lyricsInactivityTimer);
+          lyricsInactivityTimer = null;
+        }
+        window.isLyricsUserScrolling = false;
+        lyricsContainer.classList.remove('user-scrolling');
+        lyricsContainer.scrollTop = 0;
+      }
+      activeLyricIndex = -1;
+
       // Load lyrics for the new track
       const off = await getOfflineTrack(track.id);
       const lrc = track.lyricsText || track.lrcText || (off && (off.lyricsText || off.lrcText)) || '';
@@ -6884,6 +6913,7 @@
     // Theme toggle with instant persistence
     const darkBtn = document.getElementById('theme-dark-btn');
     const lightBtn = document.getElementById('theme-light-btn');
+    const gta6Btn = document.getElementById('theme-gta6-btn');
     const amoledToggle = document.getElementById('amoled-toggle');
     const liquidGlassToggle = document.getElementById('liquid-glass-toggle');
 
@@ -6921,10 +6951,11 @@
       document.documentElement.setAttribute('data-theme', 'dark');
       darkBtn.classList.add('active');
       lightBtn?.classList.remove('active');
+      gta6Btn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'dark'); } catch (e) {}
       syncAmoledAvailability(true);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
-      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.syncWaveColors) window.syncWaveColors();
       if (window.updateMobileNavPill) window.updateMobileNavPill();
     });
 
@@ -6932,10 +6963,23 @@
       document.documentElement.setAttribute('data-theme', 'light');
       lightBtn.classList.add('active');
       darkBtn?.classList.remove('active');
+      gta6Btn?.classList.remove('active');
       try { localStorage.setItem('oumusic_theme', 'light'); } catch (e) {}
       syncAmoledAvailability(false);
       if (window.syncSpectrumColors) window.syncSpectrumColors();
-      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
+      if (window.syncWaveColors) window.syncWaveColors();
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
+    });
+
+    gta6Btn?.addEventListener('click', () => {
+      document.documentElement.setAttribute('data-theme', 'gta6');
+      gta6Btn.classList.add('active');
+      darkBtn?.classList.remove('active');
+      lightBtn?.classList.remove('active');
+      try { localStorage.setItem('oumusic_theme', 'gta6'); } catch (e) {}
+      syncAmoledAvailability(true);
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors();
       if (window.updateMobileNavPill) window.updateMobileNavPill();
     });
 
@@ -7214,18 +7258,22 @@
       if (savedTheme === 'light') {
         lightBtn?.classList.add('active');
         darkBtn?.classList.remove('active');
+        gta6Btn?.classList.remove('active');
         syncAmoledAvailability(false);
-      if (window.syncSpectrumColors) window.syncSpectrumColors();
-      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
-      if (window.updateMobileNavPill) window.updateMobileNavPill();
+      } else if (savedTheme === 'gta6') {
+        gta6Btn?.classList.add('active');
+        darkBtn?.classList.remove('active');
+        lightBtn?.classList.remove('active');
+        syncAmoledAvailability(true);
       } else {
         darkBtn?.classList.add('active');
         lightBtn?.classList.remove('active');
+        gta6Btn?.classList.remove('active');
         syncAmoledAvailability(true);
-      if (window.syncSpectrumColors) window.syncSpectrumColors();
-      if (window.syncWaveColors) window.syncWaveColors(r, g, b);
-      if (window.updateMobileNavPill) window.updateMobileNavPill();
       }
+      if (window.syncSpectrumColors) window.syncSpectrumColors();
+      if (window.syncWaveColors) window.syncWaveColors();
+      if (window.updateMobileNavPill) window.updateMobileNavPill();
 
       // 2. AMOLED
       const savedAmoled = localStorage.getItem('oumusic_amoled') === 'true';
@@ -8220,103 +8268,343 @@
 
       // 1. Background gradient
       const bg = ctx.createLinearGradient(0, 0, 1080, 1350);
-      bg.addColorStop(0, '#090912');
-      bg.addColorStop(0.4, '#150D2A');
-      bg.addColorStop(1, '#080511');
+      bg.addColorStop(0, '#0A0618');
+      bg.addColorStop(0.35, '#1B0B33');
+      bg.addColorStop(0.7, '#150826');
+      bg.addColorStop(1, '#090414');
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, 1080, 1350);
 
       // 2. Ambient neon glow orbs
-      const orb1 = ctx.createRadialGradient(250, 300, 10, 250, 300, 400);
-      orb1.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
-      orb1.addColorStop(1, 'rgba(139, 92, 246, 0)');
-      ctx.fillStyle = orb1;
-      ctx.beginPath();
-      ctx.arc(250, 300, 400, 0, Math.PI * 2);
-      ctx.fill();
+      const drawOrb = (cx, cy, r, colorStart) => {
+        const orb = ctx.createRadialGradient(cx, cy, 10, cx, cy, r);
+        orb.addColorStop(0, colorStart);
+        orb.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = orb;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      drawOrb(220, 260, 380, 'rgba(139, 92, 246, 0.35)');
+      drawOrb(880, 480, 420, 'rgba(236, 72, 153, 0.3)');
+      drawOrb(260, 1050, 450, 'rgba(245, 158, 11, 0.22)');
+      drawOrb(850, 1150, 380, 'rgba(16, 185, 129, 0.2)');
 
-      const orb2 = ctx.createRadialGradient(850, 950, 10, 850, 950, 450);
-      orb2.addColorStop(0, 'rgba(236, 72, 153, 0.3)');
-      orb2.addColorStop(1, 'rgba(236, 72, 153, 0)');
-      ctx.fillStyle = orb2;
-      ctx.beginPath();
-      ctx.arc(850, 950, 450, 0, Math.PI * 2);
-      ctx.fill();
+      // Helper: Procedural Snowflake Sticker
+      const drawSnowflake = (x, y, radius, alpha = 0.7) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = `rgba(224, 242, 254, ${alpha})`;
+        ctx.lineWidth = Math.max(1.5, radius * 0.08);
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 6; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -radius);
+          ctx.stroke();
+          // Side spur 1
+          ctx.beginPath();
+          ctx.moveTo(0, -radius * 0.55);
+          ctx.lineTo(-radius * 0.25, -radius * 0.75);
+          ctx.moveTo(0, -radius * 0.55);
+          ctx.lineTo(radius * 0.25, -radius * 0.75);
+          ctx.stroke();
+          // Side spur 2
+          ctx.beginPath();
+          ctx.moveTo(0, -radius * 0.82);
+          ctx.lineTo(-radius * 0.18, -radius * 0.95);
+          ctx.moveTo(0, -radius * 0.82);
+          ctx.lineTo(radius * 0.18, -radius * 0.95);
+          ctx.stroke();
+          ctx.rotate(Math.PI / 3);
+        }
+        ctx.restore();
+      };
 
-      // Rounded glass card helper
+      // Helper: Festive Christmas Tree Sticker
+      const drawChristmasTreeSticker = (x, y, w, h) => {
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Die-cut white sticker backing with soft shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 8;
+
+        const drawTreePath = (inset = 0) => {
+          ctx.beginPath();
+          const topX = 0;
+          const topY = -h * 0.42 + inset;
+          ctx.moveTo(topX, topY);
+          ctx.lineTo(w * 0.28 + inset, -h * 0.18);
+          ctx.lineTo(w * 0.18, -h * 0.18);
+          ctx.lineTo(w * 0.38 + inset, h * 0.08);
+          ctx.lineTo(w * 0.25, h * 0.08);
+          ctx.lineTo(w * 0.5 + inset, h * 0.32);
+          ctx.lineTo(w * 0.12, h * 0.32);
+          ctx.lineTo(w * 0.12, h * 0.45 + inset);
+          ctx.lineTo(-w * 0.12, h * 0.45 + inset);
+          ctx.lineTo(-w * 0.12, h * 0.32);
+          ctx.lineTo(-w * 0.5 - inset, h * 0.32);
+          ctx.lineTo(-w * 0.25, h * 0.08);
+          ctx.lineTo(-w * 0.38 - inset, h * 0.08);
+          ctx.lineTo(-w * 0.18, -h * 0.18);
+          ctx.lineTo(-w * 0.28 - inset, -h * 0.18);
+          ctx.closePath();
+        };
+
+        // White border
+        ctx.fillStyle = '#FFFFFF';
+        drawTreePath(6);
+        ctx.fill();
+
+        ctx.shadowColor = 'transparent';
+
+        // Trunk
+        ctx.fillStyle = '#78350F';
+        ctx.fillRect(-w * 0.1, h * 0.28, w * 0.2, h * 0.16);
+
+        // Tier 3
+        const g3 = ctx.createLinearGradient(0, h * 0.08, 0, h * 0.32);
+        g3.addColorStop(0, '#047857');
+        g3.addColorStop(1, '#065F46');
+        ctx.fillStyle = g3;
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.04);
+        ctx.lineTo(w * 0.46, h * 0.32);
+        ctx.lineTo(-w * 0.46, h * 0.32);
+        ctx.closePath();
+        ctx.fill();
+
+        // Tier 2
+        const g2 = ctx.createLinearGradient(0, -h * 0.18, 0, h * 0.08);
+        g2.addColorStop(0, '#059669');
+        g2.addColorStop(1, '#047857');
+        ctx.fillStyle = g2;
+        ctx.beginPath();
+        ctx.moveTo(0, -h * 0.2);
+        ctx.lineTo(w * 0.35, h * 0.08);
+        ctx.lineTo(-w * 0.35, h * 0.08);
+        ctx.closePath();
+        ctx.fill();
+
+        // Tier 1
+        const g1 = ctx.createLinearGradient(0, -h * 0.42, 0, -h * 0.18);
+        g1.addColorStop(0, '#10B981');
+        g1.addColorStop(1, '#059669');
+        ctx.fillStyle = g1;
+        ctx.beginPath();
+        ctx.moveTo(0, -h * 0.42);
+        ctx.lineTo(w * 0.25, -h * 0.18);
+        ctx.lineTo(-w * 0.25, -h * 0.18);
+        ctx.closePath();
+        ctx.fill();
+
+        // Baubles / Ornaments
+        const baubles = [
+          { bx: -w * 0.22, by: h * 0.24, color: '#EF4444' },
+          { bx: w * 0.18, by: h * 0.22, color: '#38BDF8' },
+          { bx: 0, by: h * 0.18, color: '#F59E0B' },
+          { bx: -w * 0.14, by: 0, color: '#EC4899' },
+          { bx: w * 0.12, by: -0.02 * h, color: '#FBBF24' },
+          { bx: -0.02 * w, by: -h * 0.24, color: '#EF4444' }
+        ];
+        baubles.forEach(b => {
+          ctx.beginPath();
+          ctx.arc(b.bx, b.by, w * 0.045, 0, Math.PI * 2);
+          ctx.fillStyle = b.color;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(b.bx - w * 0.012, b.by - w * 0.012, w * 0.015, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.fill();
+        });
+
+        // Golden Star on top
+        const starX = 0, starY = -h * 0.44, starR = w * 0.11;
+        ctx.fillStyle = '#FBBF24';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a1 = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+          const a2 = a1 + (2 * Math.PI) / 10;
+          ctx.lineTo(starX + Math.cos(a1) * starR, starY + Math.sin(a1) * starR);
+          ctx.lineTo(starX + Math.cos(a2) * (starR * 0.45), starY + Math.sin(a2) * (starR * 0.45));
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      };
+
+      // Draw Glass Card helper
       const drawGlassCard = (x, y, w, h, radius = 24) => {
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, radius);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
         ctx.fill();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
       };
 
+      // Draw background decorative snowflakes
+      drawSnowflake(920, 130, 36, 0.55);
+      drawSnowflake(980, 220, 22, 0.4);
+      drawSnowflake(110, 180, 26, 0.35);
+      drawSnowflake(950, 720, 32, 0.45);
+      drawSnowflake(100, 940, 28, 0.4);
+      drawSnowflake(960, 1140, 34, 0.5);
+
       // Header Branding
-      ctx.fillStyle = '#8B5CF6';
-      ctx.font = '800 28px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('OUMUSIC • WRAPPED 2026', 80, 110);
+      ctx.fillStyle = '#A78BFA';
+      ctx.font = '800 26px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('OUMUSIC • WRAPPED 2026', 80, 105);
 
+      const userName = localStorage.getItem('oumusic_user_name') || 'Слушатель ouMusic';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 56px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('Твои музыкальные итоги', 80, 180);
+      ctx.font = '900 52px -apple-system, BlinkMacSystemFont, sans-serif';
+      const greeting = `Итоги года • ${userName}`;
+      ctx.fillText(greeting.length > 25 ? greeting.slice(0, 24) + '…' : greeting, 80, 172);
 
-      // Card 1: Listening Time
-      drawGlassCard(80, 230, 920, 210);
+      // Card 1: Listening Time (Full Width)
+      drawGlassCard(80, 215, 920, 190);
       ctx.fillStyle = '#EC4899';
-      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('ВРЕМЯ В МУЗЫКЕ', 120, 290);
+      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ВРЕМЯ В МУЗЫКЕ', 120, 270);
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 78px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(data.timeFormatted || '0 минут', 120, 385);
+      ctx.font = '900 76px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(data.timeFormatted || '0 минут', 120, 360);
 
-      // Card 2: Top Track
-      drawGlassCard(80, 470, 920, 210);
+      // Sticker: Christmas Tree on the right of Card 1
+      drawChristmasTreeSticker(910, 295, 120, 160);
+
+      // Card 2: Top Track with Album Art Sticker
+      drawGlassCard(80, 430, 920, 240);
       ctx.fillStyle = '#8B5CF6';
-      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('ГЛАВНЫЙ ТРЕК ГОДА', 120, 530);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 44px -apple-system, BlinkMacSystemFont, sans-serif';
-      const topTitle = (data.topTrack && data.topTrack.title) || 'Нет данных';
-      ctx.fillText(topTitle.length > 30 ? topTitle.slice(0, 29) + '…' : topTitle, 120, 595);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.font = '600 30px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText((data.topTrack && data.topTrack.artist) || 'ouMusic Player', 120, 645);
+      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ГЛАВНЫЙ ТРЕК ГОДА', 330, 485);
 
-      // Card 3 & 4: Top Artist and Top Genre
-      drawGlassCard(80, 710, 445, 210);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 40px -apple-system, BlinkMacSystemFont, sans-serif';
+      const topTitle = (data.topTrack && data.topTrack.title) || 'Нет данных';
+      ctx.fillText(topTitle.length > 24 ? topTitle.slice(0, 23) + '…' : topTitle, 330, 545);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '600 28px -apple-system, BlinkMacSystemFont, sans-serif';
+      const topArt = (data.topTrack && data.topTrack.artist) || 'ouMusic';
+      ctx.fillText(topArt.length > 26 ? topArt.slice(0, 25) + '…' : topArt, 330, 595);
+
+      ctx.fillStyle = 'rgba(139, 92, 246, 0.9)';
+      ctx.font = '700 20px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`Включали на повторе ${data.topTrackCount} раз`, 330, 638);
+
+      // Draw Top Track Cover Art Sticker (Die-cut sticker with tilt)
+      const coverImgSrc = data.topTrack?.coverUrl || data.topTrack?.thumbBase64 || 'assets/oumusic.png';
+      let coverImg = new Image();
+      coverImg.crossOrigin = 'anonymous';
+      await new Promise((resolve) => {
+        coverImg.onload = resolve;
+        coverImg.onerror = resolve;
+        coverImg.src = coverImgSrc;
+      });
+
+      ctx.save();
+      ctx.translate(205, 550);
+      ctx.rotate(-0.05);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+      ctx.shadowBlur = 22;
+      ctx.shadowOffsetY = 10;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.roundRect(-85, -85, 170, 170, 18);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(-80, -80, 160, 160, 14);
+      ctx.clip();
+      try {
+        ctx.drawImage(coverImg, -80, -80, 160, 160);
+      } catch (e) {
+        ctx.fillStyle = '#2D1B69';
+        ctx.fillRect(-80, -80, 160, 160);
+      }
+      ctx.restore();
+
+      // Top track mini sticker badge
+      ctx.fillStyle = '#F59E0B';
+      ctx.beginPath();
+      ctx.roundRect(15, 55, 75, 26, 6);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.font = '900 12px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('TOP #1', 28, 73);
+
+      ctx.restore();
+
+      // Card 3: Top Artist
+      drawGlassCard(80, 695, 445, 220);
       ctx.fillStyle = '#10B981';
       ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('ЛЮБИМЫЙ АРТИСТ', 120, 770);
+      ctx.fillText('ЛЮБИМЫЙ АРТИСТ', 120, 755);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '800 38px -apple-system, BlinkMacSystemFont, sans-serif';
-      const artistStr = data.topArtist || 'ouMusic';
-      ctx.fillText(artistStr.length > 18 ? artistStr.slice(0, 17) + '…' : artistStr, 120, 840);
+      const artistStr = data.topArtist || (data.topArtists && data.topArtists[0]?.name) || 'Артист';
+      ctx.fillText(artistStr.length > 17 ? artistStr.slice(0, 16) + '…' : artistStr, 120, 825);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Кумир года в вашем плейлисте', 120, 875);
 
-      drawGlassCard(555, 710, 445, 210);
+      // Card 4: Top 3 Genres (Showing all 3 genres simultaneously)
+      drawGlassCard(555, 695, 445, 220);
       ctx.fillStyle = '#F59E0B';
       ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('ЖАНР ГОДА', 595, 770);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 38px -apple-system, BlinkMacSystemFont, sans-serif';
-      const genreStr = data.topGenre || 'Alternative';
-      ctx.fillText(genreStr.length > 18 ? genreStr.slice(0, 17) + '…' : genreStr, 595, 840);
+      ctx.fillText('ТОП-3 ЖАНРА ГОДА', 595, 750);
+
+      const top3G = (data.topGenres && data.topGenres.length >= 3)
+        ? data.topGenres.slice(0, 3)
+        : [
+            { genre: data.topGenre || 'Phonk', percent: 50 },
+            { genre: 'Indie', percent: 30 },
+            { genre: 'Hyperpop', percent: 20 }
+          ];
+
+      const genreColors = ['#F59E0B', '#10B981', '#06B6D4'];
+      top3G.forEach((g, gi) => {
+        const rowY = 788 + gi * 38;
+        ctx.fillStyle = genreColors[gi] || '#A78BFA';
+        ctx.beginPath();
+        ctx.arc(605, rowY - 6, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, sans-serif';
+        const gName = `${gi + 1}. ${g.genre}`;
+        ctx.fillText(gName.length > 16 ? gName.slice(0, 15) + '…' : gName, 622, rowY);
+
+        ctx.fillStyle = genreColors[gi] || '#A78BFA';
+        ctx.font = '800 20px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(`${g.percent}%`, 940, rowY);
+      });
 
       // Card 5: Total Tracks count
-      drawGlassCard(80, 950, 920, 170);
+      drawGlassCard(80, 940, 920, 185);
       ctx.fillStyle = '#06B6D4';
-      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('ПРОСЛУШАНО ТРЕКОВ', 120, 1010);
+      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ПРОСЛУШАНО ТРЕКОВ', 120, 1000);
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 58px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(`${data.totalTracksPlayed || 0} треков`, 120, 1085);
+      ctx.font = '900 64px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`${data.totalTracksPlayed || data.totalTracks || 0} треков`, 120, 1080);
+
+      // Festive Snowflake decoration on bottom right of Card 5
+      drawSnowflake(910, 1030, 42, 0.65);
 
       // Footer Branding
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText('ouMusic Engine M-Core • Создано в ouForge™ 2026', 80, 1260);
 
@@ -8488,7 +8776,24 @@
       const dur = h.durationPlayed || 180;
       totalSecs += dur;
       trackCounts.set(h.trackId, (trackCounts.get(h.trackId) || 0) + 1);
+
+      // Map plays strictly from played tracks without inflating unplayed catalog tracks
+      const t = tracks.find((tr) => tr.id === h.trackId);
+      if (t) {
+        const art = t.artist || 'Неизвестный артист';
+        artistCounts.set(art, (artistCounts.get(art) || 0) + 1);
+        const gens = Array.isArray(t.genres) ? t.genres : [t.genre || 'Electronic'];
+        gens.forEach((g) => {
+          if (g) genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
+        });
+      }
     });
+
+    // Check cloud-synced cumulative total seconds
+    const extraSecs = parseInt(localStorage.getItem('oumusic_total_seconds') || '0', 10);
+    if (!isNaN(extraSecs) && extraSecs > totalSecs) {
+      totalSecs = extraSecs;
+    }
 
     let topTrack = null;
     let topTrackCount = 0;
@@ -8503,41 +8808,64 @@
       topTrackCount = Math.max(1, history.length);
     }
 
-    tracks.forEach((t) => {
-      const plays = trackCounts.get(t.id) || 1;
-      const art = t.artist || 'Неизвестный артист';
-      artistCounts.set(art, (artistCounts.get(art) || 0) + plays);
-
-      const gens = Array.isArray(t.genres) ? t.genres : [t.genre || 'Electronic'];
-      gens.forEach((g) => {
-        genreCounts.set(g, (genreCounts.get(g) || 0) + plays);
+    // Graceful fallback for brand-new accounts with no listening history yet
+    if (artistCounts.size === 0 && tracks.length > 0) {
+      tracks.slice(0, 3).forEach((t, i) => {
+        const art = t.artist || 'ouMusic';
+        artistCounts.set(art, 3 - i);
+        const gens = Array.isArray(t.genres) ? t.genres : [t.genre || 'Electronic'];
+        gens.forEach((g) => {
+          if (g) genreCounts.set(g, (genreCounts.get(g) || 0) + 1);
+        });
       });
-    });
+    }
 
     const sortedArtists = Array.from(artistCounts.entries()).sort((a, b) => b[1] - a[1]);
     const topArtists = sortedArtists.slice(0, 3).map(([name, count]) => ({ name, count }));
 
     const sortedGenres = Array.from(genreCounts.entries()).sort((a, b) => b[1] - a[1]);
     const totalGenrePlays = sortedGenres.reduce((acc, cur) => acc + cur[1], 0) || 1;
-    const topGenres = sortedGenres.slice(0, 3).map(([g, c]) => ({
+    let topGenres = sortedGenres.slice(0, 3).map(([g, c]) => ({
       genre: g,
-      percent: Math.max(15, Math.round((c / totalGenrePlays) * 100))
+      count: c,
+      percent: Math.max(10, Math.round((c / totalGenrePlays) * 100))
     }));
+
+    // Ensure 3 distinct genres are always populated for top genres view
+    if (topGenres.length === 0) {
+      topGenres = [
+        { genre: 'Phonk', percent: 50, count: 5 },
+        { genre: 'Indie', percent: 30, count: 3 },
+        { genre: 'Hyperpop', percent: 20, count: 2 }
+      ];
+    } else if (topGenres.length === 1) {
+      topGenres.push({ genre: 'Electronic', percent: 30, count: 1 });
+      topGenres.push({ genre: 'Ambient', percent: 15, count: 1 });
+    } else if (topGenres.length === 2) {
+      topGenres.push({ genre: 'Alternative', percent: 15, count: 1 });
+    }
 
     const hours = (totalSecs / 3600);
     const mins = Math.max(1, Math.round(totalSecs / 60));
     const timeFormatted = hours >= 1.0 ? `${hours.toFixed(1)} ч` : `${mins} мин`;
+
+    const topArtistName = topArtists[0]?.name || topTrack?.artist || 'Любимый артист';
+    const topGenreName = topGenres[0]?.genre || 'Electronic';
 
     cachedRecapData = {
       totalHours: hours,
       totalMinutes: mins,
       timeFormatted,
       totalTracks: Math.max(history.length, tracks.length),
+      totalTracksPlayed: history.length,
       topTrack: topTrack || { title: 'ouMusic Stream', artist: 'M-Core Engine' },
       topTrackCount: Math.max(1, topTrackCount),
-      topArtists: topArtists.length > 0 ? topArtists : [{ name: 'Sqwore', count: 12 }, { name: 'Серега Пират', count: 8 }, { name: 'Imagine Dragons', count: 5 }],
-      topGenres: topGenres.length > 0 ? topGenres : [{ genre: 'Phonk', percent: 50 }, { genre: 'Indie', percent: 30 }, { genre: 'Hyperpop', percent: 20 }]
+      topArtist: topArtistName,
+      topArtists: topArtists.length > 0 ? topArtists : [{ name: topArtistName, count: 1 }],
+      topGenre: topGenreName,
+      topGenres: topGenres
     };
+    window.cachedRecapData = cachedRecapData;
     return cachedRecapData;
   }
 

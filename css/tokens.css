@@ -120,6 +120,51 @@
   --md-elevation-5: 0 20px 30px rgba(0, 0, 0, 0.22), 0 8px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* GTA VI Theme (Vice City Sunset) */
+:root[data-theme="gta6"], [data-theme="gta6"] {
+  --accent-hue: 350;
+  --md-sys-color-primary: #F87572;
+  --md-sys-color-on-primary: #160729;
+  --md-sys-color-primary-container: #7B208F;
+  --md-sys-color-on-primary-container: #FFE4EC;
+
+  --md-sys-color-secondary: #FF9B55;
+  --md-sys-color-on-secondary: #160729;
+  --md-sys-color-secondary-container: #C9349B;
+  --md-sys-color-on-secondary-container: #FFF0E5;
+
+  --md-sys-color-surface: #260C42;
+  --md-sys-color-surface-dim: #160729;
+  --md-sys-color-surface-bright: #3B146B;
+  --md-sys-color-surface-container-lowest: #120420;
+  --md-sys-color-surface-container-low: #1A0730;
+  --md-sys-color-surface-container: #260C42;
+  --md-sys-color-surface-container-high: #321054;
+  --md-sys-color-surface-container-highest: #3B146B;
+
+  --md-sys-color-on-surface: #FFF0F5;
+  --md-sys-color-on-surface-variant: #F3D5EB;
+  --md-sys-color-outline: #B686B8;
+  --md-sys-color-outline-variant: #5A206B;
+
+  --md-sys-color-background: #160729;
+  --md-sys-color-on-background: #FFF0F5;
+
+  --md-sys-color-error: #FFB4AB;
+  --md-sys-color-on-error: #690005;
+
+  /* Vice City Sunset Glow */
+  --glow-color-1: rgba(201, 52, 155, 0.45);
+  --glow-color-2: rgba(248, 117, 114, 0.4);
+  --glow-color-3: rgba(255, 180, 88, 0.35);
+  --glow-accent: #F87572;
+
+  /* GTA VI Sunset Gradients and Glass Accents */
+  --gta6-gradient-sunset: linear-gradient(135deg, #7B208F 0%, #C9349B 35%, #F87572 70%, #FFB458 100%);
+  --gta6-gradient-accent: linear-gradient(135deg, #F36A78 0%, #F87572 35%, #FF9B55 70%, #FFB458 100%);
+  --gta6-surface-glass: rgba(59, 20, 107, 0.65);
+}
+
 /* AMOLED Mode (#000000) */
 [data-amoled="true"] {
   --md-sys-color-background: #000000 !important;

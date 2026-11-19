@@ -1665,3 +1665,19 @@
     margin-top: 10px !important;
   }
 }
+
+/* GTA VI Theme (Vice City Sunset) Player Progress Bars */
+[data-theme="gta6"] .mini-player-progress-bar {
+  background: linear-gradient(90deg, #F36A78, #F87572, #FF9B55, #FFB458) !important;
+  box-shadow: 0 0 10px rgba(248, 117, 114, 0.6) !important;
+}
+
+[data-theme="gta6"] .lyrics-progress-fill {
+  background: linear-gradient(90deg, #F36A78, #F87572, #FF9B55) !important;
+  box-shadow: 0 0 8px rgba(248, 117, 114, 0.5) !important;
+}
+
+[data-theme="gta6"] .fs-progress-fill {
+  background: linear-gradient(90deg, #F36A78, #F87572, #FF9B55, #FFB458) !important;
+  box-shadow: 0 0 12px rgba(248, 117, 114, 0.6) !important;
+}

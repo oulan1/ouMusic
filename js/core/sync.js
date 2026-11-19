@@ -310,6 +310,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       let playlists = [];
       let history = [];
       let blacklist = [];
+      let manualTracks = [];
 
       try {
         if (typeof window.getAllLikes === 'function') {
@@ -327,7 +328,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
 
       try {
         if (typeof window.getHistory === 'function') {
-          history = await window.getHistory(300);
+          history = await window.getHistory(1000);
         }
       } catch (e) {}
 
@@ -336,6 +337,24 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
           blacklist = await window.getBlacklist();
         }
       } catch (e) {}
+
+      // Collect manual local tracks
+      try {
+        if (typeof window.getAllTracksMetadata === 'function') {
+          const allMeta = await window.getAllTracksMetadata();
+          manualTracks = allMeta.filter(t => t && t.isLocal);
+        } else if (Array.isArray(window.catalogTracks)) {
+          manualTracks = window.catalogTracks.filter(t => t && t.isLocal);
+        }
+      } catch (e) {}
+
+      // Calculate total playback stats
+      let histSecs = 0;
+      history.forEach(h => { histSecs += (Number(h.durationPlayed) || 0); });
+      const storedSecs = Number(localStorage.getItem('oumusic_total_seconds') || 0);
+      const totalSeconds = Math.max(histSecs, storedSecs);
+      const storedPlays = Number(localStorage.getItem('oumusic_total_plays') || 0);
+      const totalPlays = Math.max(history.length, storedPlays);
 
       // Settings & Preferences
       const settings = {
@@ -351,15 +370,23 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         eqPreset: localStorage.getItem('ou_eq_preset') || 'flat'
       };
 
+      const stats = {
+        totalSeconds: totalSeconds,
+        totalHours: Number((totalSeconds / 3600).toFixed(2)),
+        totalPlays: totalPlays
+      };
+
       return {
         app: 'ouMusic',
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: new Date().toISOString(),
         likes: likes || [],
         playlists: playlists || [],
         history: history || [],
         blacklist: blacklist || [],
-        settings: settings
+        manualTracks: manualTracks || [],
+        settings: settings,
+        stats: stats
       };
     },
 
@@ -367,9 +394,11 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
      * Smart merge algorithm:
      * - Playlists: union by ID, taking newer updatedAt for conflicts
      * - Likes: union of track IDs (no likes lost)
-     * - History: union by (trackId + playedAt), sorted descending, trimmed to 500
+     * - History: union by (trackId + playedAt), sorted descending, trimmed to 1000
      * - Blacklist: union of disliked track IDs
+     * - ManualTracks: union by track ID
      * - Settings: merged preference map
+     * - Stats: sum hours for newly syncing devices, max/delta otherwise
      */
     async smartMerge(local, remote) {
       if (!remote || typeof remote !== 'object') return local;
@@ -391,11 +420,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
           const lPl = plMap.get(rPl.id);
           const lTime = new Date(lPl.updatedAt || lPl.createdAt || 0).getTime();
           const rTime = new Date(rPl.updatedAt || rPl.createdAt || 0).getTime();
-          // Keep newer playlist version, or merge trackIds
           if (rTime > lTime) {
             plMap.set(rPl.id, rPl);
           } else {
-            // Combine trackIds so no tracks disappear
             const combinedTracks = Array.from(new Set([...(lPl.trackIds || []), ...(rPl.trackIds || [])]));
             lPl.trackIds = combinedTracks;
             plMap.set(rPl.id, lPl);
@@ -420,7 +447,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         }
       });
 
-      // 3. History merge
+      // 3. History merge (all unique played tracks by id + timestamp)
       const histMap = new Map();
       const localHist = Array.isArray(local.history) ? local.history : [];
       const remoteHist = Array.isArray(remote.history) ? remote.history : [];
@@ -434,25 +461,71 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
 
       const mergedHist = Array.from(histMap.values())
         .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
-        .slice(0, 500);
+        .slice(0, 1000);
 
       // 4. Blacklist merge
       const localBl = Array.isArray(local.blacklist) ? local.blacklist : [];
       const remoteBl = Array.isArray(remote.blacklist) ? remote.blacklist : [];
       const mergedBl = Array.from(new Set([...localBl, ...remoteBl]));
 
-      // 5. Settings merge
-      const mergedSettings = Object.assign({}, remote.settings || {}, local.settings || {});
+      // 5. Manual Tracks merge
+      const trackMap = new Map();
+      const localTracks = Array.isArray(local.manualTracks) ? local.manualTracks : [];
+      const remoteTracks = Array.isArray(remote.manualTracks) ? remote.manualTracks : [];
+
+      localTracks.forEach((t) => { if (t && t.id) trackMap.set(t.id, t); });
+      remoteTracks.forEach((t) => { if (t && t.id && !trackMap.has(t.id)) trackMap.set(t.id, t); });
+      const mergedManualTracks = Array.from(trackMap.values());
+
+      // 6. Settings merge
+      const lSet = local.settings || {};
+      const rSet = remote.settings || {};
+      const mergedSettings = Object.assign({}, rSet, lSet);
+      if (!lSet.userName && rSet.userName) mergedSettings.userName = rSet.userName;
+      if (!lSet.userAvatar && rSet.userAvatar) mergedSettings.userAvatar = rSet.userAvatar;
+      if (lSet.theme === 'dark' && rSet.theme && rSet.theme !== 'dark') mergedSettings.theme = rSet.theme;
+
+      // 7. Statistics merge (Summing hours if device was unsynced!)
+      const lSecs = Number(local.stats?.totalSeconds || 0);
+      const rSecs = Number(remote.stats?.totalSeconds || 0);
+      const lPlays = Number(local.stats?.totalPlays || 0);
+      const rPlays = Number(remote.stats?.totalPlays || 0);
+
+      const isFirstSync = !this.getLastSyncTime();
+      let mergedSeconds = 0;
+      let mergedPlays = 0;
+
+      if (isFirstSync) {
+        // Unsynchronized device connecting: sum up hours and plays!
+        mergedSeconds = rSecs + lSecs;
+        mergedPlays = rPlays + lPlays;
+      } else {
+        mergedSeconds = Math.max(rSecs, lSecs);
+        mergedPlays = Math.max(rPlays, lPlays);
+      }
+
+      // Also ensure mergedSeconds is at least the sum of duration in mergedHist
+      let histSecsSum = 0;
+      mergedHist.forEach(h => { histSecsSum += (Number(h.durationPlayed) || 0); });
+      mergedSeconds = Math.max(mergedSeconds, histSecsSum);
+
+      const mergedStats = {
+        totalSeconds: mergedSeconds,
+        totalHours: Number((mergedSeconds / 3600).toFixed(2)),
+        totalPlays: Math.max(mergedPlays, mergedHist.length)
+      };
 
       return {
         app: 'ouMusic',
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: new Date().toISOString(),
         likes: Array.from(likesMap.values()),
         playlists: Array.from(plMap.values()),
         history: mergedHist,
         blacklist: mergedBl,
-        settings: mergedSettings
+        manualTracks: mergedManualTracks,
+        settings: mergedSettings,
+        stats: mergedStats
       };
     },
 
@@ -490,29 +563,87 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         } catch (e) {}
       }
 
-      // 3. Blacklist
+      // 3. History
+      if (Array.isArray(data.history) && typeof window.getStore === 'function') {
+        try {
+          const histStore = window.getStore('history', 'readwrite');
+          if (histStore) {
+            for (const h of data.history) {
+              if (h && h.trackId) {
+                histStore.put(h);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 4. Manual Local Tracks
+      if (Array.isArray(data.manualTracks) && typeof window.saveTrackMetadata === 'function') {
+        try {
+          for (const tr of data.manualTracks) {
+            if (tr && tr.id) {
+              tr.isLocal = true;
+              await window.saveTrackMetadata(tr);
+              if (Array.isArray(window.catalogTracks) && !window.catalogTracks.some(t => t.id === tr.id)) {
+                window.catalogTracks.push(tr);
+              }
+            }
+          }
+          if (typeof window.renderManualTracksFeed === 'function') {
+            window.renderManualTracksFeed();
+          }
+        } catch (e) {}
+      }
+
+      // 5. Blacklist
       if (Array.isArray(data.blacklist) && typeof window.saveSetting === 'function') {
         try {
           await window.saveSetting('blacklist_track_ids', data.blacklist);
         } catch (e) {}
       }
 
-      // 4. Settings
+      // 6. Settings (Theme, Avatar, Nickname, AMOLED, etc.)
       if (data.settings && typeof data.settings === 'object') {
         const s = data.settings;
-        if (s.theme && !localStorage.getItem('oumusic_theme')) {
+        if (s.theme) {
           localStorage.setItem('oumusic_theme', s.theme);
           document.documentElement.setAttribute('data-theme', s.theme);
+          const darkBtn = document.getElementById('theme-dark-btn');
+          const lightBtn = document.getElementById('theme-light-btn');
+          const gta6Btn = document.getElementById('theme-gta6-btn');
+          darkBtn?.classList.toggle('active', s.theme === 'dark');
+          lightBtn?.classList.toggle('active', s.theme === 'light');
+          gta6Btn?.classList.toggle('active', s.theme === 'gta6');
         }
-        if (s.amoled && !localStorage.getItem('oumusic_amoled')) {
+        if (s.amoled) {
           localStorage.setItem('oumusic_amoled', s.amoled);
           document.documentElement.setAttribute('data-amoled', s.amoled);
+          const amoledToggle = document.getElementById('amoled-toggle');
+          if (amoledToggle) amoledToggle.checked = (s.amoled === 'true');
         }
-        if (s.userName && !localStorage.getItem('oumusic_user_name')) {
+        if (s.userName) {
           localStorage.setItem('oumusic_user_name', s.userName);
           const nameEl = document.getElementById('profile-name-display');
           if (nameEl) nameEl.textContent = s.userName;
+          if (typeof window.syncUserName === 'function') window.syncUserName(s.userName);
         }
+        if (s.userAvatar) {
+          localStorage.setItem('oumusic_user_avatar', s.userAvatar);
+          if (typeof window.syncUserAvatar === 'function') window.syncUserAvatar(s.userAvatar);
+        }
+      }
+
+      // 7. Statistics
+      if (data.stats && typeof data.stats === 'object') {
+        const secs = Number(data.stats.totalSeconds) || 0;
+        const plays = Number(data.stats.totalPlays) || 0;
+        if (secs > 0) localStorage.setItem('oumusic_total_seconds', String(secs));
+        if (plays > 0) localStorage.setItem('oumusic_total_plays', String(plays));
+      }
+
+      // Invalidate cached Year Recap data so it recomputes with fresh stats
+      if (typeof window.cachedRecapData !== 'undefined') {
+        window.cachedRecapData = null;
       }
 
       // Trigger UI updates in main app if available

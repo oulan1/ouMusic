@@ -2190,3 +2190,103 @@ html, body {
   will-change: opacity, transform;
 }
 
+/* ==========================================================================
+   GTA VI THEME (VICE CITY SUNSET) STYLING
+   ========================================================================== */
+[data-theme="gta6"],
+html[data-theme="gta6"],
+body[data-theme="gta6"] {
+  background-color: #160729 !important;
+  color: #FFF0F5 !important;
+}
+
+body[data-theme="gta6"] {
+  background: radial-gradient(circle at 50% 0%, rgba(123, 32, 143, 0.32) 0%, rgba(22, 7, 41, 0) 70%), #160729 !important;
+}
+
+[data-theme="gta6"] .arc-sidebar {
+  background: linear-gradient(180deg, rgba(38, 12, 66, 0.95) 0%, rgba(22, 7, 41, 0.98) 100%) !important;
+  border-right: 1px solid rgba(201, 52, 155, 0.3) !important;
+  box-shadow: 10px 0 35px rgba(22, 7, 41, 0.6) !important;
+}
+
+[data-theme="gta6"] .arc-nav-item.active .item-icon-box {
+  background: linear-gradient(135deg, #C9349B, #F87572) !important;
+  color: #160729 !important;
+  box-shadow: 0 0 16px rgba(248, 117, 114, 0.6) !important;
+}
+
+[data-theme="gta6"] .mobile-nav-capsule {
+  background: rgba(38, 12, 66, 0.9) !important;
+  border: 1px solid rgba(201, 52, 155, 0.35) !important;
+  box-shadow: 0 10px 35px rgba(22, 7, 41, 0.8), 0 0 20px rgba(248, 117, 114, 0.25) !important;
+}
+
+[data-theme="gta6"] .mobile-nav-sliding-pill {
+  background: linear-gradient(135deg, rgba(201, 52, 155, 0.85) 0%, rgba(248, 117, 114, 0.85) 100%) !important;
+  box-shadow: 0 4px 15px rgba(248, 117, 114, 0.45) !important;
+}
+
+[data-theme="gta6"] .mini-player-capsule {
+  background: rgba(38, 12, 66, 0.88) !important;
+  border: 1px solid rgba(201, 52, 155, 0.35) !important;
+  box-shadow: 0 12px 35px rgba(22, 7, 41, 0.75), 0 0 25px rgba(201, 52, 155, 0.25) !important;
+}
+
+[data-theme="gta6"] .btn-primary {
+  background: linear-gradient(135deg, #F36A78 0%, #F87572 45%, #FF9B55 100%) !important;
+  color: #160729 !important;
+  font-weight: 750 !important;
+  border: none !important;
+  box-shadow: 0 4px 18px rgba(248, 117, 114, 0.4) !important;
+}
+
+[data-theme="gta6"] .btn-primary:hover {
+  background: linear-gradient(135deg, #F87572 0%, #FF9B55 60%, #FFB458 100%) !important;
+  box-shadow: 0 6px 22px rgba(255, 155, 85, 0.5) !important;
+}
+
+[data-theme="gta6"] .btn-tonal {
+  background: rgba(123, 32, 143, 0.3) !important;
+  border: 1px solid rgba(201, 52, 155, 0.3) !important;
+  color: #FFF0F5 !important;
+}
+
+[data-theme="gta6"] .btn-tonal:hover {
+  background: rgba(201, 52, 155, 0.4) !important;
+}
+
+[data-theme="gta6"] .btn-outlined {
+  border-color: rgba(201, 52, 155, 0.4) !important;
+  color: #FFF0F5 !important;
+}
+
+[data-theme="gta6"] .dialog-card {
+  background: #260C42 !important;
+  border: 1px solid rgba(201, 52, 155, 0.35) !important;
+  box-shadow: 0 25px 60px rgba(10, 2, 20, 0.9), 0 0 30px rgba(123, 32, 143, 0.3) !important;
+}
+
+[data-theme="gta6"] .home-wave-card {
+  background: linear-gradient(145deg, rgba(59, 20, 107, 0.75) 0%, rgba(22, 7, 41, 0.88) 100%) !important;
+  border: 1px solid rgba(201, 52, 155, 0.35) !important;
+  box-shadow: 0 15px 40px rgba(16, 4, 30, 0.6) !important;
+}
+
+[data-theme="gta6"] .chip.active {
+  background: linear-gradient(135deg, #C9349B 0%, #F87572 100%) !important;
+  color: #FFF !important;
+  border-color: transparent !important;
+  box-shadow: 0 3px 12px rgba(248, 117, 114, 0.4) !important;
+}
+
+[data-theme="gta6"] .track-row:hover,
+[data-theme="gta6"] .track-row.active {
+  background: rgba(123, 32, 143, 0.22) !important;
+  border-color: rgba(201, 52, 155, 0.2) !important;
+}
+
+[data-theme="gta6"] .track-row.active .track-title {
+  color: #F87572 !important;
+}
+
