@@ -1681,3 +1681,19 @@
   background: linear-gradient(90deg, #F36A78, #F87572, #FF9B55, #FFB458) !important;
   box-shadow: 0 0 12px rgba(248, 117, 114, 0.6) !important;
 }
+
+/* Smooth buffering pulse animation like Yandex Music */
+.play-pause-fab.buffering, #mini-play-btn.buffering, #lyrics-ctrl-play.buffering, #lyrics-bottom-play-btn.buffering {
+  opacity: 0.85;
+  animation: player-buffering-pulse 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes player-buffering-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(0.92);
+    opacity: 0.45;
+  }
+}
