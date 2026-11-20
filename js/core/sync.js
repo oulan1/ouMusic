@@ -47,6 +47,88 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
     }).join(''));
   }
 
+  // Robust Direct IndexedDB Helpers for Cloud Sync
+  function openIDB() {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open('oumusic_db', 1);
+        req.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('tracks_metadata')) db.createObjectStore('tracks_metadata', { keyPath: 'id' });
+          if (!db.objectStoreNames.contains('offline_tracks')) db.createObjectStore('offline_tracks', { keyPath: 'id' });
+          if (!db.objectStoreNames.contains('likes')) db.createObjectStore('likes', { keyPath: 'id' });
+          if (!db.objectStoreNames.contains('playlists')) db.createObjectStore('playlists', { keyPath: 'id' });
+          if (!db.objectStoreNames.contains('history')) {
+            const hist = db.createObjectStore('history', { keyPath: 'histId', autoIncrement: true });
+            hist.createIndex('playedAt', 'playedAt', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+          if (!db.objectStoreNames.contains('recap_snapshots')) db.createObjectStore('recap_snapshots', { keyPath: 'year' });
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = () => resolve(null);
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
+  async function getIDBStore(storeName, mode = 'readonly') {
+    if (typeof window.getStore === 'function') {
+      const s = window.getStore(storeName, mode);
+      if (s) return s;
+    }
+    const db = await openIDB();
+    if (!db) return null;
+    try {
+      const tx = db.transaction(storeName, mode);
+      return tx.objectStore(storeName);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function idbGetAll(storeName) {
+    const store = await getIDBStore(storeName, 'readonly');
+    if (!store) return [];
+    return new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  }
+
+  async function idbPutAll(storeName, items) {
+    if (!Array.isArray(items) || items.length === 0) return true;
+    const store = await getIDBStore(storeName, 'readwrite');
+    if (!store) return false;
+    return new Promise((resolve) => {
+      let pending = items.length;
+      if (pending === 0) return resolve(true);
+      for (const item of items) {
+        if (!item) {
+          pending--;
+          if (pending <= 0) resolve(true);
+          continue;
+        }
+        const req = store.put(item);
+        req.onsuccess = req.onerror = () => {
+          pending--;
+          if (pending <= 0) resolve(true);
+        };
+      }
+    });
+  }
+
+  async function idbDelete(storeName, key) {
+    const store = await getIDBStore(storeName, 'readwrite');
+    if (!store) return false;
+    return new Promise((resolve) => {
+      const req = store.delete(key);
+      req.onsuccess = req.onerror = () => resolve(true);
+    });
+  }
+
   const OUMusicCloudSync = {
     getToken() {
       try {
@@ -312,41 +394,65 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       let blacklist = [];
       let manualTracks = [];
 
-      try {
-        if (typeof window.getAllLikes === 'function') {
-          likes = await window.getAllLikes();
-        }
-      } catch (e) {}
-
+      // 1. Playlists
       try {
         if (typeof window.getAllPlaylistsAsync === 'function') {
           playlists = await window.getAllPlaylistsAsync();
-        } else if (typeof window.getAllPlaylists === 'function') {
-          playlists = await window.getAllPlaylists();
+        } else {
+          playlists = await idbGetAll('playlists');
         }
-      } catch (e) {}
+      } catch (e) {
+        playlists = await idbGetAll('playlists');
+      }
 
+      // 2. Likes
+      try {
+        if (typeof window.getAllLikes === 'function') {
+          likes = await window.getAllLikes();
+        } else {
+          likes = await idbGetAll('likes');
+        }
+      } catch (e) {
+        likes = await idbGetAll('likes');
+      }
+
+      // 3. History
       try {
         if (typeof window.getHistory === 'function') {
           history = await window.getHistory(1000);
+        } else {
+          const h = await idbGetAll('history');
+          h.sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
+          history = h.slice(0, 1000);
         }
-      } catch (e) {}
+      } catch (e) {
+        const h = await idbGetAll('history');
+        history = h.slice(0, 1000);
+      }
 
+      // 4. Blacklist
       try {
         if (typeof window.getBlacklist === 'function') {
           blacklist = await window.getBlacklist();
+        } else {
+          const rawBl = localStorage.getItem('ou_blacklist_track_ids');
+          if (rawBl) blacklist = JSON.parse(rawBl);
         }
       } catch (e) {}
 
-      // Collect manual local tracks
+      // 5. Manual Local Tracks Metadata
       try {
         if (typeof window.getAllTracksMetadata === 'function') {
           const allMeta = await window.getAllTracksMetadata();
           manualTracks = allMeta.filter(t => t && t.isLocal);
-        } else if (Array.isArray(window.catalogTracks)) {
-          manualTracks = window.catalogTracks.filter(t => t && t.isLocal);
+        } else {
+          const allMeta = await idbGetAll('tracks_metadata');
+          manualTracks = allMeta.filter(t => t && t.isLocal);
         }
       } catch (e) {}
+      if (manualTracks.length === 0 && Array.isArray(window.catalogTracks)) {
+        manualTracks = window.catalogTracks.filter(t => t && t.isLocal);
+      }
 
       // Calculate total playback stats
       let histSecs = 0;
@@ -392,12 +498,12 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
 
     /**
      * Smart merge algorithm:
-     * - Playlists: union by ID, taking newer updatedAt for conflicts
+     * - Playlists: union by ID, taking newer updatedAt for conflicts, preserving custom covers/tracks
      * - Likes: union of track IDs (no likes lost)
      * - History: union by (trackId + playedAt), sorted descending, trimmed to 1000
      * - Blacklist: union of disliked track IDs
      * - ManualTracks: union by track ID
-     * - Settings: merged preference map
+     * - Settings: preference map with timestamp priority
      * - Stats: sum hours for newly syncing devices, max/delta otherwise
      */
     async smartMerge(local, remote) {
@@ -409,26 +515,37 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       const remotePls = Array.isArray(remote.playlists) ? remote.playlists : [];
 
       localPls.forEach((pl) => {
-        if (pl && pl.id) plMap.set(pl.id, pl);
+        if (pl && pl.id) plMap.set(pl.id, Object.assign({}, pl));
       });
 
       remotePls.forEach((rPl) => {
         if (!rPl || !rPl.id) return;
         if (!plMap.has(rPl.id)) {
-          plMap.set(rPl.id, rPl);
+          plMap.set(rPl.id, Object.assign({}, rPl));
         } else {
           const lPl = plMap.get(rPl.id);
           const lTime = new Date(lPl.updatedAt || lPl.createdAt || 0).getTime();
           const rTime = new Date(rPl.updatedAt || rPl.createdAt || 0).getTime();
           if (rTime > lTime) {
-            plMap.set(rPl.id, rPl);
+            plMap.set(rPl.id, Object.assign({}, rPl));
           } else {
             const combinedTracks = Array.from(new Set([...(lPl.trackIds || []), ...(rPl.trackIds || [])]));
             lPl.trackIds = combinedTracks;
+            if (rPl.coverBase64 && !lPl.coverBase64) lPl.coverBase64 = rPl.coverBase64;
+            if (rPl.description && !lPl.description) lPl.description = rPl.description;
             plMap.set(rPl.id, lPl);
           }
         }
       });
+
+      // Filter out explicitly deleted playlists
+      const deletedIds = new Set();
+      for (const [id, pl] of plMap.entries()) {
+        if (pl._deleted || pl.deleted) {
+          deletedIds.add(id);
+          plMap.delete(id);
+        }
+      }
 
       // 2. Likes merge
       const likesMap = new Map();
@@ -436,14 +553,14 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       const remoteLikes = Array.isArray(remote.likes) ? remote.likes : [];
 
       localLikes.forEach((l) => {
-        const id = typeof l === 'string' ? l : l.id;
-        if (id) likesMap.set(id, l);
+        const id = typeof l === 'string' ? l : (l && l.id);
+        if (id) likesMap.set(id, typeof l === 'string' ? { id: l, likedAt: new Date().toISOString() } : l);
       });
 
       remoteLikes.forEach((r) => {
-        const id = typeof r === 'string' ? r : r.id;
+        const id = typeof r === 'string' ? r : (r && r.id);
         if (id && !likesMap.has(id)) {
-          likesMap.set(id, r);
+          likesMap.set(id, typeof r === 'string' ? { id: r, likedAt: new Date().toISOString() } : r);
         }
       });
 
@@ -480,10 +597,17 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       // 6. Settings merge
       const lSet = local.settings || {};
       const rSet = remote.settings || {};
-      const mergedSettings = Object.assign({}, rSet, lSet);
-      if (!lSet.userName && rSet.userName) mergedSettings.userName = rSet.userName;
-      if (!lSet.userAvatar && rSet.userAvatar) mergedSettings.userAvatar = rSet.userAvatar;
-      if (lSet.theme === 'dark' && rSet.theme && rSet.theme !== 'dark') mergedSettings.theme = rSet.theme;
+      const rTime = new Date(remote.exportedAt || 0).getTime();
+      const lTime = new Date(local.exportedAt || 0).getTime();
+      const preferRemote = rTime > lTime || !this.getLastSyncTime();
+
+      const mergedSettings = preferRemote
+        ? Object.assign({}, lSet, rSet)
+        : Object.assign({}, rSet, lSet);
+
+      if (!mergedSettings.userName) mergedSettings.userName = rSet.userName || lSet.userName || '';
+      if (!mergedSettings.userAvatar) mergedSettings.userAvatar = rSet.userAvatar || lSet.userAvatar || '';
+      if (!mergedSettings.theme) mergedSettings.theme = rSet.theme || lSet.theme || 'dark';
 
       // 7. Statistics merge (Summing hours if device was unsynced!)
       const lSecs = Number(local.stats?.totalSeconds || 0);
@@ -496,7 +620,6 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       let mergedPlays = 0;
 
       if (isFirstSync) {
-        // Unsynchronized device connecting: sum up hours and plays!
         mergedSeconds = rSecs + lSecs;
         mergedPlays = rPlays + lPlays;
       } else {
@@ -504,7 +627,6 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         mergedPlays = Math.max(rPlays, lPlays);
       }
 
-      // Also ensure mergedSeconds is at least the sum of duration in mergedHist
       let histSecsSum = 0;
       mergedHist.forEach(h => { histSecsSum += (Number(h.durationPlayed) || 0); });
       mergedSeconds = Math.max(mergedSeconds, histSecsSum);
@@ -521,6 +643,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         exportedAt: new Date().toISOString(),
         likes: Array.from(likesMap.values()),
         playlists: Array.from(plMap.values()),
+        deletedPlaylistIds: Array.from(deletedIds),
         history: mergedHist,
         blacklist: mergedBl,
         manualTracks: mergedManualTracks,
@@ -536,54 +659,52 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       if (!data) return;
 
       // 1. Playlists
-      if (Array.isArray(data.playlists) && typeof window.getStore === 'function') {
+      if (Array.isArray(data.playlists)) {
         try {
-          const plStore = window.getStore('playlists', 'readwrite');
-          if (plStore) {
-            for (const pl of data.playlists) {
-              if (pl && pl.id) plStore.put(pl);
-            }
-          }
-        } catch (e) {}
+          await idbPutAll('playlists', data.playlists);
+        } catch (e) {
+          console.warn('[CloudSync] Error saving playlists:', e);
+        }
+      }
+      if (Array.isArray(data.deletedPlaylistIds)) {
+        for (const delId of data.deletedPlaylistIds) {
+          await idbDelete('playlists', delId);
+        }
       }
 
       // 2. Likes
-      if (Array.isArray(data.likes) && typeof window.getStore === 'function') {
+      if (Array.isArray(data.likes)) {
         try {
-          const likesStore = window.getStore('likes', 'readwrite');
-          if (likesStore) {
-            for (const l of data.likes) {
-              if (typeof l === 'string') {
-                likesStore.put({ id: l, likedAt: new Date().toISOString() });
-              } else if (l && l.id) {
-                likesStore.put(l);
-              }
-            }
-          }
-        } catch (e) {}
+          const formattedLikes = data.likes.map((l) => {
+            return typeof l === 'string' ? { id: l, likedAt: new Date().toISOString() } : l;
+          }).filter(l => l && l.id);
+          await idbPutAll('likes', formattedLikes);
+        } catch (e) {
+          console.warn('[CloudSync] Error saving likes:', e);
+        }
       }
 
       // 3. History
-      if (Array.isArray(data.history) && typeof window.getStore === 'function') {
+      if (Array.isArray(data.history)) {
         try {
-          const histStore = window.getStore('history', 'readwrite');
-          if (histStore) {
-            for (const h of data.history) {
-              if (h && h.trackId) {
-                histStore.put(h);
-              }
-            }
-          }
-        } catch (e) {}
+          const validHist = data.history.filter(h => h && h.trackId);
+          await idbPutAll('history', validHist);
+        } catch (e) {
+          console.warn('[CloudSync] Error saving history:', e);
+        }
       }
 
       // 4. Manual Local Tracks
-      if (Array.isArray(data.manualTracks) && typeof window.saveTrackMetadata === 'function') {
+      if (Array.isArray(data.manualTracks)) {
         try {
           for (const tr of data.manualTracks) {
             if (tr && tr.id) {
               tr.isLocal = true;
-              await window.saveTrackMetadata(tr);
+              if (typeof window.saveTrackMetadata === 'function') {
+                await window.saveTrackMetadata(tr);
+              } else {
+                await idbPutAll('tracks_metadata', [tr]);
+              }
               if (Array.isArray(window.catalogTracks) && !window.catalogTracks.some(t => t.id === tr.id)) {
                 window.catalogTracks.push(tr);
               }
@@ -596,9 +717,12 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       }
 
       // 5. Blacklist
-      if (Array.isArray(data.blacklist) && typeof window.saveSetting === 'function') {
+      if (Array.isArray(data.blacklist)) {
         try {
-          await window.saveSetting('blacklist_track_ids', data.blacklist);
+          localStorage.setItem('ou_blacklist_track_ids', JSON.stringify(data.blacklist));
+          if (typeof window.saveSetting === 'function') {
+            await window.saveSetting('blacklist_track_ids', data.blacklist);
+          }
         } catch (e) {}
       }
 
@@ -608,12 +732,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         if (s.theme) {
           localStorage.setItem('oumusic_theme', s.theme);
           document.documentElement.setAttribute('data-theme', s.theme);
-          const darkBtn = document.getElementById('theme-dark-btn');
-          const lightBtn = document.getElementById('theme-light-btn');
-          const gta6Btn = document.getElementById('theme-gta6-btn');
-          darkBtn?.classList.toggle('active', s.theme === 'dark');
-          lightBtn?.classList.toggle('active', s.theme === 'light');
-          gta6Btn?.classList.toggle('active', s.theme === 'gta6');
+          document.getElementById('theme-dark-btn')?.classList.toggle('active', s.theme === 'dark');
+          document.getElementById('theme-light-btn')?.classList.toggle('active', s.theme === 'light');
+          document.getElementById('theme-gta6-btn')?.classList.toggle('active', s.theme === 'gta6');
         }
         if (s.amoled) {
           localStorage.setItem('oumusic_amoled', s.amoled);
@@ -641,23 +762,19 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         if (plays > 0) localStorage.setItem('oumusic_total_plays', String(plays));
       }
 
-      // Invalidate cached Year Recap data so it recomputes with fresh stats
+      // Invalidate cached Year Recap data
       if (typeof window.cachedRecapData !== 'undefined') {
         window.cachedRecapData = null;
       }
 
-      // Trigger UI updates in main app if available
+      // Trigger UI updates in main app
       try {
-        if (typeof window.renderAllPlaylists === 'function') window.renderAllPlaylists();
-        if (typeof window.renderLibraryLikes === 'function') window.renderLibraryLikes();
+        if (typeof window.renderPlaylistsGrid === 'function') window.renderPlaylistsGrid();
+        if (typeof window.renderLikesTab === 'function') window.renderLikesTab();
         if (typeof window.updateProfileStats === 'function') window.updateProfileStats();
       } catch (e) {}
     },
 
-    /**
-     * Debounced background cloud sync trigger (5-8 seconds debounce).
-     * Called whenever a playlist, like, setting, or blacklist item is altered.
-     */
     scheduleSync() {
       if (!this.isLoggedIn()) return;
 
@@ -972,6 +1089,32 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       return null;
     }
   };
+
+  // Auto-sync on application startup if logged in
+  function triggerStartupSync() {
+    if (OUMusicCloudSync.isLoggedIn()) {
+      setTimeout(() => {
+        OUMusicCloudSync.performSync(false);
+      }, 1200);
+    }
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    triggerStartupSync();
+  } else {
+    window.addEventListener('DOMContentLoaded', triggerStartupSync);
+  }
+
+  // Auto-sync when returning to tab/screen
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && OUMusicCloudSync.isLoggedIn()) {
+      const last = OUMusicCloudSync.getLastSyncTime();
+      const now = Date.now();
+      if (!last || (now - new Date(last).getTime() > 15000)) {
+        OUMusicCloudSync.performSync(false);
+      }
+    }
+  });
 
   // Auto-sync when returning online
   window.addEventListener('online', () => {

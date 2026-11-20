@@ -534,6 +534,21 @@
     });
   }
 
+  // Universal Storage Exports for Cloud Sync & Modules
+  window.getStore = getStore;
+  window.saveTrackMetadata = saveTrackMetadata;
+  window.getAllTracksMetadata = getAllTracksMetadata;
+  window.saveOfflineTrack = saveOfflineTrack;
+  window.getOfflineTrack = getOfflineTrack;
+  window.isLiked = isLiked;
+  window.toggleLike = toggleLike;
+  window.getAllLikes = getAllLikes;
+  window.getSetting = getSetting;
+  window.saveSetting = saveSetting;
+  window.getBlacklist = getBlacklist;
+  window.addHistory = addHistory;
+  window.getHistory = getHistory;
+
   async function getStats() {
     const history = await getHistory(5000);
     const now = new Date();
@@ -6664,6 +6679,9 @@
       }
       syncUserName(val);
       try { localStorage.setItem('oumusic_user_name', val); } catch (e) {}
+      if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+        window.OUMusicCloudSync.scheduleSync();
+      }
       closeModal();
       showToast(`Имя сохранено: "${val}"`);
       syncRecapVisibility();
@@ -6684,12 +6702,19 @@
 
     avatarContainer?.addEventListener('click', () => avatarInput?.click());
     editBtn?.addEventListener('click', () => {
-      const currentName = nameDisplay?.textContent?.trim() || 'Пользователь';
-      const newName = prompt('Введите имя пользователя:', currentName);
-      if (newName !== null && newName.trim() !== '') {
-        const val = newName.trim();
-        syncUserName(val);
-        try { localStorage.setItem('oumusic_user_name', val); } catch (e) {}
+      const currentName = nameDisplay?.textContent?.trim() || localStorage.getItem('oumusic_user_name') || 'Пользователь';
+      if (typeof openEditUsernameModal === 'function') {
+        openEditUsernameModal(currentName);
+      } else {
+        const newName = prompt('Введите имя пользователя:', currentName);
+        if (newName !== null && newName.trim() !== '') {
+          const val = newName.trim();
+          syncUserName(val);
+          try { localStorage.setItem('oumusic_user_name', val); } catch (e) {}
+          if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+            window.OUMusicCloudSync.scheduleSync();
+          }
+        }
       }
     });
 
@@ -6698,10 +6723,45 @@
       if (file) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          const dataUrl = ev.target.result;
-          try { localStorage.setItem('oumusic_user_avatar', dataUrl); } catch (err) {}
-          syncUserAvatar(dataUrl);
-          showToast('Аватар профиля успешно обновлен');
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const size = 256;
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              const minSide = Math.min(img.width, img.height);
+              const sx = (img.width - minSide) / 2;
+              const sy = (img.height - minSide) / 2;
+              ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+              const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+              localStorage.setItem('oumusic_user_avatar', optimizedDataUrl);
+              syncUserAvatar(optimizedDataUrl);
+              if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+                window.OUMusicCloudSync.scheduleSync();
+              }
+              showToast('Аватар профиля успешно обновлен');
+            } catch (err) {
+              const fallbackUrl = ev.target.result;
+              try { localStorage.setItem('oumusic_user_avatar', fallbackUrl); } catch (e2) {}
+              syncUserAvatar(fallbackUrl);
+              if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+                window.OUMusicCloudSync.scheduleSync();
+              }
+              showToast('Аватар профиля успешно обновлен');
+            }
+          };
+          img.onerror = () => {
+            const fallbackUrl = ev.target.result;
+            try { localStorage.setItem('oumusic_user_avatar', fallbackUrl); } catch (e2) {}
+            syncUserAvatar(fallbackUrl);
+            if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+              window.OUMusicCloudSync.scheduleSync();
+            }
+            showToast('Аватар профиля успешно обновлен');
+          };
+          img.src = ev.target.result;
         };
         reader.readAsDataURL(file);
       }
@@ -10062,6 +10122,9 @@
 
       const store = getStore('playlists', 'readwrite');
       if (store) store.put(playlist);
+      if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+        window.OUMusicCloudSync.scheduleSync();
+      }
 
       const titleEl = document.getElementById('pl-view-title');
       if (titleEl) titleEl.textContent = playlist.name;
@@ -10112,6 +10175,9 @@
     const doDelete = () => {
       const store = getStore('playlists', 'readwrite');
       if (store) store.delete(playlist.id);
+      if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+        window.OUMusicCloudSync.scheduleSync();
+      }
       closeModal();
       showToast(`Плейлист «${playlist.name}» удален`);
       navigateTo('library');
@@ -10169,6 +10235,9 @@
         currentViewingPlaylist.name = newName.trim();
         const store = getStore('playlists', 'readwrite');
         if (store) store.put(currentViewingPlaylist);
+        if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+          window.OUMusicCloudSync.scheduleSync();
+        }
         document.getElementById('pl-view-title').textContent = currentViewingPlaylist.name;
         renderPlaylistsGrid();
         showToast('Плейлист переименован');
@@ -10180,6 +10249,9 @@
       if (confirm(`Удалить плейлист "${currentViewingPlaylist.name}"?`)) {
         const store = getStore('playlists', 'readwrite');
         if (store) store.delete(currentViewingPlaylist.id);
+        if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+          window.OUMusicCloudSync.scheduleSync();
+        }
         showToast('Плейлист удален');
         navigateTo('library');
         renderPlaylistsGrid();
@@ -10226,6 +10298,9 @@
             createdAt: (data.playlist && data.playlist.createdAt) || new Date().toISOString()
           };
           plStore.put(newPl);
+          if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+            window.OUMusicCloudSync.scheduleSync();
+          }
           renderPlaylistsGrid();
           showToast(`Плейлист "${plName}" (${trackIds.length} треков) успешно импортирован!`);
           openPlaylistView(newPl);
@@ -10401,6 +10476,11 @@
       syncFab(playing);
     };
   }
+
+  window.renderPlaylistsGrid = renderPlaylistsGrid;
+  window.renderLikesTab = renderLikesTab;
+  window.updateProfileStats = updateProfileStats;
+  window.renderManualTracksFeed = renderManualTracksFeed;
 
   function renderPlaylistsGrid() {
     const container = document.getElementById('playlists-container');
