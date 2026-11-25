@@ -24,6 +24,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Generate tracks and playlists catalog
+        run: |
+          python3 index_tracks.py
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

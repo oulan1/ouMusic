@@ -1,18 +1,6 @@
 name: Auto-Index Tracks and Deploy GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'tracks/**'
-      - 'index.html'
-      - 'css/**'
-      - 'js/**'
-      - 'assets/**'
-      - 'manifest.json'
-      - 'sw.js'
-      - 'artists.txt'
   workflow_dispatch:
 
 permissions:
