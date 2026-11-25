@@ -1140,6 +1140,7 @@
 }
 
 .sheet-chip-circle {
+  position: relative;
   width: 54px;
   height: 54px;
   border-radius: 50%;
@@ -1148,7 +1149,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.22s ease;
+  transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   color: #FFFFFF;
 }
 
@@ -1162,6 +1163,103 @@
   width: 22px;
   height: 22px;
   fill: currentColor;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease, fill 0.25s ease;
+}
+
+.download-progress-svg {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  transform: rotate(-90deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+.download-progress-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 3;
+}
+
+.download-progress-fill {
+  fill: none;
+  stroke: var(--md-sys-color-primary, #A855F7);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 150.8;
+  stroke-dashoffset: 150.8;
+  transition: stroke-dashoffset 0.16s linear, stroke 0.28s ease;
+}
+
+.download-progress-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #FFFFFF;
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+[data-theme="light"] .download-progress-pct {
+  color: #111116;
+}
+
+.sheet-action-chip.downloading .sheet-chip-circle {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sheet-action-chip.downloading .download-progress-svg {
+  opacity: 1;
+}
+
+.sheet-action-chip.downloading .sheet-chip-circle .svg-icon {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.sheet-action-chip.downloading .download-progress-pct {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sheet-action-chip.completing .download-progress-fill {
+  stroke: #10B981;
+  stroke-dashoffset: 0 !important;
+}
+
+.sheet-action-chip.downloaded .sheet-chip-circle {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: #10B981 !important;
+  color: #10B981 !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.28);
+}
+
+.sheet-action-chip.downloaded.downloaded-pop .sheet-chip-circle {
+  animation: badge-pop 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.sheet-action-chip.downloaded .sheet-chip-circle .svg-icon {
+  fill: #10B981;
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.sheet-action-chip.downloaded .sheet-chip-label {
+  color: #10B981;
 }
 
 .sheet-action-chip:hover .sheet-chip-circle {
@@ -1169,7 +1267,7 @@
   transform: scale(1.05);
 }
 
-.sheet-action-chip.active .sheet-chip-circle {
+.sheet-action-chip.active:not(.downloaded):not(.downloading) .sheet-chip-circle {
   background: var(--md-sys-color-primary, #FACC15) !important;
   border-color: var(--md-sys-color-primary, #FACC15) !important;
   color: #000000 !important;
@@ -1494,6 +1592,34 @@
   border-radius: 50%;
   animation: ou-spin 0.8s linear infinite;
   box-sizing: border-box;
+}
+
+.download-mini-svg {
+  width: 16px;
+  height: 16px;
+  transform: rotate(-90deg);
+  display: block;
+}
+
+.download-mini-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 2.5;
+}
+
+.download-mini-fill {
+  fill: none;
+  stroke: var(--md-sys-color-primary, #A855F7);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 50.27;
+  stroke-dashoffset: 50.27;
+  transition: stroke-dashoffset 0.16s linear, stroke 0.25s ease;
+}
+
+.download-spinner-badge.completing .download-mini-fill {
+  stroke: #10B981;
+  stroke-dashoffset: 0 !important;
 }
 
 @keyframes ou-spin {

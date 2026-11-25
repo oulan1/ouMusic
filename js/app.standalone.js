@@ -383,15 +383,17 @@
         await saveTrackMetadata(track);
       }
 
-      // Remove downloaded checkmark badge from DOM
-      const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
-      if (row) {
+      // Remove downloaded checkmark badge from DOM across all lists
+      document.querySelectorAll(`.track-row[data-track-id="${track.id}"]`).forEach((row) => {
         const badge = row.querySelector('.badge-downloaded');
         if (badge) badge.remove();
-      }
+      });
 
       if (typeof updateSheetDownloadChip === 'function') {
         updateSheetDownloadChip(track);
+      }
+      if (typeof renderDownloadsTab === 'function') {
+        renderDownloadsTab();
       }
 
       showToast(`Трек "${track.title}" удален из памяти устройства`);
@@ -1687,6 +1689,7 @@
 
 
     await initStorage();
+    registerAppServiceWorker();
     await loadArtistsVerification();
 
     // 1. Navigation setup
@@ -2030,55 +2033,60 @@
     handleHash();
   });
 
+  function registerAppServiceWorker() {
+    if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
+        reg.update().catch(() => {});
+        console.log('[ouMusic] Service Worker registered for offline playback');
+      }).catch((err) => {
+        console.warn('[ouMusic] SW registration notice:', err);
+      });
+    }
+  }
+
   /* Catalog & Feeds */
   async function loadInitialTracks() {
+    let offlineRecords = [];
     try {
       const allOff = await getAllTracksMetadata();
       window.downloadedTrackIds = new Set(allOff.filter(t => t.isLocal || t.isDownloaded).map(t => t.id));
       const offStore = getStore('offline_tracks', 'readonly');
       if (offStore) {
-        const req = offStore.getAllKeys();
-        req.onsuccess = () => {
-          if (req.result && Array.isArray(req.result)) {
-            req.result.forEach(id => window.downloadedTrackIds.add(id));
-            document.querySelectorAll('.track-row').forEach(row => {
-              const tid = row.getAttribute('data-track-id');
-              if (tid && window.downloadedTrackIds.has(tid)) {
-                const titleEl = row.querySelector('.track-title');
-                if (titleEl && !titleEl.querySelector('.badge-downloaded')) {
-                  const badge = document.createElement('span');
-                  badge.className = 'badge-downloaded';
-                  badge.title = 'Скачан для офлайн-прослушивания';
-                  badge.innerHTML = `<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>`;
-                  titleEl.appendChild(badge);
-                }
-              }
-            });
-          }
-        };
+        offlineRecords = await new Promise((resolve) => {
+          const req = offStore.getAll();
+          req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+          req.onerror = () => resolve([]);
+        });
+        offlineRecords.forEach((rec) => {
+          if (rec && rec.id) window.downloadedTrackIds.add(rec.id);
+        });
       }
     } catch (e) {}
+
     let tracks = [];
-    try {
-      let res = null;
-    try {
-      res = await fetch(resolveAppUrl(`tracks/catalog.json?_v=${Date.now()}`), { cache: 'no-store' });
-    } catch (e) {}
-    if (!res || !res.ok) {
-      try { res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' }); } catch(e) {}
-    }
-      if (res.ok) {
-        tracks = await res.json();
-        try { localStorage.setItem('oumusic_cached_catalog', JSON.stringify(tracks)); } catch(e) {}
+    if (navigator.onLine !== false) {
+      try {
+        let res = null;
+        try {
+          res = await fetch(resolveAppUrl(`tracks/catalog.json?_v=${Date.now()}`), { cache: 'no-store' });
+        } catch (e) {}
+        if (!res || !res.ok) {
+          try { res = await fetch(`./tracks/catalog.json?_v=${Date.now()}`, { cache: 'no-store' }); } catch (e) {}
+        }
+        if (res && res.ok) {
+          tracks = await res.json();
+          try { localStorage.setItem('oumusic_cached_catalog', JSON.stringify(tracks)); } catch (e) {}
+        }
+      } catch (e) {
+        // Local file:// protocol or offline fallback
       }
-    } catch (e) {
-      // Local file:// protocol or offline fallback
     }
+
     if (!tracks || tracks.length === 0) {
       try {
         const cachedStr = localStorage.getItem('oumusic_cached_catalog');
         if (cachedStr) tracks = JSON.parse(cachedStr);
-      } catch(e) {}
+      } catch (e) {}
     }
 
     if ((!tracks || tracks.length === 0) && window.__TRACKS_CATALOG__ && Array.isArray(window.__TRACKS_CATALOG__)) {
@@ -2087,8 +2095,36 @@
 
     const localSaved = await getAllTracksMetadata();
     const map = new Map();
-    tracks.forEach((t) => map.set(t.id, t));
-    localSaved.forEach((m) => map.set(m.id, m));
+    tracks.forEach((t) => {
+      if (t && t.id) map.set(t.id, t);
+    });
+    localSaved.forEach((m) => {
+      if (m && m.id) {
+        const existing = map.get(m.id) || {};
+        map.set(m.id, { ...existing, ...m });
+      }
+    });
+    // Ensure any track whose audio is in offline_tracks is recoverable even if metadata cache was missing
+    offlineRecords.forEach((rec) => {
+      if (!rec || !rec.id) return;
+      if (window.downloadedTrackIds) window.downloadedTrackIds.add(rec.id);
+      const existing = map.get(rec.id);
+      if (!existing && rec.meta) {
+        map.set(rec.id, {
+          id: rec.id,
+          title: rec.meta.title || 'Офлайн трек',
+          artist: rec.meta.artist || 'Неизвестный исполнитель',
+          duration: rec.meta.duration || 180,
+          genres: rec.meta.genres || [],
+          categories: rec.meta.categories || [],
+          isExplicit: !!rec.meta.isExplicit,
+          thumbBase64: rec.meta.thumbBase64 || null,
+          isDownloaded: true
+        });
+      } else if (existing) {
+        existing.isDownloaded = true;
+      }
+    });
 
     catalogTracks = Array.from(map.values());
     renderCatalogFeed(catalogTracks);
@@ -3583,13 +3619,16 @@
     document.getElementById('sheet-chip-download')?.addEventListener('click', async () => {
       if (!selectedSheetTrack) return;
       const t = selectedSheetTrack;
+      if (window.activeTrackDownloads && window.activeTrackDownloads.has(t.id)) {
+        return; // Already downloading
+      }
       const isDownloaded = !!(t.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(t.id)));
       if (isDownloaded) {
         await removeTrackFromOffline(t);
+        updateSheetDownloadChip(t);
       } else {
         await downloadTrackToOffline(t);
       }
-      updateSheetDownloadChip(t);
     });
 
     document.getElementById('sheet-chip-vocal')?.addEventListener('click', () => {
@@ -3799,105 +3838,256 @@
   }
 
   
-  // Real Offline Download Manager with Loading Spinner & Checkmark Badge
-  window.downloadedTrackIds = new Set();
+  // Real Offline Download Manager with Clockwise Progress Ring & Smooth Checkmark Transition
+  window.downloadedTrackIds = window.downloadedTrackIds || new Set();
+  window.activeTrackDownloads = window.activeTrackDownloads || new Map();
 
-  async function downloadTrackToOffline(track) {
-    if (!track) return;
-    const existing = await getOfflineTrack(track.id);
-    if (existing && existing.audioBlob) {
-      return;
+  const SHEET_RING_CIRC = 150.8; // 2 * PI * 24
+  const MINI_RING_CIRC = 50.27;  // 2 * PI * 8
+
+  function ensureMiniDownloadRing(titleEl) {
+    if (!titleEl) return null;
+    titleEl.querySelectorAll('.badge-downloaded').forEach((b) => b.remove());
+    let badge = titleEl.querySelector('.download-spinner-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'download-spinner-badge';
+      badge.title = 'Скачивание...';
+      badge.innerHTML =
+        '<svg class="download-mini-svg" viewBox="0 0 20 20">' +
+        '<circle class="download-mini-track" cx="10" cy="10" r="8"></circle>' +
+        '<circle class="download-mini-fill" cx="10" cy="10" r="8"></circle>' +
+        '</svg>';
+      titleEl.appendChild(badge);
     }
+    return badge;
+  }
 
-    // 1. Show grey spinning loading ring where checkmark lives
-    const rows = document.querySelectorAll(`.track-row[data-track-id="${track.id}"]`);
-    rows.forEach((row) => {
+  function applyDownloadProgressUI(trackId, progress) {
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    const pctText = `${Math.round(p * 100)}%`;
+
+    // Update all matching track rows
+    document.querySelectorAll(`.track-row[data-track-id="${trackId}"]`).forEach((row) => {
       const titleEl = row.querySelector('.track-title');
-      if (titleEl) {
-        titleEl.querySelectorAll('.badge-downloaded, .download-spinner-badge').forEach((b) => b.remove());
-        const spinner = document.createElement('span');
-        spinner.className = 'download-spinner-badge';
-        spinner.innerHTML = '<span class="download-spinner-ring"></span>';
-        titleEl.appendChild(spinner);
+      const badge = ensureMiniDownloadRing(titleEl);
+      if (badge) {
+        const fill = badge.querySelector('.download-mini-fill');
+        if (fill) {
+          fill.style.strokeDashoffset = String((MINI_RING_CIRC * (1 - p)).toFixed(2));
+        }
       }
     });
 
-    const chipCircle = document.getElementById('sheet-chip-download-circle');
-    const chipLabel = document.getElementById('sheet-chip-download-label');
-    if (chipCircle) {
-      chipCircle.innerHTML = '<span class="download-spinner-ring"></span>';
-      if (chipLabel) chipLabel.textContent = 'Загрузка...';
+    // Update bottom sheet circular chip if currently showing this track
+    if (selectedSheetTrack && selectedSheetTrack.id === trackId) {
+      const chip = document.getElementById('sheet-chip-download');
+      const fill = chip?.querySelector('.download-progress-fill');
+      const pctEl = document.getElementById('sheet-chip-download-pct');
+      const label = document.getElementById('sheet-chip-download-label');
+      if (chip) {
+        chip.classList.remove('active', 'downloaded', 'downloaded-pop', 'completing');
+        chip.classList.add('downloading');
+      }
+      if (fill) {
+        fill.style.strokeDashoffset = String((SHEET_RING_CIRC * (1 - p)).toFixed(2));
+      }
+      if (pctEl) pctEl.textContent = pctText;
+      if (label) label.textContent = p >= 0.86 ? 'Сохранение...' : `Загрузка ${pctText}`;
     }
+  }
 
-    try {
-      const candidates = getTrackFetchUrls(track);
-      let resp = null;
-      for (const url of candidates) {
-        try {
-          const r = await fetch(url);
-          if (r && r.ok) { resp = r; break; }
-        } catch (e) {}
-      }
-      if (!resp) throw new Error('Файл не найден');
-      const blob = await resp.blob();
-      const unpacked = await unpackOump3Full(blob);
-
-      await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta, null, blob);
-      if (unpacked.meta) {
-        track.hasInstrumental = unpacked.meta.hasInstrumental ?? track.hasInstrumental;
-        track.instrumentalConfig = unpacked.meta.instrumentalConfig ?? track.instrumentalConfig;
-      }
-      if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
-      track.isDownloaded = true;
-      await saveTrackMetadata(track);
-      if (window.downloadedTrackIds) window.downloadedTrackIds.add(track.id);
-
-      // 2. Morph grey spinning loading ring into green checkmark
-      rows.forEach((row) => {
-        const titleEl = row.querySelector('.track-title');
-        if (titleEl) {
-          titleEl.querySelectorAll('.download-spinner-badge').forEach((b) => b.remove());
-          if (!titleEl.querySelector('.badge-downloaded')) {
-            const badge = document.createElement('span');
-            badge.className = 'badge-downloaded';
-            badge.title = 'Скачан на устройство';
-            badge.innerHTML = '<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>';
-            titleEl.appendChild(badge);
-          }
+  async function fetchTrackBlobWithProgress(track, onProgress) {
+    const candidates = getTrackFetchUrls(track);
+    let resp = null;
+    let usedUrl = null;
+    for (const url of candidates) {
+      try {
+        const r = await fetch(url);
+        if (r && r.ok) {
+          resp = r;
+          usedUrl = url;
+          break;
         }
-      });
-
-      updateSheetDownloadChip(track);
-    } catch (err) {
-      rows.forEach((row) => {
-        row.querySelectorAll('.download-spinner-badge').forEach((b) => b.remove());
-      });
-      updateSheetDownloadChip(track);
+      } catch (e) {}
     }
+    if (!resp) throw new Error('Файл не найден');
+
+    const totalBytes = parseInt(resp.headers.get('content-length') || '0', 10);
+    if (!resp.body || typeof resp.body.getReader !== 'function') {
+      onProgress(0.45);
+      const blob = await resp.blob();
+      onProgress(0.85);
+      return { blob, usedUrl };
+    }
+
+    const reader = resp.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        received += value.byteLength || value.length || 0;
+        const frac = totalBytes > 0
+          ? Math.min(0.85, (received / totalBytes) * 0.85)
+          : 0.85 * (1 - Math.exp(-received / (3.5 * 1024 * 1024)));
+        onProgress(Math.max(0.03, frac));
+      }
+    }
+
+    const blob = new Blob(chunks, { type: resp.headers.get('content-type') || 'application/octet-stream' });
+    onProgress(0.85);
+    return { blob, usedUrl };
+  }
+
+  async function downloadTrackToOffline(track) {
+    if (!track || !track.id) return;
+    if (window.activeTrackDownloads.has(track.id)) {
+      return window.activeTrackDownloads.get(track.id).promise;
+    }
+
+    const existing = await getOfflineTrack(track.id);
+    if (existing && existing.audioBlob) {
+      track.isDownloaded = true;
+      window.downloadedTrackIds.add(track.id);
+      updateSheetDownloadChip(track);
+      return;
+    }
+
+    const state = { progress: 0.02, promise: null };
+    window.activeTrackDownloads.set(track.id, state);
+    applyDownloadProgressUI(track.id, state.progress);
+
+    const run = (async () => {
+      try {
+        const updateProg = (val) => {
+          state.progress = val;
+          applyDownloadProgressUI(track.id, val);
+        };
+
+        const { blob, usedUrl } = await fetchTrackBlobWithProgress(track, updateProg);
+        updateProg(0.88);
+
+        const unpacked = await unpackOump3Full(blob);
+        updateProg(0.95);
+
+        await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta, null, blob);
+        if (usedUrl) {
+          try {
+            const arrBuf = await blob.arrayBuffer();
+            await putToAudioCache(usedUrl, arrBuf);
+          } catch (e) {}
+        }
+
+        if (unpacked.meta) {
+          track.hasInstrumental = unpacked.meta.hasInstrumental ?? track.hasInstrumental;
+          track.instrumentalConfig = unpacked.meta.instrumentalConfig ?? track.instrumentalConfig;
+        }
+        if (unpacked.lyricsText) track.lyricsText = unpacked.lyricsText;
+        track.isDownloaded = true;
+        await saveTrackMetadata(track);
+        window.downloadedTrackIds.add(track.id);
+
+        // Smooth 100% completion animation in emerald green before morphing into checkmark
+        state.progress = 1;
+        applyDownloadProgressUI(track.id, 1);
+        document.querySelectorAll(`.track-row[data-track-id="${track.id}"] .download-spinner-badge`).forEach((b) => {
+          b.classList.add('completing');
+        });
+        if (selectedSheetTrack && selectedSheetTrack.id === track.id) {
+          const chip = document.getElementById('sheet-chip-download');
+          if (chip) chip.classList.add('completing');
+          const pctEl = document.getElementById('sheet-chip-download-pct');
+          if (pctEl) pctEl.textContent = '100%';
+        }
+
+        await new Promise((r) => setTimeout(r, 240));
+        window.activeTrackDownloads.delete(track.id);
+
+        // Morph mini progress ring into green checkmark badge
+        document.querySelectorAll(`.track-row[data-track-id="${track.id}"]`).forEach((row) => {
+          const titleEl = row.querySelector('.track-title');
+          if (titleEl) {
+            titleEl.querySelectorAll('.download-spinner-badge').forEach((b) => b.remove());
+            if (!titleEl.querySelector('.badge-downloaded')) {
+              const badge = document.createElement('span');
+              badge.className = 'badge-downloaded';
+              badge.title = 'Скачан для офлайн-прослушивания';
+              badge.innerHTML = '<svg class="svg-icon" style="fill: #10B981;"><use href="#icon-check-circle"></use></svg>';
+              titleEl.appendChild(badge);
+            }
+          }
+        });
+
+        if (selectedSheetTrack && selectedSheetTrack.id === track.id) {
+          await updateSheetDownloadChip(track, true);
+        }
+        if (typeof renderDownloadsTab === 'function') {
+          renderDownloadsTab();
+        }
+      } catch (err) {
+        window.activeTrackDownloads.delete(track.id);
+        document.querySelectorAll(`.track-row[data-track-id="${track.id}"] .download-spinner-badge`).forEach((b) => b.remove());
+        if (selectedSheetTrack && selectedSheetTrack.id === track.id) {
+          await updateSheetDownloadChip(track);
+        }
+        showToast('Не удалось скачать трек для офлайн-прослушивания');
+      }
+    })();
+
+    state.promise = run;
+    return run;
   }
   window.downloadTrackToOffline = downloadTrackToOffline;
 
-  async function updateSheetDownloadChip(track) {
+  async function updateSheetDownloadChip(track, justCompleted = false) {
     const chip = document.getElementById('sheet-chip-download');
     const icon = document.getElementById('sheet-chip-download-icon');
     const label = document.getElementById('sheet-chip-download-label');
+    const pctEl = document.getElementById('sheet-chip-download-pct');
+    const fill = chip?.querySelector('.download-progress-fill');
+    if (!chip || !icon || !label) return;
+
+    // If track is actively downloading, restore live progress ring state
+    if (track && window.activeTrackDownloads && window.activeTrackDownloads.has(track.id)) {
+      const activeState = window.activeTrackDownloads.get(track.id);
+      applyDownloadProgressUI(track.id, activeState.progress);
+      return;
+    }
+
     let isDownloaded = !!(track && (track.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(track.id))));
     if (!isDownloaded && track && track.id) {
       try {
         const off = await getOfflineTrack(track.id);
-        if (off) isDownloaded = true;
+        if (off && off.audioBlob) {
+          isDownloaded = true;
+          if (window.downloadedTrackIds) window.downloadedTrackIds.add(track.id);
+        }
       } catch (e) {}
     }
-    if (chip && icon && label) {
-      if (isDownloaded) {
-        chip.classList.add('active');
-        icon.setAttribute('href', '#icon-check');
-        label.textContent = 'Скачано';
-      } else {
-        chip.classList.remove('active');
-        icon.setAttribute('href', '#icon-download');
-        label.textContent = 'Скачать';
+
+    chip.classList.remove('downloading', 'completing');
+    if (pctEl) pctEl.textContent = '';
+
+    if (isDownloaded) {
+      chip.classList.remove('active');
+      chip.classList.add('downloaded');
+      if (justCompleted) {
+        chip.classList.remove('downloaded-pop');
+        void chip.offsetWidth;
+        chip.classList.add('downloaded-pop');
       }
+      if (fill) fill.style.strokeDashoffset = '0';
+      icon.setAttribute('href', '#icon-check');
+      label.textContent = 'Скачано';
+    } else {
+      chip.classList.remove('active', 'downloaded', 'downloaded-pop');
+      if (fill) fill.style.strokeDashoffset = String(SHEET_RING_CIRC);
+      icon.setAttribute('href', '#icon-download');
+      label.textContent = 'Скачать';
     }
   }
 
@@ -8084,16 +8274,33 @@
   async function renderDownloadsTab() {
     const list = document.getElementById('downloads-tracks-list');
     if (!list) return;
-    const all = await getAllTracksMetadata();
-    const offline = all.filter((t) => t.isLocal);
+    const allMeta = await getAllTracksMetadata();
+    const map = new Map();
 
+    // Include tracks from catalogTracks and local metadata that are downloaded or local
+    (Array.isArray(catalogTracks) ? catalogTracks : []).forEach((t) => {
+      if (t && (t.isLocal || t.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(t.id)))) {
+        map.set(t.id, t);
+      }
+    });
+    allMeta.forEach((t) => {
+      if (t && (t.isLocal || t.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(t.id)))) {
+        map.set(t.id, { ...(map.get(t.id) || {}), ...t });
+      }
+    });
+
+    const offline = Array.from(map.values());
     list.innerHTML = '';
     if (offline.length === 0) {
       list.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--md-sys-color-outline);">Нет скачанных оффлайн треков</div>';
       return;
     }
     offline.forEach((t) => {
-      list.appendChild(createTrackRow(t, () => playTrack(t)));
+      list.appendChild(createTrackRow(t, () => {
+        playbackQueue = offline;
+        queueIndex = offline.indexOf(t);
+        playTrack(t);
+      }));
     });
   }
 

@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.38">
-  <link rel="stylesheet" href="css/main.css?v=2.7.38">
-  <link rel="stylesheet" href="css/components.css?v=2.7.38">
-  <link rel="stylesheet" href="css/player.css?v=2.7.38">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.39">
+  <link rel="stylesheet" href="css/main.css?v=2.7.39">
+  <link rel="stylesheet" href="css/components.css?v=2.7.39">
+  <link rel="stylesheet" href="css/player.css?v=2.7.39">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.38"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.39"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -1973,7 +1973,12 @@
 
         <button class="sheet-action-chip" id="sheet-chip-download" title="Скачать в память">
           <div class="sheet-chip-circle" id="sheet-chip-download-circle">
-            <svg class="svg-icon"><use id="sheet-chip-download-icon" href="#icon-download"></use></svg>
+            <svg class="download-progress-svg" id="sheet-chip-download-ring" viewBox="0 0 54 54" aria-hidden="true">
+              <circle class="download-progress-track" cx="27" cy="27" r="24"></circle>
+              <circle class="download-progress-fill" cx="27" cy="27" r="24"></circle>
+            </svg>
+            <svg class="svg-icon" id="sheet-chip-download-svg"><use id="sheet-chip-download-icon" href="#icon-download"></use></svg>
+            <span class="download-progress-pct" id="sheet-chip-download-pct"></span>
           </div>
           <span class="sheet-chip-label" id="sheet-chip-download-label">Скачать</span>
         </button>
@@ -2859,9 +2864,9 @@
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
   <script src="js/vendor/qrcode.min.js"></script>
   <script src="js/vendor/jsqr.min.js"></script>
-  <script src="js/core/sync.js?v=2.7.38"></script>
-  <script src="tracks/catalog.js?v=2.7.38"></script>
-  <script src="playlists/playlists.js?v=2.7.38"></script>
-  <script src="js/app.standalone.js?v=2.7.38"></script>
+  <script src="js/core/sync.js?v=2.7.39"></script>
+  <script src="tracks/catalog.js?v=2.7.39"></script>
+  <script src="playlists/playlists.js?v=2.7.39"></script>
+  <script src="js/app.standalone.js?v=2.7.39"></script>
 </body>
 </html>
