@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.40';
+const CACHE_NAME = 'oumusic-shell-v2.7.41';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -146,10 +146,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. App Shell assets (CSS, JS, Icons) - Cache First with Background Revalidation
+  // 4. App Shell assets (CSS, JS, Icons) - Exact versioned cache first, fallback to ignoreSearch offline
   event.respondWith((async () => {
-    const cachedResponse = await caches.match(request, { ignoreSearch: true });
-    if (cachedResponse) {
+    const exactCached = await caches.match(request, { ignoreSearch: false });
+    if (exactCached) {
       if (url.origin === self.location.origin) {
         fetch(request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
@@ -157,7 +157,7 @@ self.addEventListener('fetch', (event) => {
           }
         }).catch(() => {});
       }
-      return cachedResponse;
+      return exactCached;
     }
 
     try {
@@ -168,6 +168,8 @@ self.addEventListener('fetch', (event) => {
       }
       return networkResponse;
     } catch (_) {
+      const offlineFallback = await caches.match(request, { ignoreSearch: true });
+      if (offlineFallback) return offlineFallback;
       return Response.error();
     }
   })());

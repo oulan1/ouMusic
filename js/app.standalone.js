@@ -9528,16 +9528,25 @@
     }
   });
 
-  // Settings Tabs Navigation (Point 13 & Point 2 - CSS Based)
+  // Settings Tabs Navigation (CSS + Explicit JS Filtering so cached CSS never breaks tabs)
   const screenSettings = document.getElementById('screen-settings');
   const settingsTabPills = document.querySelectorAll('.settings-tab-pill');
-  if (screenSettings) screenSettings.setAttribute('data-active-tab', 'sound');
+
+  function applySettingsActiveTab(tab) {
+    if (!tab) return;
+    if (screenSettings) screenSettings.setAttribute('data-active-tab', tab);
+    document.querySelectorAll('#screen-settings [data-settings-group]').forEach((el) => {
+      el.style.display = (el.getAttribute('data-settings-group') === tab) ? '' : 'none';
+    });
+  }
+
+  applySettingsActiveTab('sound');
   settingsTabPills.forEach((pill) => {
     pill.addEventListener('click', () => {
       settingsTabPills.forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
       const tab = pill.getAttribute('data-settings-tab');
-      if (screenSettings) screenSettings.setAttribute('data-active-tab', tab);
+      applySettingsActiveTab(tab);
       if (tab === 'sound' && window._resizeEQCanvas) {
         setTimeout(window._resizeEQCanvas, 50);
       }
@@ -9556,7 +9565,7 @@
   }
 
   function initStorageManagementUI() {
-    const limitPills = document.querySelectorAll('#stream-cache-limit-pills .storage-limit-pill');
+    const limitPills = document.querySelectorAll('#stream-cache-limit-pills .chip');
     const clearStreamBtn = document.getElementById('clear-stream-cache-btn');
     const refreshBtn = document.getElementById('storage-refresh-btn');
 
