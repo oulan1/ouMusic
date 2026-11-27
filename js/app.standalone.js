@@ -1706,6 +1706,22 @@
     // 2. Load catalog & manual tracks
     await loadInitialTracks();
 
+    // Enforce stream cache limit on startup (default 100 MB)
+    enforceStreamCacheLimit().catch(() => {});
+
+    // React to online/offline connectivity transitions immediately
+    const syncConnectivityView = () => {
+      const q = document.getElementById('global-search-input')?.value?.toLowerCase().trim() || '';
+      filterTracksFeed(q);
+      if (navigator.onLine === false) {
+        showToast('Офлайн-режим: показаны только скачанные треки');
+      } else {
+        showToast('Подключение к интернету восстановлено');
+      }
+    };
+    window.addEventListener('offline', syncConnectivityView);
+    window.addEventListener('online', syncConnectivityView);
+
     // 3. Process URL Hash routing
     handleHash();
     window.addEventListener('hashchange', handleHash);
@@ -2131,26 +2147,58 @@
     renderManualTracksFeed();
   }
 
+  function isTrackOfflineReady(track) {
+    if (!track) return false;
+    return !!(track.isLocal || track.isDownloaded || (window.downloadedTrackIds && window.downloadedTrackIds.has(track.id)));
+  }
+
+  function getVisibleCatalogTracks() {
+    if (navigator.onLine === false) {
+      return catalogTracks.filter(isTrackOfflineReady);
+    }
+    return catalogTracks;
+  }
+
   function renderCatalogFeed(tracks) {
     const list = document.getElementById('home-tracks-list');
     if (!list) return;
 
+    const isOffline = (navigator.onLine === false);
+    const displayTracks = isOffline ? tracks.filter(isTrackOfflineReady) : tracks;
+
     list.innerHTML = '';
-    if (tracks.length === 0) {
-      list.innerHTML = `
-        <div style="text-align: center; padding: 40px 16px; color: var(--md-sys-color-outline);">
+
+    if (isOffline) {
+      const banner = document.createElement('div');
+      banner.className = 'offline-feed-banner';
+      banner.innerHTML = `
+        <span>Офлайн-режим: показаны только скачанные треки (${displayTracks.length})</span>
+      `;
+      list.appendChild(banner);
+    }
+
+    if (displayTracks.length === 0) {
+      const emptyBox = document.createElement('div');
+      emptyBox.style.cssText = 'text-align: center; padding: 40px 16px; color: var(--md-sys-color-outline);';
+      emptyBox.innerHTML = isOffline
+        ? `
+          <svg class="svg-icon" style="width: 48px; height: 48px; margin-bottom: 8px;"><use href="#icon-download"></use></svg>
+          <div>Нет скачанных треков для прослушивания без интернета</div>
+          <div style="font-size: 0.8rem; margin-top: 4px;">Подключитесь к сети и скачайте нужные треки, чтобы слушать их офлайн.</div>
+        `
+        : `
           <svg class="svg-icon" style="width: 48px; height: 48px; margin-bottom: 8px;"><use href="#icon-music"></use></svg>
           <div>В каталоге пока нет треков</div>
           <div style="font-size: 0.8rem; margin-top: 4px;">Загрузите .oump3 трек с устройства ниже или создайте свой в Моей Студии!</div>
-        </div>
-      `;
+        `;
+      list.appendChild(emptyBox);
       return;
     }
 
-    tracks.forEach((t) => {
+    displayTracks.forEach((t) => {
       const row = createTrackRow(t, () => {
-        playbackQueue = tracks;
-        queueIndex = tracks.indexOf(t);
+        playbackQueue = displayTracks;
+        queueIndex = displayTracks.indexOf(t);
         playTrack(t);
       });
       list.appendChild(row);
@@ -2307,9 +2355,11 @@
       });
     };
 
+    const visibleTracks = getVisibleCatalogTracks();
+
     if (currentSearchTab === 'artists') {
       const artistMap = new Map();
-      catalogTracks.forEach((t) => {
+      visibleTracks.forEach((t) => {
         const fullArtist = (t.artist || '').trim();
         if (!fullArtist) return;
         const splits = fullArtist.split(',').map(s => s.trim()).filter(Boolean);
@@ -2381,7 +2431,7 @@
       list.appendChild(artistsList);
 
     } else if (currentSearchTab === 'tracks') {
-      const filtered = catalogTracks.filter((t) => {
+      const filtered = visibleTracks.filter((t) => {
         const titleMatch = (t.title || '').toLowerCase().includes(query);
         const artistMatch = (t.artist || '').toLowerCase().includes(query);
         const genreMatch = Array.isArray(t.genres) && t.genres.some((g) => g.toLowerCase().includes(query));
@@ -2660,35 +2710,256 @@
      (Yandex Music & Spotify Instant-Switching Architecture)
      ========================================================================== */
   const AUDIO_CACHE_NAME = 'oumusic-audio-v1';
+  const STREAM_CACHE_LIMIT_KEY = 'oumusic_stream_cache_limit_mb';
+  const STREAM_CACHE_INDEX_KEY = 'oumusic_stream_cache_index';
   const trackMemoryCache = new Map(); // Fast in-memory LRU cache: trackId -> unpacked data
   const trackInflightPromises = new Map(); // Coalesce concurrent fetches for the same track
 
   window.trackMemoryCache = trackMemoryCache;
 
+  function getStreamCacheLimitMb() {
+    try {
+      const raw = localStorage.getItem(STREAM_CACHE_LIMIT_KEY);
+      if (raw !== null && raw !== '') {
+        const parsed = parseInt(raw, 10);
+        if (!isNaN(parsed) && parsed >= 0) return parsed;
+      }
+    } catch (e) {}
+    return 100; // Default 100 MB
+  }
+
+  function readStreamCacheIndex() {
+    try {
+      const raw = localStorage.getItem(STREAM_CACHE_INDEX_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr;
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  function writeStreamCacheIndex(entries) {
+    try {
+      localStorage.setItem(STREAM_CACHE_INDEX_KEY, JSON.stringify(entries || []));
+    } catch (e) {}
+  }
+
+  function touchStreamCacheEntry(url, sizeBytes) {
+    if (!url) return;
+    const list = readStreamCacheIndex().filter((item) => item && item.url !== url);
+    list.push({
+      url,
+      size: Number(sizeBytes) || 0,
+      lastAccess: Date.now()
+    });
+    writeStreamCacheIndex(list);
+  }
+
+  async function enforceStreamCacheLimit(limitMbOverride = null) {
+    if (typeof caches === 'undefined') return;
+    const limitMb = (limitMbOverride !== null && !isNaN(limitMbOverride)) ? limitMbOverride : getStreamCacheLimitMb();
+    const limitBytes = Math.max(0, limitMb) * 1024 * 1024;
+
+    try {
+      const cache = await caches.open(AUDIO_CACHE_NAME);
+      const keys = await cache.keys();
+      if (limitBytes <= 0) {
+        await Promise.all(keys.map((req) => cache.delete(req)));
+        writeStreamCacheIndex([]);
+        return;
+      }
+
+      const idxMap = new Map();
+      readStreamCacheIndex().forEach((item) => {
+        if (item && item.url) idxMap.set(item.url, item);
+      });
+
+      const items = [];
+      let totalBytes = 0;
+      for (const req of keys) {
+        const url = req.url;
+        const meta = idxMap.get(url);
+        let size = meta && meta.size ? Number(meta.size) : 0;
+        let lastAccess = meta && meta.lastAccess ? Number(meta.lastAccess) : 0;
+
+        if (!size || !lastAccess) {
+          try {
+            const resp = await cache.match(req);
+            if (resp) {
+              if (!size) {
+                const cl = parseInt(resp.headers.get('Content-Length') || '0', 10);
+                size = cl > 0 ? cl : (await resp.clone().arrayBuffer()).byteLength;
+              }
+              if (!lastAccess) {
+                const ts = parseInt(resp.headers.get('X-Cached-At') || '0', 10);
+                lastAccess = ts > 0 ? ts : Date.now();
+              }
+            }
+          } catch (e) {}
+        }
+        totalBytes += size;
+        items.push({ req, url, size, lastAccess });
+      }
+
+      // Evict oldest accessed entries while over limit
+      items.sort((a, b) => a.lastAccess - b.lastAccess);
+      while (totalBytes > limitBytes && items.length > 0) {
+        const oldest = items.shift();
+        await cache.delete(oldest.req);
+        totalBytes = Math.max(0, totalBytes - oldest.size);
+      }
+
+      writeStreamCacheIndex(items.map((it) => ({
+        url: it.url,
+        size: it.size,
+        lastAccess: it.lastAccess
+      })));
+    } catch (e) {}
+  }
+
+  async function clearStreamCacheOnly() {
+    let freedBytes = 0;
+    try {
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys();
+        if (keys.includes(AUDIO_CACHE_NAME)) {
+          const cache = await caches.open(AUDIO_CACHE_NAME);
+          const reqs = await cache.keys();
+          for (const req of reqs) {
+            try {
+              const resp = await cache.match(req);
+              if (resp) {
+                const cl = parseInt(resp.headers.get('Content-Length') || '0', 10);
+                freedBytes += cl > 0 ? cl : (await resp.arrayBuffer()).byteLength;
+              }
+            } catch (e) {}
+          }
+          await caches.delete(AUDIO_CACHE_NAME);
+        }
+        // Also strip any non-downloaded audio files that older SW versions placed in shell caches
+        for (const k of keys) {
+          if (k.startsWith('oumusic-shell-')) {
+            const shellCache = await caches.open(k);
+            const shellReqs = await shellCache.keys();
+            for (const req of shellReqs) {
+              const p = req.url.toLowerCase();
+              if (p.endsWith('.oump3') || p.endsWith('.mp3') || p.endsWith('.wav')) {
+                try {
+                  const resp = await shellCache.match(req);
+                  if (resp) {
+                    const cl = parseInt(resp.headers.get('Content-Length') || '0', 10);
+                    freedBytes += cl > 0 ? cl : (await resp.arrayBuffer()).byteLength;
+                  }
+                } catch (e) {}
+                await shellCache.delete(req);
+              }
+            }
+          }
+        }
+      }
+      writeStreamCacheIndex([]);
+      // Drop non-downloaded entries from RAM LRU cache
+      Array.from(trackMemoryCache.keys()).forEach((tid) => {
+        if (!window.downloadedTrackIds || !window.downloadedTrackIds.has(tid)) {
+          trackMemoryCache.delete(tid);
+        }
+      });
+    } catch (e) {}
+    return { freedBytes };
+  }
+
+  async function getStorageBreakdown() {
+    let downloadedBytes = 0;
+    let downloadedCount = 0;
+    let streamCacheBytes = 0;
+    let streamCacheCount = 0;
+    let shellBytes = 0;
+
+    try {
+      const offStore = getStore('offline_tracks', 'readonly');
+      if (offStore) {
+        const recs = await new Promise((resolve) => {
+          const req = offStore.getAll();
+          req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+          req.onerror = () => resolve([]);
+        });
+        downloadedCount = recs.length;
+        recs.forEach((rec) => {
+          if (rec.oump3Blob && rec.oump3Blob.size) downloadedBytes += rec.oump3Blob.size;
+          else if (rec.audioBlob && rec.audioBlob.size) downloadedBytes += rec.audioBlob.size;
+          if (rec.instrumentalBlob && rec.instrumentalBlob.size) downloadedBytes += rec.instrumentalBlob.size;
+          if (rec.coverBlob && rec.coverBlob.size) downloadedBytes += rec.coverBlob.size;
+        });
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys();
+        for (const k of keys) {
+          const cache = await caches.open(k);
+          const reqs = await cache.keys();
+          for (const req of reqs) {
+            try {
+              const resp = await cache.match(req);
+              if (!resp) continue;
+              const cl = parseInt(resp.headers.get('Content-Length') || '0', 10);
+              const sz = cl > 0 ? cl : (await resp.arrayBuffer()).byteLength;
+              const p = req.url.toLowerCase();
+              if (k === AUDIO_CACHE_NAME || p.endsWith('.oump3') || p.endsWith('.mp3') || p.endsWith('.wav')) {
+                streamCacheBytes += sz;
+                streamCacheCount += 1;
+              } else if (k.startsWith('oumusic-')) {
+                shellBytes += sz;
+              }
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+
+    return {
+      downloadedBytes,
+      downloadedCount,
+      streamCacheBytes,
+      streamCacheCount,
+      shellBytes,
+      limitMb: getStreamCacheLimitMb()
+    };
+  }
+
   async function getFromAudioCache(url) {
-    if (typeof caches === 'undefined' || !url) return null;
+    if (typeof caches === 'undefined' || !url || getStreamCacheLimitMb() <= 0) return null;
     try {
       const cache = await caches.open(AUDIO_CACHE_NAME);
       const matched = await cache.match(url);
       if (matched && matched.ok) {
-        return await matched.arrayBuffer();
+        const buf = await matched.arrayBuffer();
+        touchStreamCacheEntry(url, buf.byteLength);
+        return buf;
       }
     } catch (e) {}
     return null;
   }
 
   async function putToAudioCache(url, arrayBuffer) {
-    if (typeof caches === 'undefined' || !url || !arrayBuffer) return;
+    const limitMb = getStreamCacheLimitMb();
+    if (typeof caches === 'undefined' || !url || !arrayBuffer || limitMb <= 0) return;
+    if (arrayBuffer.byteLength > limitMb * 1024 * 1024) return;
     try {
       const cache = await caches.open(AUDIO_CACHE_NAME);
       const resp = new Response(arrayBuffer, {
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Length': String(arrayBuffer.byteLength),
+          'X-Cached-At': String(Date.now()),
           'Cache-Control': 'public, max-age=31536000'
         }
       });
       await cache.put(url, resp);
+      touchStreamCacheEntry(url, arrayBuffer.byteLength);
+      await enforceStreamCacheLimit(limitMb);
     } catch (e) {}
   }
 
@@ -2802,7 +3073,12 @@
           return res;
         }
 
-        // B. Fetch from fastest CDN mirror or persistent audio cache
+        // Strict offline policy: do not play non-downloaded tracks offline
+        if (navigator.onLine === false) {
+          return null;
+        }
+
+        // B. Fetch from fastest CDN mirror or persistent bounded stream cache
         const fetchResult = await fetchTrackFastest(track);
         if (fetchResult && fetchResult.buffer) {
           const unpacked = await unpackOump3Full(fetchResult.buffer);
@@ -2830,6 +3106,7 @@
   window.fetchAndUnpackTrack = fetchAndUnpackTrack;
 
   function scheduleNextTrackPreload() {
+    if (navigator.onLine === false || getStreamCacheLimitMb() <= 0) return;
     if (!playbackQueue || playbackQueue.length <= 1) return;
     const nextIdx = (queueIndex + 1) % playbackQueue.length;
     const nextTrack = playbackQueue[nextIdx];
@@ -3975,12 +4252,6 @@
         updateProg(0.95);
 
         await saveOfflineTrack(track.id, unpacked.audioBlob, unpacked.coverBlob, unpacked.lyricsText, unpacked.meta, null, blob);
-        if (usedUrl) {
-          try {
-            const arrBuf = await blob.arrayBuffer();
-            await putToAudioCache(usedUrl, arrBuf);
-          } catch (e) {}
-        }
 
         if (unpacked.meta) {
           track.hasInstrumental = unpacked.meta.hasInstrumental ?? track.hasInstrumental;
@@ -4555,7 +4826,7 @@
 
     function getFilteredWaveTracks() {
       const theme = window._waveThemeFilter || { mood: 'all', char: 'any', lang: 'all' };
-      let pool = [...catalogTracks];
+      let pool = navigator.onLine === false ? catalogTracks.filter(isTrackOfflineReady) : [...catalogTracks];
 
       // Filter by mood
       if (theme.mood && theme.mood !== 'all') {
@@ -8360,7 +8631,7 @@
     if (!list) return;
     list.innerHTML = '';
 
-    const artistTracks = catalogTracks.filter((t) => {
+    const artistTracks = getVisibleCatalogTracks().filter((t) => {
       return (t.artist || '').toLowerCase().includes(clean.toLowerCase());
     });
 
@@ -9270,8 +9541,89 @@
       if (tab === 'sound' && window._resizeEQCanvas) {
         setTimeout(window._resizeEQCanvas, 50);
       }
+      if (tab === 'storage' && typeof window.refreshStorageManagementUI === 'function') {
+        window.refreshStorageManagementUI();
+      }
     });
   });
+
+  function formatBytesRu(bytes) {
+    const b = Math.max(0, Number(bytes) || 0);
+    if (b < 1024) return `${b} Б`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} КБ`;
+    if (b < 1024 * 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} МБ`;
+    return `${(b / (1024 * 1024 * 1024)).toFixed(2)} ГБ`;
+  }
+
+  function initStorageManagementUI() {
+    const limitPills = document.querySelectorAll('#stream-cache-limit-pills .storage-limit-pill');
+    const clearStreamBtn = document.getElementById('clear-stream-cache-btn');
+    const refreshBtn = document.getElementById('storage-refresh-btn');
+
+    function syncLimitPills() {
+      const curLimit = String(getStreamCacheLimitMb());
+      limitPills.forEach((p) => {
+        p.classList.toggle('active', p.getAttribute('data-limit') === curLimit);
+      });
+    }
+
+    async function refreshStorageManagementUI() {
+      syncLimitPills();
+      const stats = await getStorageBreakdown();
+
+      const dlSizeEl = document.getElementById('storage-downloaded-size');
+      const dlCntEl = document.getElementById('storage-downloaded-count');
+      const stSizeEl = document.getElementById('storage-stream-size');
+      const stCntEl = document.getElementById('storage-stream-count');
+      const limEl = document.getElementById('storage-limit-display');
+      const shSizeEl = document.getElementById('storage-shell-size');
+
+      if (dlSizeEl) dlSizeEl.textContent = formatBytesRu(stats.downloadedBytes);
+      if (dlCntEl) dlCntEl.textContent = String(stats.downloadedCount);
+      if (stSizeEl) stSizeEl.textContent = formatBytesRu(stats.streamCacheBytes);
+      if (stCntEl) stCntEl.textContent = String(stats.streamCacheCount);
+      if (limEl) {
+        limEl.textContent = stats.limitMb >= 1024
+          ? `${(stats.limitMb / 1024).toFixed(0)} ГБ`
+          : `${stats.limitMb} МБ`;
+      }
+      if (shSizeEl) shSizeEl.textContent = formatBytesRu(stats.shellBytes);
+
+      const total = Math.max(1, stats.downloadedBytes + stats.streamCacheBytes + stats.shellBytes);
+      const segDl = document.getElementById('storage-seg-downloaded');
+      const segSt = document.getElementById('storage-seg-stream');
+      const segSh = document.getElementById('storage-seg-shell');
+      if (segDl) segDl.style.width = `${((stats.downloadedBytes / total) * 100).toFixed(1)}%`;
+      if (segSt) segSt.style.width = `${((stats.streamCacheBytes / total) * 100).toFixed(1)}%`;
+      if (segSh) segSh.style.width = `${((stats.shellBytes / total) * 100).toFixed(1)}%`;
+    }
+    window.refreshStorageManagementUI = refreshStorageManagementUI;
+
+    limitPills.forEach((pill) => {
+      pill.addEventListener('click', async () => {
+        const val = parseInt(pill.getAttribute('data-limit') || '100', 10);
+        try {
+          localStorage.setItem(STREAM_CACHE_LIMIT_KEY, String(val));
+        } catch (e) {}
+        syncLimitPills();
+        await enforceStreamCacheLimit(val);
+        await refreshStorageManagementUI();
+        showToast(val === 0
+          ? 'Кэширование не скачанных треков отключено'
+          : `Лимит кэша не скачанных треков: ${val >= 1024 ? '1 ГБ' : val + ' МБ'}`);
+      });
+    });
+
+    clearStreamBtn?.addEventListener('click', async () => {
+      const res = await clearStreamCacheOnly();
+      await refreshStorageManagementUI();
+      showToast(`Кэш не скачанных треков очищен (освобождено ${formatBytesRu(res.freedBytes)})`);
+    });
+
+    refreshBtn?.addEventListener('click', () => refreshStorageManagementUI());
+    refreshStorageManagementUI();
+  }
+  initStorageManagementUI();
 
   // Background Process Suspension (Point 8)
   document.addEventListener('visibilitychange', () => {

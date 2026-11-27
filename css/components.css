@@ -1855,6 +1855,7 @@ input[type="range"].eq-band {
 #screen-settings[data-active-tab="appearance"] [data-settings-group]:not([data-settings-group="appearance"]),
 #screen-settings[data-active-tab="studio"] [data-settings-group]:not([data-settings-group="studio"]),
 #screen-settings[data-active-tab="importer"] [data-settings-group]:not([data-settings-group="importer"]),
+#screen-settings[data-active-tab="storage"] [data-settings-group]:not([data-settings-group="storage"]),
 #screen-settings[data-active-tab="perf"] [data-settings-group]:not([data-settings-group="perf"]),
 #screen-settings[data-active-tab="about"] [data-settings-group]:not([data-settings-group="about"]) {
   display: none !important;
@@ -1872,6 +1873,113 @@ input[type="range"].eq-band {
   0% { top: 4%; opacity: 0.3; }
   50% { top: 92%; opacity: 1; }
   100% { top: 4%; opacity: 0.3; }
+}
+
+/* Storage Management & Offline Mode Feed Banner */
+.offline-feed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #A7F3D0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.storage-usage-bar {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 14px;
+}
+
+.storage-usage-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.storage-usage-seg.downloaded {
+  background: #10B981;
+}
+
+.storage-usage-seg.stream {
+  background: var(--md-sys-color-primary, #A855F7);
+}
+
+.storage-usage-seg.shell {
+  background: #64748B;
+}
+
+.storage-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.84rem;
+}
+
+.storage-legend-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="light"] .storage-legend-left {
+  color: #222228;
+}
+
+.storage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.storage-dot.downloaded { background: #10B981; }
+.storage-dot.stream { background: var(--md-sys-color-primary, #A855F7); }
+.storage-dot.shell { background: #64748B; }
+
+.storage-limit-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.storage-limit-pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.storage-limit-pill:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.storage-limit-pill.active {
+  background: var(--md-sys-color-primary, #A855F7);
+  border-color: var(--md-sys-color-primary, #A855F7);
+  color: #FFFFFF;
 }
 
 /* Wave Theme Chips with SVG Icons */

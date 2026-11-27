@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.39';
+const CACHE_NAME = 'oumusic-shell-v2.7.40';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -105,22 +105,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Audio track files (.oump3 / .wav / .mp3) - Cache First with offline fallback
+  // 2. Audio track files (.oump3 / .wav / .mp3) - Network only in SW (bounded LRU cache handled in client)
   if (url.pathname.endsWith('.oump3') || url.pathname.endsWith('.wav') || url.pathname.endsWith('.mp3')) {
-    event.respondWith((async () => {
-      const cached = await caches.match(request, { ignoreSearch: true });
-      if (cached) return cached;
-      try {
-        const resp = await fetch(request);
-        if (resp && resp.ok) {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
-        }
-        return resp;
-      } catch (_) {
-        return Response.error();
-      }
-    })());
+    event.respondWith(
+      fetch(request).catch(() => Response.error())
+    );
     return;
   }
 

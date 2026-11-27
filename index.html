@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.39">
-  <link rel="stylesheet" href="css/main.css?v=2.7.39">
-  <link rel="stylesheet" href="css/components.css?v=2.7.39">
-  <link rel="stylesheet" href="css/player.css?v=2.7.39">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.40">
+  <link rel="stylesheet" href="css/main.css?v=2.7.40">
+  <link rel="stylesheet" href="css/components.css?v=2.7.40">
+  <link rel="stylesheet" href="css/player.css?v=2.7.40">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.39"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.40"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -703,6 +703,7 @@
             <button class="settings-tab-pill" data-settings-tab="appearance" type="button">Внешний вид</button>
             <button class="settings-tab-pill" data-settings-tab="studio" type="button">Моя Студия</button>
             <button class="settings-tab-pill" data-settings-tab="importer" type="button">Перенос плейлистов</button>
+            <button class="settings-tab-pill" data-settings-tab="storage" type="button">Управление памятью</button>
             <button class="settings-tab-pill" data-settings-tab="perf" type="button">Производительность</button>
             <button class="settings-tab-pill" data-settings-tab="about" type="button">О сервисе</button>
           </div>
@@ -1127,15 +1128,82 @@
               </button>
             </div>
             <div style="font-size: 0.75rem; color: var(--md-sys-color-outline); margin-top: 14px;">
-              Версия: <span id="app-version-label">2.7.38</span> • Разработчик: oulan1
+              Версия: <span id="app-version-label">2.7.40</span> • Разработчик: oulan1
+            </div>
+          </div>
+
+          <!-- STORAGE & STREAM CACHE MANAGEMENT TAB -->
+          <div data-settings-group="storage" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px;">
+              <div>
+                <div style="font-weight: 700; font-size: 1.05rem;">Использование памяти устройства</div>
+                <div style="font-size: 0.78rem; color: var(--md-sys-color-outline); margin-top: 2px;">Скачанные треки (офлайн) и временный кэш не скачанных треков</div>
+              </div>
+              <button type="button" class="btn btn-tonal" id="storage-refresh-btn" style="padding: 6px 12px; font-size: 0.78rem;">Обновить</button>
+            </div>
+
+            <div class="storage-usage-bar" id="storage-usage-bar">
+              <div class="storage-usage-seg downloaded" id="storage-seg-downloaded" style="width: 0%;"></div>
+              <div class="storage-usage-seg stream" id="storage-seg-stream" style="width: 0%;"></div>
+              <div class="storage-usage-seg shell" id="storage-seg-shell" style="width: 0%;"></div>
+            </div>
+
+            <div class="storage-legend-list">
+              <div class="storage-legend-row">
+                <div class="storage-legend-left">
+                  <span class="storage-dot downloaded"></span>
+                  <span>Скачанные треки (<span id="storage-downloaded-count">0</span>)</span>
+                </div>
+                <strong id="storage-downloaded-size">0 МБ</strong>
+              </div>
+              <div class="storage-legend-row">
+                <div class="storage-legend-left">
+                  <span class="storage-dot stream"></span>
+                  <span>Кэш не скачанных треков (<span id="storage-stream-count">0</span>)</span>
+                </div>
+                <strong><span id="storage-stream-size">0 МБ</span> / <span id="storage-limit-display">100 МБ</span></strong>
+              </div>
+              <div class="storage-legend-row">
+                <div class="storage-legend-left">
+                  <span class="storage-dot shell"></span>
+                  <span>Оболочка приложения (офлайн-интерфейс)</span>
+                </div>
+                <strong id="storage-shell-size">0 МБ</strong>
+              </div>
+            </div>
+          </div>
+
+          <div data-settings-group="storage" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 20px; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 6px;">Лимит кэша не скачанных треков</div>
+            <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 14px; line-height: 1.45;">
+              Во время прослушивания онлайн треки временно сохраняются для мгновенного переключения. При превышении лимита самые старые не скачанные треки удаляются автоматически.
+            </div>
+
+            <div class="storage-limit-pills" id="stream-cache-limit-pills">
+              <button type="button" class="storage-limit-pill" data-limit="0">Не кэшировать (0 МБ)</button>
+              <button type="button" class="storage-limit-pill" data-limit="50">50 МБ</button>
+              <button type="button" class="storage-limit-pill active" data-limit="100">100 МБ</button>
+              <button type="button" class="storage-limit-pill" data-limit="250">250 МБ</button>
+              <button type="button" class="storage-limit-pill" data-limit="500">500 МБ</button>
+              <button type="button" class="storage-limit-pill" data-limit="1024">1 ГБ</button>
+            </div>
+
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+              <button type="button" class="btn btn-tonal" id="clear-stream-cache-btn" style="width: 100%; justify-content: center; font-weight: 600;">
+                <svg class="svg-icon" style="width: 16px; height: 16px;"><use href="#icon-trash"></use></svg>
+                <span>Очистить кэш не скачанных треков</span>
+              </button>
+              <div style="font-size: 0.74rem; color: var(--md-sys-color-outline); margin-top: 8px; text-align: center;">
+                Удаляет только временный кэш потокового воспроизведения. Скачанные треки, плейлисты и лайки останутся на месте.
+              </div>
             </div>
           </div>
 
           <!-- Cache Management & Full Wipe Safety Trigger -->
-          <div data-settings-group="about" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.25);">
+          <div data-settings-group="storage" style="background: var(--md-sys-color-surface-container); border-radius: var(--md-shape-corner-large); padding: 16px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.25);">
             <div style="font-weight: 600; margin-bottom: 6px; color: var(--md-sys-color-error); display: flex; align-items: center; gap: 8px;">
               <svg class="svg-icon" style="width: 18px; height: 18px; fill: currentColor;"><use href="#icon-trash"></use></svg>
-              <span>Управление кэшем и памятью</span>
+              <span>Полный сброс кэша и базы данных</span>
             </div>
             <div style="font-size: 0.8rem; color: var(--md-sys-color-outline); margin-bottom: 14px;">
               Защита от случайного нажатия: для полной очистки кэша и базы данных нажмите кнопку 10 раз подряд.
@@ -2864,9 +2932,9 @@
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
   <script src="js/vendor/qrcode.min.js"></script>
   <script src="js/vendor/jsqr.min.js"></script>
-  <script src="js/core/sync.js?v=2.7.39"></script>
-  <script src="tracks/catalog.js?v=2.7.39"></script>
-  <script src="playlists/playlists.js?v=2.7.39"></script>
-  <script src="js/app.standalone.js?v=2.7.39"></script>
+  <script src="js/core/sync.js?v=2.7.40"></script>
+  <script src="tracks/catalog.js?v=2.7.40"></script>
+  <script src="playlists/playlists.js?v=2.7.40"></script>
+  <script src="js/app.standalone.js?v=2.7.40"></script>
 </body>
 </html>
