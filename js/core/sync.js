@@ -24,6 +24,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
   const STORAGE_KEY_USER = 'oumusic_gh_user';
   const STORAGE_KEY_LAST_SYNC = 'oumusic_gh_last_sync';
   const STORAGE_KEY_SHA = 'oumusic_gh_sha';
+  const STORAGE_KEY_DIRTY = 'oumusic_sync_dirty';
 
   const REPO_NAME = 'oumusic-sync';
   const DATA_FILE_PATH = 'account-data.json';
@@ -419,16 +420,26 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       // 3. History
       try {
         if (typeof window.getHistory === 'function') {
-          history = await window.getHistory(1000);
+          history = await window.getHistory(30);
         } else {
           const h = await idbGetAll('history');
           h.sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
-          history = h.slice(0, 1000);
+          history = h.slice(0, 30);
         }
       } catch (e) {
         const h = await idbGetAll('history');
-        history = h.slice(0, 1000);
+        history = h.slice(0, 30);
       }
+
+      history = (Array.isArray(history) ? history : [])
+        .filter((h) => h && h.trackId)
+        .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
+        .slice(0, 30)
+        .map((h) => ({
+          trackId: h.trackId,
+          durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+          playedAt: h.playedAt || new Date().toISOString()
+        }));
 
       // 4. Blacklist
       try {
@@ -461,6 +472,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       const totalSeconds = Math.max(histSecs, storedSecs);
       const storedPlays = Number(localStorage.getItem('oumusic_total_plays') || 0);
       const totalPlays = Math.max(history.length, storedPlays);
+      const nowD = new Date();
+      const monthKey = `${nowD.getFullYear()}_${String(nowD.getMonth() + 1).padStart(2, '0')}`;
+      const storedMonthSecs = Number(localStorage.getItem(`oumusic_month_seconds_${monthKey}`) || 0);
 
       // Settings & Preferences
       const settings = {
@@ -479,7 +493,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       const stats = {
         totalSeconds: totalSeconds,
         totalHours: Number((totalSeconds / 3600).toFixed(2)),
-        totalPlays: totalPlays
+        totalPlays: totalPlays,
+        monthKey: monthKey,
+        monthSeconds: storedMonthSecs
       };
 
       return {
@@ -564,7 +580,7 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         }
       });
 
-      // 3. History merge (all unique played tracks by id + timestamp)
+      // 3. History merge (all unique played tracks by id + timestamp, capped at 30)
       const histMap = new Map();
       const localHist = Array.isArray(local.history) ? local.history : [];
       const remoteHist = Array.isArray(remote.history) ? remote.history : [];
@@ -572,13 +588,17 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       [...localHist, ...remoteHist].forEach((h) => {
         if (h && h.trackId && h.playedAt) {
           const key = `${h.trackId}_${h.playedAt}`;
-          histMap.set(key, h);
+          histMap.set(key, {
+            trackId: h.trackId,
+            durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+            playedAt: h.playedAt
+          });
         }
       });
 
       const mergedHist = Array.from(histMap.values())
         .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
-        .slice(0, 1000);
+        .slice(0, 30);
 
       // 4. Blacklist merge
       const localBl = Array.isArray(local.blacklist) ? local.blacklist : [];
@@ -631,10 +651,18 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
       mergedHist.forEach(h => { histSecsSum += (Number(h.durationPlayed) || 0); });
       mergedSeconds = Math.max(mergedSeconds, histSecsSum);
 
+      const curNow = new Date();
+      const curMonthKey = `${curNow.getFullYear()}_${String(curNow.getMonth() + 1).padStart(2, '0')}`;
+      const lMonthSecs = (local.stats?.monthKey === curMonthKey) ? Number(local.stats?.monthSeconds || 0) : 0;
+      const rMonthSecs = (remote.stats?.monthKey === curMonthKey) ? Number(remote.stats?.monthSeconds || 0) : 0;
+      const mergedMonthSecs = isFirstSync ? (rMonthSecs + lMonthSecs) : Math.max(rMonthSecs, lMonthSecs);
+
       const mergedStats = {
         totalSeconds: mergedSeconds,
         totalHours: Number((mergedSeconds / 3600).toFixed(2)),
-        totalPlays: Math.max(mergedPlays, mergedHist.length)
+        totalPlays: Math.max(mergedPlays, mergedHist.length),
+        monthKey: curMonthKey,
+        monthSeconds: mergedMonthSecs
       };
 
       return {
@@ -684,11 +712,28 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         }
       }
 
-      // 3. History
+      // 3. History (replace with latest 30 entries cleanly)
       if (Array.isArray(data.history)) {
         try {
-          const validHist = data.history.filter(h => h && h.trackId);
-          await idbPutAll('history', validHist);
+          const validHist = data.history
+            .filter(h => h && h.trackId)
+            .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
+            .slice(0, 30)
+            .map((h) => ({
+              trackId: h.trackId,
+              durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+              playedAt: h.playedAt || new Date().toISOString()
+            }));
+          const histStore = await getIDBStore('history', 'readwrite');
+          if (histStore) {
+            await new Promise((resolve) => {
+              const clr = histStore.clear();
+              clr.onsuccess = clr.onerror = () => resolve(true);
+            });
+            if (validHist.length > 0) {
+              await idbPutAll('history', validHist);
+            }
+          }
         } catch (e) {
           console.warn('[CloudSync] Error saving history:', e);
         }
@@ -760,6 +805,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         const plays = Number(data.stats.totalPlays) || 0;
         if (secs > 0) localStorage.setItem('oumusic_total_seconds', String(secs));
         if (plays > 0) localStorage.setItem('oumusic_total_plays', String(plays));
+        if (data.stats.monthKey && Number(data.stats.monthSeconds) > 0) {
+          localStorage.setItem(`oumusic_month_seconds_${data.stats.monthKey}`, String(Number(data.stats.monthSeconds)));
+        }
       }
 
       // Invalidate cached Year Recap data
@@ -772,11 +820,76 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         if (typeof window.renderPlaylistsGrid === 'function') window.renderPlaylistsGrid();
         if (typeof window.renderLikesTab === 'function') window.renderLikesTab();
         if (typeof window.updateProfileStats === 'function') window.updateProfileStats();
+        if (typeof window.renderProfileHistory === 'function') window.renderProfileHistory();
       } catch (e) {}
+    },
+
+    hasDirtyChanges() {
+      try {
+        return localStorage.getItem(STORAGE_KEY_DIRTY) === '1';
+      } catch (e) {
+        return false;
+      }
+    },
+
+    markDirty(dirty = true) {
+      try {
+        if (dirty) localStorage.setItem(STORAGE_KEY_DIRTY, '1');
+        else localStorage.removeItem(STORAGE_KEY_DIRTY);
+      } catch (e) {}
+    },
+
+    computeSyncDigest(data) {
+      if (!data || typeof data !== 'object') return '';
+      const normHistory = (Array.isArray(data.history) ? data.history : [])
+        .filter((h) => h && h.trackId)
+        .map((h) => ({
+          trackId: h.trackId,
+          durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+          playedAt: h.playedAt || ''
+        }))
+        .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
+        .slice(0, 30);
+      const normLikes = (Array.isArray(data.likes) ? data.likes : [])
+        .map((l) => (typeof l === 'string' ? { id: l } : { id: l?.id || '', likedAt: l?.likedAt || '' }))
+        .filter((l) => l.id)
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const normPlaylists = (Array.isArray(data.playlists) ? data.playlists : [])
+        .filter((p) => p && p.id && !p._deleted && !p.deleted)
+        .map((p) => ({
+          id: p.id,
+          name: p.name || '',
+          description: p.description || '',
+          coverBase64: p.coverBase64 || '',
+          trackIds: Array.isArray(p.trackIds) ? p.trackIds : [],
+          updatedAt: p.updatedAt || p.createdAt || ''
+        }))
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const normManual = (Array.isArray(data.manualTracks) ? data.manualTracks : [])
+        .filter((t) => t && t.id)
+        .map((t) => t.id)
+        .sort();
+      const normBlacklist = Array.isArray(data.blacklist) ? [...data.blacklist].sort() : [];
+      return JSON.stringify({
+        likes: normLikes,
+        playlists: normPlaylists,
+        history: normHistory,
+        blacklist: normBlacklist,
+        manualTracks: normManual,
+        settings: data.settings || {},
+        stats: {
+          totalSeconds: Number(data.stats?.totalSeconds || 0),
+          totalPlays: Number(data.stats?.totalPlays || 0),
+          monthKey: data.stats?.monthKey || '',
+          monthSeconds: Number(data.stats?.monthSeconds || 0)
+        }
+      });
     },
 
     scheduleSync() {
       if (!this.isLoggedIn()) return;
+
+      this.markDirty(true);
 
       if (syncDebounceTimer) {
         clearTimeout(syncDebounceTimer);
@@ -794,13 +907,14 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
     /**
      * Performs direct synchronization with GitHub repository.
      */
-    async performSync(isManual = false) {
+    async performSync(isManual = false, options = {}) {
       if (!this.isLoggedIn()) return;
       if (isSyncInProgress) {
         hasPendingSync = true;
         return;
       }
 
+      const pullOnly = !!(options && options.pullOnly) && !isManual && !this.hasDirtyChanges();
       isSyncInProgress = true;
       this.setStatusText('Синхронизация с GitHub...');
 
@@ -832,41 +946,61 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
 
         // 2. Collect local data
         const localData = await this.collectLocalData();
+        const localDigest = this.computeSyncDigest(localData);
+        const remoteDigest = remoteData ? this.computeSyncDigest(remoteData) : '';
 
         // 3. Smart merge with remote if remote had changes
         const finalData = remoteData ? await this.smartMerge(localData, remoteData) : localData;
-        if (remoteData) {
+        const finalDigest = this.computeSyncDigest(finalData);
+
+        if (remoteData && localDigest !== finalDigest) {
           await this.applyDataLocally(finalData);
         }
 
-        // 4. Push updated data
-        const b64 = utf8ToBase64(JSON.stringify(finalData, null, 2));
-        const bodyPayload = {
-          message: 'Update ouMusic cloud database [skip ci]',
-          content: b64
-        };
-        if (currentSha) {
-          bodyPayload.sha = currentSha;
-        }
+        // 4. Push ONLY when data actually changed and push is authorized (never spam PUT on passive view/tab switch)
+        const hasAnyMeaningfulData = (
+          finalData.likes.length > 0 ||
+          finalData.playlists.length > 0 ||
+          finalData.history.length > 0 ||
+          Boolean(finalData.settings?.userName) ||
+          Boolean(finalData.settings?.userAvatar)
+        );
+        const remoteNeedsUpdate = remoteData ? (finalDigest !== remoteDigest) : hasAnyMeaningfulData;
+        const canPush = isManual || this.hasDirtyChanges() || (!pullOnly && remoteNeedsUpdate);
 
-        const putRes = await fetch(fileUrl, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(bodyPayload)
-        });
+        if (remoteNeedsUpdate && canPush) {
+          const b64 = utf8ToBase64(JSON.stringify(finalData, null, 2));
+          const bodyPayload = {
+            message: 'Update ouMusic cloud database [skip ci]',
+            content: b64
+          };
+          if (currentSha) {
+            bodyPayload.sha = currentSha;
+          }
 
-        if (!putRes.ok) {
-          const errBody = await putRes.json().catch(() => ({}));
-          throw new Error(errBody.message || `HTTP ${putRes.status}`);
-        }
+          const putRes = await fetch(fileUrl, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyPayload)
+          });
 
-        const putData = await putRes.json();
-        if (putData.content && putData.content.sha) {
-          this.setFileSha(putData.content.sha);
+          if (!putRes.ok) {
+            const errBody = await putRes.json().catch(() => ({}));
+            throw new Error(errBody.message || `HTTP ${putRes.status}`);
+          }
+
+          const putData = await putRes.json();
+          if (putData.content && putData.content.sha) {
+            this.setFileSha(putData.content.sha);
+          }
+          this.markDirty(false);
+        } else if (currentSha) {
+          this.setFileSha(currentSha);
+          if (!remoteNeedsUpdate) this.markDirty(false);
         }
 
         const nowIso = new Date().toISOString();
@@ -887,7 +1021,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         isSyncInProgress = false;
         if (hasPendingSync) {
           hasPendingSync = false;
-          this.scheduleSync();
+          if (this.hasDirtyChanges()) {
+            this.scheduleSync();
+          }
         }
       }
     },
@@ -1090,11 +1226,11 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
     }
   };
 
-  // Auto-sync on application startup if logged in
+  // Auto-sync (pull-only unless local dirty changes pending) on startup if logged in
   function triggerStartupSync() {
     if (OUMusicCloudSync.isLoggedIn()) {
       setTimeout(() => {
-        OUMusicCloudSync.performSync(false);
+        OUMusicCloudSync.performSync(false, { pullOnly: !OUMusicCloudSync.hasDirtyChanges() });
       }, 1200);
     }
   }
@@ -1105,20 +1241,9 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
     window.addEventListener('DOMContentLoaded', triggerStartupSync);
   }
 
-  // Auto-sync when returning to tab/screen
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && OUMusicCloudSync.isLoggedIn()) {
-      const last = OUMusicCloudSync.getLastSyncTime();
-      const now = Date.now();
-      if (!last || (now - new Date(last).getTime() > 15000)) {
-        OUMusicCloudSync.performSync(false);
-      }
-    }
-  });
-
-  // Auto-sync when returning online
+  // Only flush sync when returning online if significant dirty changes exist
   window.addEventListener('online', () => {
-    if (OUMusicCloudSync.isLoggedIn()) {
+    if (OUMusicCloudSync.isLoggedIn() && OUMusicCloudSync.hasDirtyChanges()) {
       OUMusicCloudSync.scheduleSync();
     }
   });

@@ -508,29 +508,87 @@
     }
   }
 
+  const MAX_HISTORY_RECORDS = 30;
+
+  function seedCumulativeStatsOnce(records) {
+    try {
+      if (localStorage.getItem('oumusic_stats_seeded') === '1') return;
+      const now = new Date();
+      const mKey = `oumusic_month_seconds_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let totalSecs = 0;
+      let monthSecs = 0;
+      (records || []).forEach((h) => {
+        const dur = Number(h?.durationPlayed) || 0;
+        totalSecs += dur;
+        const d = new Date(h?.playedAt || 0);
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+          monthSecs += dur;
+        }
+      });
+      const existingTotal = parseInt(localStorage.getItem('oumusic_total_seconds') || '0', 10) || 0;
+      const existingPlays = parseInt(localStorage.getItem('oumusic_total_plays') || '0', 10) || 0;
+      const existingMonth = parseInt(localStorage.getItem(mKey) || '0', 10) || 0;
+      localStorage.setItem('oumusic_total_seconds', String(Math.max(existingTotal, totalSecs)));
+      localStorage.setItem('oumusic_total_plays', String(Math.max(existingPlays, (records || []).length)));
+      localStorage.setItem(mKey, String(Math.max(existingMonth, monthSecs)));
+      localStorage.setItem('oumusic_stats_seeded', '1');
+    } catch (e) {}
+  }
+
   async function addHistory(trackId, durationPlayed = 0) {
+    const dur = Math.max(0, Math.round(Number(durationPlayed) || 0));
+    const playedAt = new Date().toISOString();
     return new Promise((resolve) => {
       const store = getStore('history', 'readwrite');
       if (!store) return resolve(false);
-      const req = store.add({
-        trackId,
-        durationPlayed: Math.round(durationPlayed),
-        playedAt: new Date().toISOString()
-      });
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => resolve(false);
+
+      const allReq = store.getAll();
+      allReq.onsuccess = () => {
+        const existing = allReq.result || [];
+        seedCumulativeStatsOnce(existing);
+
+        try {
+          const now = new Date();
+          const mKey = `oumusic_month_seconds_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const prevTotal = parseInt(localStorage.getItem('oumusic_total_seconds') || '0', 10) || 0;
+          const prevPlays = parseInt(localStorage.getItem('oumusic_total_plays') || '0', 10) || 0;
+          const prevMonth = parseInt(localStorage.getItem(mKey) || '0', 10) || 0;
+          localStorage.setItem('oumusic_total_seconds', String(prevTotal + dur));
+          localStorage.setItem('oumusic_total_plays', String(prevPlays + 1));
+          localStorage.setItem(mKey, String(prevMonth + dur));
+        } catch (e) {}
+
+        const addReq = store.add({ trackId, durationPlayed: dur, playedAt });
+        addReq.onsuccess = () => {
+          // Prune records past MAX_HISTORY_RECORDS (30) cleanly
+          const sorted = [...existing].sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
+          const toDelete = sorted.slice(MAX_HISTORY_RECORDS - 1);
+          toDelete.forEach((oldRec) => {
+            if (oldRec && oldRec.histId !== undefined) {
+              try { store.delete(oldRec.histId); } catch (e) {}
+            }
+          });
+          if (typeof window.renderProfileHistory === 'function') {
+            setTimeout(() => window.renderProfileHistory(), 0);
+          }
+          resolve(true);
+        };
+        addReq.onerror = () => resolve(false);
+      };
+      allReq.onerror = () => resolve(false);
     });
   }
 
-  async function getHistory(limit = 100) {
+  async function getHistory(limit = MAX_HISTORY_RECORDS) {
+    const capped = Math.min(Math.max(1, Number(limit) || MAX_HISTORY_RECORDS), MAX_HISTORY_RECORDS);
     return new Promise((resolve) => {
       const store = getStore('history', 'readonly');
       if (!store) return resolve([]);
       const req = store.getAll();
       req.onsuccess = () => {
         const records = req.result || [];
-        records.sort((a, b) => new Date(b.playedAt) - new Date(a.playedAt));
-        resolve(records.slice(0, limit));
+        records.sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
+        resolve(records.slice(0, capped));
       };
       req.onerror = () => resolve([]);
     });
@@ -552,7 +610,7 @@
   window.getHistory = getHistory;
 
   async function getStats() {
-    const history = await getHistory(5000);
+    const history = await getHistory(MAX_HISTORY_RECORDS);
     const now = new Date();
     const curMonth = now.getMonth();
     const curYear = now.getFullYear();
@@ -568,7 +626,13 @@
       }
     });
 
-    // Factor in cloud-synced cumulative hours if greater than local history
+    const mKey = `oumusic_month_seconds_${curYear}_${String(curMonth + 1).padStart(2, '0')}`;
+    const storedMonthSecs = parseInt(localStorage.getItem(mKey) || '0', 10);
+    if (!isNaN(storedMonthSecs) && storedMonthSecs > monthSeconds) {
+      monthSeconds = storedMonthSecs;
+    }
+
+    // Factor in cumulative & cloud-synced total seconds so capping history at 30 never reduces total hours
     const extraSecs = parseInt(localStorage.getItem('oumusic_total_seconds') || '0', 10);
     if (!isNaN(extraSecs) && extraSecs > allSeconds) {
       allSeconds = extraSecs;
@@ -619,6 +683,7 @@
       this.vocalDryGain = null;
       this.vocalWetGain = null;
       this.eqFilters = [];
+      this.eqGains = [0, 0, 0, 0, 0];
       this.bassBoostNode = null;
       this.bassBoostActive = false;
       this.surround3DActive = false;
@@ -629,6 +694,7 @@
       this.pannerLFOId = null;
       this.compressorNode = null;
       this.normalizerGainNode = null;
+      this.normalizerActive = true;
       this.normalizerLevel = 85;
       this.softGainNode = null;
       this.masterGainNode = null;
@@ -1032,6 +1098,7 @@
       this.audioElement.preload = 'auto';
       this.audioElement.src = src;
       this.audioElement.load();
+      this.syncInstrumentalFilterBypass();
       this.applyActiveFX();
 
       if (autoPlay) {
@@ -1135,10 +1202,13 @@
       }
     }
 
-    setReverb(percent) {
-      this.activeReverbPercent = Math.max(0, Math.min(100, percent));
+    isInstrumentalFilterBypassed() {
+      return !!(this.vocalRemoverActive || this.isUsingStudioInstrumental);
+    }
+
+    applyHardwareReverb(percent) {
       if (!this.reverbWetGain || !this.reverbDryGain || !this.audioCtx) return;
-      const amt = this.activeReverbPercent / 100;
+      const amt = Math.max(0, Math.min(100, percent)) / 100;
       const t = this.audioCtx.currentTime;
 
       if (amt > 0.01) {
@@ -1164,13 +1234,13 @@
       }
     }
 
-    set8DAudio(percent) {
-      this.active8DPercent = Math.max(0, Math.min(100, percent));
+    applyHardware8DAudio(percent) {
+      const clamped = Math.max(0, Math.min(100, percent));
       if (this.pannerLFOId) {
         clearInterval(this.pannerLFOId);
         this.pannerLFOId = null;
       }
-      if (this.active8DPercent <= 0) {
+      if (clamped <= 0) {
         if (this.pannerNode && this.pannerNode.pan && this.audioCtx) {
           this.pannerNode.pan.setValueAtTime(0, this.audioCtx.currentTime);
         }
@@ -1180,10 +1250,10 @@
         return;
       }
       let angle = 0;
-      const amt = Math.min(1.0, Math.max(0.1, this.active8DPercent / 100));
+      const amt = Math.min(1.0, Math.max(0.1, clamped / 100));
       // True 360-degree binaural spatial orbit: Left/Right panning + Pinna Head-shadow modulation
       this.pannerLFOId = setInterval(() => {
-        if (!this.isPlaying || !this.audioCtx) return;
+        if (!this.isPlaying || !this.audioCtx || this.isInstrumentalFilterBypassed()) return;
         angle += 0.07; // Circular rotation speed
         const panX = Math.sin(angle) * amt; // -1 to +1
         const depthY = Math.cos(angle);     // +1 front, -1 back
@@ -1201,6 +1271,107 @@
       }, 40);
     }
 
+    applyHardwareEQBand(bandIdx, gain) {
+      if (this.eqFilters[bandIdx]) {
+        try {
+          if (this.audioCtx) {
+            this.eqFilters[bandIdx].gain.setValueAtTime(gain, this.audioCtx.currentTime);
+          }
+          this.eqFilters[bandIdx].gain.value = gain;
+        } catch (e) {}
+      }
+    }
+
+    applyHardwareBassBoost(enabled) {
+      if (this.bassBoostNode && this.audioCtx) {
+        const val = enabled ? 8.0 : 0.0;
+        this.bassBoostNode.gain.setValueAtTime(val, this.audioCtx.currentTime);
+      }
+    }
+
+    applyHardwareNormalizer(active, levelPercent = 85) {
+      if (!this.compressorNode || !this.normalizerGainNode || !this.audioCtx) return;
+      const t = this.audioCtx.currentTime;
+      if (!active) {
+        this.compressorNode.threshold.setValueAtTime(0, t);
+        this.compressorNode.knee.setValueAtTime(0, t);
+        this.compressorNode.ratio.setValueAtTime(1, t);
+        this.normalizerGainNode.gain.setValueAtTime(1.0, t);
+      } else {
+        const pct = Math.max(30, Math.min(100, Number(levelPercent) || 85));
+        const targetThreshold = -36 + (pct - 30) * (24 / 70);
+        const targetGain = 0.35 + (pct - 30) * (0.7 / 70);
+        this.compressorNode.threshold.setValueAtTime(targetThreshold, t);
+        this.compressorNode.knee.setValueAtTime(30, t);
+        this.compressorNode.ratio.setValueAtTime(12, t);
+        this.compressorNode.attack.setValueAtTime(0.003, t);
+        this.compressorNode.release.setValueAtTime(0.25, t);
+        this.normalizerGainNode.gain.setValueAtTime(targetGain, t);
+      }
+    }
+
+    syncInstrumentalFilterBypass() {
+      if (!this.audioCtx) return;
+      if (this.isInstrumentalFilterBypassed()) {
+        // Bypass all filters (EQ, bass boost, surround/8D, reverb, compressor/normalizer) so vocals never bleed back;
+        // Speed/pitch (playbackRate + preservesPitch) remain untouched.
+        for (let i = 0; i < (this.eqFilters?.length || 0); i++) {
+          this.applyHardwareEQBand(i, 0);
+        }
+        this.applyHardwareBassBoost(false);
+        this.applyHardwareReverb(0);
+        this.applyHardware8DAudio(0);
+        if (this.compressorNode && this.normalizerGainNode) {
+          const t = this.audioCtx.currentTime;
+          this.compressorNode.threshold.setValueAtTime(0, t);
+          this.compressorNode.knee.setValueAtTime(0, t);
+          this.compressorNode.ratio.setValueAtTime(1, t);
+          this.normalizerGainNode.gain.setValueAtTime(1.0, t);
+        }
+      } else {
+        if (this.isLosslessMode) {
+          const losslessGains = [3.8, -1.2, 1.2, 2.6, 4.5];
+          losslessGains.forEach((g, i) => this.applyHardwareEQBand(i, g));
+          if (this.compressorNode) {
+            const t = this.audioCtx.currentTime;
+            this.compressorNode.threshold.setValueAtTime(-6, t);
+            this.compressorNode.knee.setValueAtTime(18, t);
+            this.compressorNode.ratio.setValueAtTime(1.4, t);
+            this.compressorNode.attack.setValueAtTime(0.002, t);
+            this.compressorNode.release.setValueAtTime(0.20, t);
+          }
+          if (this.normalizerGainNode) {
+            this.normalizerGainNode.gain.setValueAtTime(1.05, this.audioCtx.currentTime);
+          }
+        } else {
+          this.eqGains.forEach((g, i) => this.applyHardwareEQBand(i, g));
+          this.applyHardwareNormalizer(this.normalizerActive, this.normalizerLevel);
+        }
+        this.applyHardwareBassBoost(this.bassBoostActive);
+        this.applyHardwareReverb(this.activeReverbPercent);
+        const spatialPct = this.surround3DActive ? Math.max(this.active8DPercent, 25) : this.active8DPercent;
+        this.applyHardware8DAudio(spatialPct);
+      }
+    }
+
+    setReverb(percent) {
+      this.activeReverbPercent = Math.max(0, Math.min(100, percent));
+      if (this.isInstrumentalFilterBypassed()) {
+        this.applyHardwareReverb(0);
+        return;
+      }
+      this.applyHardwareReverb(this.activeReverbPercent);
+    }
+
+    set8DAudio(percent) {
+      this.active8DPercent = Math.max(0, Math.min(100, percent));
+      if (this.isInstrumentalFilterBypassed()) {
+        this.applyHardware8DAudio(0);
+        return;
+      }
+      this.applyHardware8DAudio(this.active8DPercent);
+    }
+
     applyActiveFX() {
       if (this.audioElement) {
         this.audioElement.playbackRate = this.activePlaybackRate;
@@ -1209,50 +1380,17 @@
         this.audioElement.mozPreservesPitch = false;
         this.audioElement.webkitPreservesPitch = false;
       }
-      if (this.activeReverbPercent > 0) {
-        this.setReverb(this.activeReverbPercent);
-      }
-      if (this.active8DPercent > 0) {
-        this.set8DAudio(this.active8DPercent);
-      }
-      if (this.isLosslessMode) {
-        this.setLosslessMode(true);
-      }
+      this.syncInstrumentalFilterBypass();
     }
 
     setLosslessMode(active) {
       this.isLosslessMode = !!active;
       if (!this.audioCtx) return;
-      if (this.isLosslessMode) {
-        // Advanced Hi-Res Master / Spatial Air Restoration:
-        // 60Hz +3.8dB: Tight harmonic sub-bass punch
-        // 230Hz -1.2dB: Precision mid-bass mud cut (clarity & separation)
-        // 910Hz +1.2dB: Rich vocal body & acoustic presence
-        // 3.6kHz +2.6dB: Crisp snare & percussion transient attack
-        // 14kHz +4.5dB: Crystalline high-frequency air & stereo depth
-        const losslessGains = [3.8, -1.2, 1.2, 2.6, 4.5];
-        losslessGains.forEach((g, i) => this.setEQBand(i, g));
-
-        if (this.compressorNode) {
-          const t = this.audioCtx.currentTime;
-          // Hi-Res mastering: open dynamic headroom, fast transparent attack
-          this.compressorNode.threshold.setValueAtTime(-6, t);
-          this.compressorNode.knee.setValueAtTime(18, t);
-          this.compressorNode.ratio.setValueAtTime(1.4, t);
-          this.compressorNode.attack.setValueAtTime(0.002, t);
-          this.compressorNode.release.setValueAtTime(0.20, t);
-        }
-        if (this.normalizerGainNode) {
-          // Transparent +1.6dB clean makeup gain for instant full-bodied presence
-          this.normalizerGainNode.gain.setValueAtTime(1.05, this.audioCtx.currentTime);
-        }
-      } else {
+      if (!this.isLosslessMode) {
         const savedPreset = (typeof localStorage !== 'undefined') ? (localStorage.getItem('oumusic_eq_preset') || 'flat') : 'flat';
         this.applyEQPreset(savedPreset);
-        if (this.normalizerGainNode) {
-          this.normalizerGainNode.gain.setValueAtTime(0.85, this.audioCtx.currentTime);
-        }
       }
+      this.syncInstrumentalFilterBypass();
     }
 
     resetFX() {
@@ -1266,7 +1404,10 @@
 
     setVocalRemover(active, configOrMode) {
       this.vocalRemoverActive = !!active;
-      if (!this.vocalDryGain || !this.vocalWetGain || !this.audioCtx) return;
+      if (!this.vocalDryGain || !this.vocalWetGain || !this.audioCtx) {
+        this.syncInstrumentalFilterBypass();
+        return;
+      }
       const ctx = this.audioCtx;
       const t = ctx.currentTime;
       this.vocalDryGain.gain.cancelScheduledValues(t);
@@ -1328,6 +1469,7 @@
         this.vocalDryGain.gain.setTargetAtTime(1.0, t, 0.04);
         this.vocalWetGain.gain.setTargetAtTime(0.0, t, 0.04);
       }
+      this.syncInstrumentalFilterBypass();
     }
 
     async switchToInstrumental(instrumentalBlob) {
@@ -1375,8 +1517,8 @@
       if (src) {
         this.audioElement.src = src;
         this.audioElement.currentTime = curTime;
-        this.applyActiveFX();
       }
+      this.applyActiveFX();
 
       if (wasPlaying) {
         await this.softPlay();
@@ -1384,46 +1526,39 @@
     }
 
     setNormalizer(active, levelPercent = 85) {
+      this.normalizerActive = !!active;
+      const pct = Math.max(30, Math.min(100, Number(levelPercent) || 85));
+      this.normalizerLevel = pct;
       if (!this.compressorNode || !this.normalizerGainNode || !this.audioCtx) return;
-      if (!active) {
-        this.compressorNode.threshold.setValueAtTime(0, this.audioCtx.currentTime);
-        this.normalizerGainNode.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
-      } else {
-        const pct = Math.max(30, Math.min(100, Number(levelPercent) || 85));
-        this.normalizerLevel = pct;
-        // Target threshold: -36 dB (quiet) to -12 dB (loud)
-        const targetThreshold = -36 + (pct - 30) * (24 / 70);
-        // Makeup gain: 0.35 to 1.05 linear
-        const targetGain = 0.35 + (pct - 30) * (0.7 / 70);
-        this.compressorNode.threshold.setValueAtTime(targetThreshold, this.audioCtx.currentTime);
-        this.normalizerGainNode.gain.setValueAtTime(targetGain, this.audioCtx.currentTime);
-      }
+      if (this.isInstrumentalFilterBypassed()) return;
+      this.applyHardwareNormalizer(this.normalizerActive, this.normalizerLevel);
     }
 
     setEQBand(bandIdx, gain) {
-      if (this.eqFilters[bandIdx]) {
-        try {
-          if (this.audioCtx) {
-            this.eqFilters[bandIdx].gain.setValueAtTime(gain, this.audioCtx.currentTime);
-          }
-          this.eqFilters[bandIdx].gain.value = gain;
-        } catch (e) {}
+      if (bandIdx >= 0 && bandIdx < this.eqGains.length) {
+        this.eqGains[bandIdx] = gain;
       }
+      if (this.isInstrumentalFilterBypassed()) return;
+      this.applyHardwareEQBand(bandIdx, gain);
     }
 
     setBassBoost(enabled) {
       this.bassBoostActive = !!enabled;
-      if (this.bassBoostNode && this.audioCtx) {
-        const val = enabled ? 8.0 : 0.0;
-        this.bassBoostNode.gain.setValueAtTime(val, this.audioCtx.currentTime);
+      if (this.isInstrumentalFilterBypassed()) {
+        this.applyHardwareBassBoost(false);
+        return;
       }
+      this.applyHardwareBassBoost(this.bassBoostActive);
     }
 
     set3DSurround(enabled) {
       this.surround3DActive = !!enabled;
-      if (typeof this.set8DAudio === 'function') {
-        this.set8DAudio(enabled ? 25 : 0);
+      const targetPct = this.surround3DActive ? Math.max(this.active8DPercent, 25) : 0;
+      if (this.isInstrumentalFilterBypassed()) {
+        this.applyHardware8DAudio(0);
+        return;
       }
+      this.applyHardware8DAudio(targetPct);
     }
 
     applyEQPreset(preset) {
@@ -1964,6 +2099,9 @@
     if (screenId === 'settings' && window._resizeEQCanvas) {
       setTimeout(window._resizeEQCanvas, 50);
     }
+    if (screenId === 'profile' && typeof window.renderProfileHistory === 'function') {
+      window.renderProfileHistory();
+    }
     if (window.updateMobileNavPill) {
       window.updateMobileNavPill();
     }
@@ -2145,6 +2283,9 @@
     catalogTracks = Array.from(map.values());
     renderCatalogFeed(catalogTracks);
     renderManualTracksFeed();
+    if (typeof window.renderProfileHistory === 'function') {
+      window.renderProfileHistory();
+    }
   }
 
   function isTrackOfflineReady(track) {
@@ -7228,9 +7369,89 @@
       }
     });
 
-    document.getElementById('clear-history-btn')?.addEventListener('click', () => {
-      alert('История прослушиваний очищена.');
+    let isProfileHistoryExpanded = false;
+    const expandHistoryBtn = document.getElementById('toggle-history-expand-btn');
+
+    async function renderProfileHistory() {
+      const container = document.getElementById('profile-history-list');
+      if (!container) return;
+
+      const records = await getHistory(MAX_HISTORY_RECORDS);
+      const localMeta = await getAllTracksMetadata().catch(() => []);
+      const metaMap = new Map();
+      (catalogTracks || []).forEach((t) => { if (t && t.id) metaMap.set(t.id, t); });
+      (localMeta || []).forEach((t) => { if (t && t.id && !metaMap.has(t.id)) metaMap.set(t.id, t); });
+
+      const resolved = records
+        .map((rec) => metaMap.get(rec.trackId))
+        .filter(Boolean)
+        .slice(0, MAX_HISTORY_RECORDS);
+
+      if (expandHistoryBtn) {
+        expandHistoryBtn.style.display = resolved.length > 0 ? '' : 'none';
+        expandHistoryBtn.textContent = isProfileHistoryExpanded ? 'Свернуть' : 'Развернуть полностью';
+      }
+
+      container.innerHTML = '';
+      if (resolved.length === 0) {
+        container.className = 'tracks-list history-expanded-list';
+        container.innerHTML = '<div style="text-align: center; padding: 18px; color: var(--md-sys-color-outline); font-size: 0.85rem;">История прослушиваний пока пуста</div>';
+        return;
+      }
+
+      if (isProfileHistoryExpanded) {
+        container.className = 'tracks-list history-expanded-list';
+        resolved.forEach((tr, idx) => {
+          const row = createTrackRow(tr, () => {
+            playbackQueue = resolved;
+            queueIndex = idx;
+            playTrack(tr);
+          });
+          container.appendChild(row);
+        });
+      } else {
+        container.className = 'tracks-list history-columns-list';
+        const maxTracks = Math.min(resolved.length, 30);
+        for (let colStart = 0; colStart < maxTracks; colStart += 3) {
+          const colEl = document.createElement('div');
+          colEl.className = 'history-column';
+          const slice = resolved.slice(colStart, colStart + 3);
+          slice.forEach((tr, subIdx) => {
+            const globalIdx = colStart + subIdx;
+            const row = createTrackRow(tr, () => {
+              playbackQueue = resolved;
+              queueIndex = globalIdx;
+              playTrack(tr);
+            });
+            colEl.appendChild(row);
+          });
+          container.appendChild(colEl);
+        }
+      }
+    }
+    window.renderProfileHistory = renderProfileHistory;
+
+    expandHistoryBtn?.addEventListener('click', () => {
+      isProfileHistoryExpanded = !isProfileHistoryExpanded;
+      renderProfileHistory();
     });
+
+    document.getElementById('clear-history-btn')?.addEventListener('click', async () => {
+      await new Promise((resolve) => {
+        const store = getStore('history', 'readwrite');
+        if (!store) return resolve(false);
+        const clr = store.clear();
+        clr.onsuccess = clr.onerror = () => resolve(true);
+      });
+      await renderProfileHistory();
+      await updateProfileStats();
+      if (window.OUMusicCloudSync && typeof window.OUMusicCloudSync.scheduleSync === 'function') {
+        window.OUMusicCloudSync.scheduleSync();
+      }
+      showToast('История прослушиваний очищена');
+    });
+
+    renderProfileHistory();
 
     // 10-Clicks Safety Easter Egg for Full Cache & DB Wipe
     const clearCacheBtn = document.getElementById('settings-clear-cache-btn');
@@ -9587,14 +9808,21 @@
       const limEl = document.getElementById('storage-limit-display');
       const shSizeEl = document.getElementById('storage-shell-size');
 
+      const formatCacheLimitLabel = (mb) => {
+        const n = Number(mb) || 0;
+        if (n >= 1024) {
+          const gb = n / 1024;
+          return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} ГБ`;
+        }
+        return `${n} МБ`;
+      };
+
       if (dlSizeEl) dlSizeEl.textContent = formatBytesRu(stats.downloadedBytes);
       if (dlCntEl) dlCntEl.textContent = String(stats.downloadedCount);
       if (stSizeEl) stSizeEl.textContent = formatBytesRu(stats.streamCacheBytes);
       if (stCntEl) stCntEl.textContent = String(stats.streamCacheCount);
       if (limEl) {
-        limEl.textContent = stats.limitMb >= 1024
-          ? `${(stats.limitMb / 1024).toFixed(0)} ГБ`
-          : `${stats.limitMb} МБ`;
+        limEl.textContent = formatCacheLimitLabel(stats.limitMb);
       }
       if (shSizeEl) shSizeEl.textContent = formatBytesRu(stats.shellBytes);
 
@@ -9617,9 +9845,10 @@
         syncLimitPills();
         await enforceStreamCacheLimit(val);
         await refreshStorageManagementUI();
+        const gbLabel = val >= 1024 ? `${Number.isInteger(val / 1024) ? val / 1024 : (val / 1024).toFixed(1)} ГБ` : `${val} МБ`;
         showToast(val === 0
           ? 'Кэширование не скачанных треков отключено'
-          : `Лимит кэша не скачанных треков: ${val >= 1024 ? '1 ГБ' : val + ' МБ'}`);
+          : `Лимит кэша не скачанных треков: ${gbLabel}`);
       });
     });
 

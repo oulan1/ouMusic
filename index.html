@@ -31,10 +31,10 @@
   <link rel="icon" type="image/png" href="assets/oumusic.png">
 
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css?v=2.7.41">
-  <link rel="stylesheet" href="css/main.css?v=2.7.41">
-  <link rel="stylesheet" href="css/components.css?v=2.7.41">
-  <link rel="stylesheet" href="css/player.css?v=2.7.41">
+  <link rel="stylesheet" href="css/tokens.css?v=2.7.42">
+  <link rel="stylesheet" href="css/main.css?v=2.7.42">
+  <link rel="stylesheet" href="css/components.css?v=2.7.42">
+  <link rel="stylesheet" href="css/player.css?v=2.7.42">
 
   <!-- Local JSZip bundle for 100% offline & fast .oump3/.oulist packaging, with CDN fallback -->
   <script src="js/vendor/jszip.min.js"></script>
@@ -45,7 +45,7 @@
   </script>
 
   <!-- ybouane/liquidglass WebGL Engine: Local bundle with jsdelivr CDN fallback -->
-  <script src="js/vendor/liquidglass.js?v=2.7.41"></script>
+  <script src="js/vendor/liquidglass.js?v=2.7.42"></script>
   <script>
     if (typeof window.LiquidGlass === 'undefined') {
       document.write('<script type="module">import { LiquidGlass, DEFAULTS } from "https://cdn.jsdelivr.net/npm/@ybouane/liquidglass/dist/index.js"; window.LiquidGlass = LiquidGlass; window.LiquidGlassDefaults = DEFAULTS;<\/script>');
@@ -683,11 +683,14 @@
           </div>
 
           <!-- History -->
-          <div class="section-header" style="margin-top: 32px;">
+          <div class="section-header" style="margin-top: 32px; gap: 10px; flex-wrap: wrap;">
             <h3 class="section-title" data-i18n="history_title">История прослушиваний</h3>
-            <button class="btn btn-outlined" id="clear-history-btn" style="padding: 4px 10px; font-size: 0.75rem;">Очистить</button>
+            <div class="history-header-actions" style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" class="btn btn-outlined" id="toggle-history-expand-btn" style="padding: 4px 12px; font-size: 0.75rem; display: none;">Развернуть полностью</button>
+              <button type="button" class="btn btn-outlined" id="clear-history-btn" style="padding: 4px 10px; font-size: 0.75rem;">Очистить</button>
+            </div>
           </div>
-          <div class="tracks-list" id="profile-history-list">
+          <div class="tracks-list history-columns-list" id="profile-history-list">
             <!-- Dynamic history -->
           </div>
         </section>
@@ -1189,6 +1192,9 @@
               <button type="button" class="chip" data-limit="250">250 МБ</button>
               <button type="button" class="chip" data-limit="500">500 МБ</button>
               <button type="button" class="chip" data-limit="1024">1 ГБ</button>
+              <button type="button" class="chip" data-limit="2048">2 ГБ</button>
+              <button type="button" class="chip" data-limit="3072">3 ГБ</button>
+              <button type="button" class="chip" data-limit="5120">5 ГБ</button>
             </div>
 
             <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
@@ -2935,9 +2941,9 @@
   <!-- Universal Standalone Script: runs on file://, http:// and https:// without CORS blocks -->
   <script src="js/vendor/qrcode.min.js"></script>
   <script src="js/vendor/jsqr.min.js"></script>
-  <script src="js/core/sync.js?v=2.7.41"></script>
-  <script src="tracks/catalog.js?v=2.7.41"></script>
-  <script src="playlists/playlists.js?v=2.7.41"></script>
-  <script src="js/app.standalone.js?v=2.7.41"></script>
+  <script src="js/core/sync.js?v=2.7.42"></script>
+  <script src="tracks/catalog.js?v=2.7.42"></script>
+  <script src="playlists/playlists.js?v=2.7.42"></script>
+  <script src="js/app.standalone.js?v=2.7.42"></script>
 </body>
 </html>
