@@ -162,5 +162,47 @@ window.__TRACKS_CATALOG__ = [
     "fallbackUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/tracks/VILLIAN%2C%20madk1d%20-%20%D0%94%D0%98%D0%9D%D0%90%D0%A1%D0%A2%D0%98%D0%AF.oump3",
     "size": 10070501,
     "updatedAt": "2026-11-19T15:32:38.565970+00:00"
+  },
+  {
+    "id": "космонавтов_нет_баночка_с_окурками",
+    "filename": "КОСМОНАВТОВ НЕТ - баночка с окурками.oump3",
+    "title": "баночка с окурками",
+    "artist": "КОСМОНАВТОВ НЕТ",
+    "genres": [
+      "Pop",
+      "Electronic",
+      "Indie"
+    ],
+    "categories": [
+      "lang:ru",
+      "mood:melancholy",
+      "mood:sad",
+      "mood:rest",
+      "mood:sleep"
+    ],
+    "duration": 163,
+    "hasLyrics": true,
+    "isExplicit": false,
+    "explicit": false,
+    "hasInstrumental": true,
+    "hasStudioInstrumental": true,
+    "instrumentalConfig": {
+      "bassFreq": 135,
+      "bassGain": 0.95,
+      "airFreq": 9000,
+      "airGain": 0.3,
+      "depth": 100,
+      "notchFreq": 1500,
+      "notchQ": 1.4,
+      "makeupGain": 1.15
+    },
+    "aiFact": "Трек «баночка с окурками» группы «КОСМОНАВТОВ НЕТ» — это концентрированная подростковая меланхолия, упакованная в бытовой и приземлённый образ.",
+    "thumbBase64": "data:image/jpeg;base64,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",
+    "storageRepo": "oulan1/music-1",
+    "coverUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/covers/%D0%BA%D0%BE%D1%81%D0%BC%D0%BE%D0%BD%D0%B0%D0%B2%D1%82%D0%BE%D0%B2_%D0%BD%D0%B5%D1%82_%D0%B1%D0%B0%D0%BD%D0%BE%D1%87%D0%BA%D0%B0_%D1%81_%D0%BE%D0%BA%D1%83%D1%80%D0%BA%D0%B0%D0%BC%D0%B8.jpg",
+    "cdnUrl": "https://cdn.jsdelivr.net/gh/oulan1/music-1@main/tracks/%D0%9A%D0%9E%D0%A1%D0%9C%D0%9E%D0%9D%D0%90%D0%92%D0%A2%D0%9E%D0%92%20%D0%9D%D0%95%D0%A2%20-%20%D0%B1%D0%B0%D0%BD%D0%BE%D1%87%D0%BA%D0%B0%20%D1%81%20%D0%BE%D0%BA%D1%83%D1%80%D0%BA%D0%B0%D0%BC%D0%B8.oump3",
+    "fallbackUrl": "https://raw.githubusercontent.com/oulan1/music-1/main/tracks/%D0%9A%D0%9E%D0%A1%D0%9C%D0%9E%D0%9D%D0%90%D0%92%D0%A2%D0%9E%D0%92%20%D0%9D%D0%95%D0%A2%20-%20%D0%B1%D0%B0%D0%BD%D0%BE%D1%87%D0%BA%D0%B0%20%D1%81%20%D0%BE%D0%BA%D1%83%D1%80%D0%BA%D0%B0%D0%BC%D0%B8.oump3",
+    "size": 13058324,
+    "updatedAt": "2026-11-28T09:29:02.631244+00:00"
   }
 ];
