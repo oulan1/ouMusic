@@ -558,11 +558,19 @@
           localStorage.setItem(mKey, String(prevMonth + dur));
         } catch (e) {}
 
+        // Remove any previous entries of the same trackId so it moves to the top without duplicates
+        existing.forEach((oldRec) => {
+          if (oldRec && oldRec.trackId === trackId && oldRec.histId !== undefined) {
+            try { store.delete(oldRec.histId); } catch (e) {}
+          }
+        });
+
         const addReq = store.add({ trackId, durationPlayed: dur, playedAt });
         addReq.onsuccess = () => {
-          // Prune records past MAX_HISTORY_RECORDS (30) cleanly
-          const sorted = [...existing].sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
-          const toDelete = sorted.slice(MAX_HISTORY_RECORDS - 1);
+          // Keep unique remaining records sorted newest-first and prune beyond MAX_HISTORY_RECORDS (30)
+          const remaining = existing.filter((r) => r && r.trackId !== trackId);
+          remaining.sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
+          const toDelete = remaining.slice(MAX_HISTORY_RECORDS - 1);
           toDelete.forEach((oldRec) => {
             if (oldRec && oldRec.histId !== undefined) {
               try { store.delete(oldRec.histId); } catch (e) {}
@@ -588,7 +596,15 @@
       req.onsuccess = () => {
         const records = req.result || [];
         records.sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0));
-        resolve(records.slice(0, capped));
+        const seenIds = new Set();
+        const unique = [];
+        for (const r of records) {
+          if (!r || !r.trackId || seenIds.has(r.trackId)) continue;
+          seenIds.add(r.trackId);
+          unique.push(r);
+          if (unique.length >= capped) break;
+        }
+        resolve(unique);
       };
       req.onerror = () => resolve([]);
     });
@@ -11496,3 +11512,77 @@
   // Immediate calls
   setTimeout(updateMobileNavPill, 30);
   setTimeout(initMobileNavDrag, 30);
+
+  // Custom Right-Click Context Menu (replaces native browser contextmenu cleanly)
+  (function initCustomContextMenu() {
+    if (typeof document === 'undefined') return;
+    let menuEl = null;
+    let actionBtn = null;
+
+    function ensureMenu() {
+      if (menuEl) return menuEl;
+      menuEl = document.createElement('div');
+      menuEl.id = 'oumusic-context-menu';
+      menuEl.className = 'oumusic-context-menu';
+      menuEl.setAttribute('role', 'menu');
+      menuEl.innerHTML = `
+        <button type="button" class="oumusic-context-item" id="oumusic-ctx-wave-btn" role="menuitem">
+          <svg class="svg-icon" id="oumusic-ctx-icon"><use href="#icon-play"></use></svg>
+          <span id="oumusic-ctx-label">Включить Мою волну</span>
+        </button>
+      `;
+      document.body.appendChild(menuEl);
+      actionBtn = menuEl.querySelector('#oumusic-ctx-wave-btn');
+      actionBtn?.addEventListener('click', () => {
+        hideMenu();
+        if (currentTrack) {
+          engine.togglePlay();
+        } else if (typeof window.startOrResumeWave === 'function') {
+          window.startOrResumeWave();
+        }
+      });
+      return menuEl;
+    }
+
+    function hideMenu() {
+      if (menuEl) menuEl.classList.remove('active');
+    }
+
+    function showMenu(x, y) {
+      const el = ensureMenu();
+      const iconUse = el.querySelector('#oumusic-ctx-icon use');
+      const labelEl = el.querySelector('#oumusic-ctx-label');
+      if (currentTrack) {
+        const playing = !!(engine && engine.isPlaying && engine.audioElement && !engine.audioElement.paused);
+        if (iconUse) iconUse.setAttribute('href', playing ? '#icon-pause' : '#icon-play');
+        if (labelEl) labelEl.textContent = playing ? 'Пауза' : 'Воспроизвести';
+      } else {
+        if (iconUse) iconUse.setAttribute('href', '#icon-play');
+        if (labelEl) labelEl.textContent = 'Включить Мою волну';
+      }
+
+      el.classList.add('active');
+      const rect = el.getBoundingClientRect();
+      const pad = 10;
+      const maxX = Math.max(pad, window.innerWidth - rect.width - pad);
+      const maxY = Math.max(pad, window.innerHeight - rect.height - pad);
+      el.style.left = `${Math.min(Math.max(pad, x), maxX)}px`;
+      el.style.top = `${Math.min(Math.max(pad, y), maxY)}px`;
+    }
+
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showMenu(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (menuEl && menuEl.classList.contains('active') && !menuEl.contains(e.target)) {
+        hideMenu();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideMenu();
+    });
+    window.addEventListener('scroll', hideMenu, true);
+    window.addEventListener('resize', hideMenu);
+  })();

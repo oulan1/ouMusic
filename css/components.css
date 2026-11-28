@@ -1678,24 +1678,25 @@ input[type="range"].eq-band {
 
 .modal-backdrop.active .dialog-card { transform: scale(1) !important; }
 
-/* Settings Category Tabs Scroll Row (Point 13) */
+/* Settings Category Tabs Wrap Row (zero right-edge clipping on PC & mobile) */
 .settings-tabs-scroll-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+  overflow: visible;
   margin-bottom: 18px;
-  padding: 6px 4px 8px 4px !important;
+  padding: 6px 2px 10px 2px !important;
+  width: 100%;
   box-sizing: border-box;
-  -webkit-overflow-scrolling: touch;
 }
 .settings-tabs-scroll-row::-webkit-scrollbar {
   display: none;
 }
 .settings-tab-pill {
-  flex-shrink: 0;
-  padding: 8px 18px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 8px 16px;
   border-radius: 9999px;
   font-size: 0.86rem;
   font-weight: 700;
@@ -2259,4 +2260,85 @@ input[type="range"].eq-band {
     flex: 0 0 85%;
     min-width: 240px;
   }
+}
+
+/* Custom Right-Click Context Menu */
+.oumusic-context-menu {
+  position: fixed;
+  z-index: 99999;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(24, 24, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  transform-origin: top left;
+}
+
+.oumusic-context-menu.active {
+  display: flex;
+  animation: ctxMenuPop 0.14s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes ctxMenuPop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.oumusic-context-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: #FFFFFF;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.12s ease;
+}
+
+.oumusic-context-item:hover {
+  background: rgba(168, 85, 247, 0.22);
+}
+
+.oumusic-context-item:active {
+  transform: scale(0.98);
+}
+
+.oumusic-context-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: var(--md-sys-color-primary, #A855F7);
+}
+
+[data-theme="light"] .oumusic-context-menu {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
+[data-theme="light"] .oumusic-context-item {
+  color: #111827;
+}
+
+[data-theme="light"] .oumusic-context-item:hover {
+  background: rgba(139, 92, 246, 0.12);
 }

@@ -431,15 +431,20 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         history = h.slice(0, 30);
       }
 
-      history = (Array.isArray(history) ? history : [])
+      const histDedupMap = new Map();
+      (Array.isArray(history) ? history : [])
         .filter((h) => h && h.trackId)
         .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
-        .slice(0, 30)
-        .map((h) => ({
-          trackId: h.trackId,
-          durationPlayed: Math.round(Number(h.durationPlayed) || 0),
-          playedAt: h.playedAt || new Date().toISOString()
-        }));
+        .forEach((h) => {
+          if (!histDedupMap.has(h.trackId)) {
+            histDedupMap.set(h.trackId, {
+              trackId: h.trackId,
+              durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+              playedAt: h.playedAt || new Date().toISOString()
+            });
+          }
+        });
+      history = Array.from(histDedupMap.values()).slice(0, 30);
 
       // 4. Blacklist
       try {
@@ -580,19 +585,21 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         }
       });
 
-      // 3. History merge (all unique played tracks by id + timestamp, capped at 30)
+      // 3. History merge (unique by trackId, keeping the most recent playedAt, capped at 30)
       const histMap = new Map();
       const localHist = Array.isArray(local.history) ? local.history : [];
       const remoteHist = Array.isArray(remote.history) ? remote.history : [];
 
       [...localHist, ...remoteHist].forEach((h) => {
         if (h && h.trackId && h.playedAt) {
-          const key = `${h.trackId}_${h.playedAt}`;
-          histMap.set(key, {
-            trackId: h.trackId,
-            durationPlayed: Math.round(Number(h.durationPlayed) || 0),
-            playedAt: h.playedAt
-          });
+          const prev = histMap.get(h.trackId);
+          if (!prev || new Date(h.playedAt).getTime() >= new Date(prev.playedAt || 0).getTime()) {
+            histMap.set(h.trackId, {
+              trackId: h.trackId,
+              durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+              playedAt: h.playedAt
+            });
+          }
         }
       });
 
@@ -712,18 +719,23 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
         }
       }
 
-      // 3. History (replace with latest 30 entries cleanly)
+      // 3. History (replace with latest 30 unique track entries cleanly)
       if (Array.isArray(data.history)) {
         try {
-          const validHist = data.history
+          const seenHistIds = new Set();
+          const validHist = [];
+          data.history
             .filter(h => h && h.trackId)
             .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
-            .slice(0, 30)
-            .map((h) => ({
-              trackId: h.trackId,
-              durationPlayed: Math.round(Number(h.durationPlayed) || 0),
-              playedAt: h.playedAt || new Date().toISOString()
-            }));
+            .forEach((h) => {
+              if (seenHistIds.has(h.trackId) || validHist.length >= 30) return;
+              seenHistIds.add(h.trackId);
+              validHist.push({
+                trackId: h.trackId,
+                durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+                playedAt: h.playedAt || new Date().toISOString()
+              });
+            });
           const histStore = await getIDBStore('history', 'readwrite');
           if (histStore) {
             await new Promise((resolve) => {
@@ -841,15 +853,20 @@ if(typeof globalThis!=='undefined'){globalThis.qrcode=qrcode;}
 
     computeSyncDigest(data) {
       if (!data || typeof data !== 'object') return '';
-      const normHistory = (Array.isArray(data.history) ? data.history : [])
+      const normHistMap = new Map();
+      (Array.isArray(data.history) ? data.history : [])
         .filter((h) => h && h.trackId)
-        .map((h) => ({
-          trackId: h.trackId,
-          durationPlayed: Math.round(Number(h.durationPlayed) || 0),
-          playedAt: h.playedAt || ''
-        }))
         .sort((a, b) => new Date(b.playedAt || 0) - new Date(a.playedAt || 0))
-        .slice(0, 30);
+        .forEach((h) => {
+          if (!normHistMap.has(h.trackId) && normHistMap.size < 30) {
+            normHistMap.set(h.trackId, {
+              trackId: h.trackId,
+              durationPlayed: Math.round(Number(h.durationPlayed) || 0),
+              playedAt: h.playedAt || ''
+            });
+          }
+        });
+      const normHistory = Array.from(normHistMap.values());
       const normLikes = (Array.isArray(data.likes) ? data.likes : [])
         .map((l) => (typeof l === 'string' ? { id: l } : { id: l?.id || '', likedAt: l?.likedAt || '' }))
         .filter((l) => l.id)
