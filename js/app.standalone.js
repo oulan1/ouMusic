@@ -2205,7 +2205,14 @@
 
   function registerAppServiceWorker() {
     if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
-      navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
+      let swRefreshing = false;
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || swRefreshing) return;
+        swRefreshing = true;
+        window.location.reload();
+      });
+      navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).then((reg) => {
         reg.update().catch(() => {});
         console.log('[ouMusic] Service Worker registered for offline playback');
       }).catch((err) => {
@@ -11515,71 +11522,132 @@
 
   // Custom Right-Click Context Menu (replaces native browser contextmenu cleanly)
   (function initCustomContextMenu() {
-    if (typeof document === 'undefined') return;
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
     let menuEl = null;
-    let actionBtn = null;
 
     function ensureMenu() {
-      if (menuEl) return menuEl;
-      menuEl = document.createElement('div');
-      menuEl.id = 'oumusic-context-menu';
-      menuEl.className = 'oumusic-context-menu';
-      menuEl.setAttribute('role', 'menu');
-      menuEl.innerHTML = `
-        <button type="button" class="oumusic-context-item" id="oumusic-ctx-wave-btn" role="menuitem">
-          <svg class="svg-icon" id="oumusic-ctx-icon"><use href="#icon-play"></use></svg>
-          <span id="oumusic-ctx-label">Включить Мою волну</span>
-        </button>
-      `;
-      document.body.appendChild(menuEl);
-      actionBtn = menuEl.querySelector('#oumusic-ctx-wave-btn');
-      actionBtn?.addEventListener('click', () => {
-        hideMenu();
-        if (currentTrack) {
-          engine.togglePlay();
-        } else if (typeof window.startOrResumeWave === 'function') {
-          window.startOrResumeWave();
-        }
-      });
+      const host = document.body || document.documentElement;
+      if (!menuEl) {
+        menuEl = document.createElement('div');
+        menuEl.id = 'oumusic-context-menu';
+        menuEl.className = 'oumusic-context-menu';
+        menuEl.setAttribute('role', 'menu');
+        menuEl.style.position = 'fixed';
+        menuEl.style.zIndex = '2147483647';
+        menuEl.innerHTML = `
+          <div class="oumusic-context-header">ouMusic</div>
+          <button type="button" class="oumusic-context-item" id="oumusic-ctx-play-btn" role="menuitem">
+            <svg class="svg-icon" id="oumusic-ctx-play-icon"><use href="#icon-play"></use></svg>
+            <span id="oumusic-ctx-play-label">Воспроизвести</span>
+          </button>
+          <button type="button" class="oumusic-context-item" id="oumusic-ctx-next-btn" role="menuitem">
+            <svg class="svg-icon"><use href="#icon-next"></use></svg>
+            <span>Следующий трек</span>
+          </button>
+          <button type="button" class="oumusic-context-item" id="oumusic-ctx-wave-btn" role="menuitem">
+            <svg class="svg-icon"><use href="#icon-wave"></use></svg>
+            <span>Моя волна</span>
+          </button>
+          <div class="oumusic-context-divider"></div>
+          <button type="button" class="oumusic-context-item" id="oumusic-ctx-settings-btn" role="menuitem">
+            <svg class="svg-icon"><use href="#icon-settings"></use></svg>
+            <span>Настройки</span>
+          </button>
+          <button type="button" class="oumusic-context-item" id="oumusic-ctx-profile-btn" role="menuitem">
+            <svg class="svg-icon"><use href="#icon-user"></use></svg>
+            <span>Профиль</span>
+          </button>
+        `;
+
+        menuEl.querySelector('#oumusic-ctx-play-btn')?.addEventListener('click', () => {
+          hideMenu();
+          const eng = window.engine;
+          if (eng && eng.currentTrack) {
+            eng.togglePlay();
+          } else if (typeof window.startOrResumeWave === 'function') {
+            window.startOrResumeWave();
+          }
+        });
+        menuEl.querySelector('#oumusic-ctx-next-btn')?.addEventListener('click', () => {
+          hideMenu();
+          if (typeof window.playNextTrack === 'function') {
+            window.playNextTrack();
+          } else if (typeof window.startOrResumeWave === 'function') {
+            window.startOrResumeWave();
+          }
+        });
+        menuEl.querySelector('#oumusic-ctx-wave-btn')?.addEventListener('click', () => {
+          hideMenu();
+          if (typeof window.startOrResumeWave === 'function') {
+            window.startOrResumeWave();
+          }
+        });
+        menuEl.querySelector('#oumusic-ctx-settings-btn')?.addEventListener('click', () => {
+          hideMenu();
+          if (typeof window.navigateTo === 'function') {
+            window.navigateTo('settings');
+          }
+        });
+        menuEl.querySelector('#oumusic-ctx-profile-btn')?.addEventListener('click', () => {
+          hideMenu();
+          if (typeof window.navigateTo === 'function') {
+            window.navigateTo('profile');
+          }
+        });
+      }
+      if (host && menuEl.parentNode !== host) {
+        host.appendChild(menuEl);
+      }
       return menuEl;
     }
 
     function hideMenu() {
-      if (menuEl) menuEl.classList.remove('active');
+      if (!menuEl) return;
+      menuEl.classList.remove('active');
+      menuEl.style.display = 'none';
     }
 
     function showMenu(x, y) {
       const el = ensureMenu();
-      const iconUse = el.querySelector('#oumusic-ctx-icon use');
-      const labelEl = el.querySelector('#oumusic-ctx-label');
-      if (currentTrack) {
-        const playing = !!(engine && engine.isPlaying && engine.audioElement && !engine.audioElement.paused);
+      const iconUse = el.querySelector('#oumusic-ctx-play-icon use');
+      const labelEl = el.querySelector('#oumusic-ctx-play-label');
+      const nextBtn = el.querySelector('#oumusic-ctx-next-btn');
+
+      const eng = window.engine;
+      const activeTrack = eng && eng.currentTrack;
+
+      if (activeTrack) {
+        const playing = !!(eng && eng.isPlaying && eng.audioElement && !eng.audioElement.paused);
         if (iconUse) iconUse.setAttribute('href', playing ? '#icon-pause' : '#icon-play');
         if (labelEl) labelEl.textContent = playing ? 'Пауза' : 'Воспроизвести';
+        if (nextBtn) nextBtn.style.display = 'flex';
       } else {
         if (iconUse) iconUse.setAttribute('href', '#icon-play');
-        if (labelEl) labelEl.textContent = 'Включить Мою волну';
+        if (labelEl) labelEl.textContent = 'Включить музыку';
+        if (nextBtn) nextBtn.style.display = 'none';
       }
 
+      el.style.display = 'flex';
       el.classList.add('active');
       const rect = el.getBoundingClientRect();
       const pad = 10;
-      const maxX = Math.max(pad, window.innerWidth - rect.width - pad);
-      const maxY = Math.max(pad, window.innerHeight - rect.height - pad);
+      const maxX = Math.max(pad, window.innerWidth - (rect.width || 230) - pad);
+      const maxY = Math.max(pad, window.innerHeight - (rect.height || 180) - pad);
       el.style.left = `${Math.min(Math.max(pad, x), maxX)}px`;
       el.style.top = `${Math.min(Math.max(pad, y), maxY)}px`;
     }
 
-    document.addEventListener('contextmenu', (e) => {
+    window.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       showMenu(e.clientX, e.clientY);
-    });
+    }, true);
 
     document.addEventListener('pointerdown', (e) => {
+      if (e.button === 2) return;
       if (menuEl && menuEl.classList.contains('active') && !menuEl.contains(e.target)) {
         hideMenu();
       }
-    });
+    }, true);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') hideMenu();
     });

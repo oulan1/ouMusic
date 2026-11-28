@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oumusic-shell-v2.7.43';
+const CACHE_NAME = 'oumusic-shell-v2.7.45';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -88,7 +88,9 @@ self.addEventListener('fetch', (event) => {
       try {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         const timeoutId = (controller && cachedPage) ? setTimeout(() => controller.abort(), 2500) : null;
-        const networkResponse = await fetch(request, controller ? { signal: controller.signal } : undefined);
+        const fetchOpts = { cache: 'no-cache' };
+        if (controller) fetchOpts.signal = controller.signal;
+        const networkResponse = await fetch(request, fetchOpts);
         if (timeoutId) clearTimeout(timeoutId);
         if (networkResponse && networkResponse.ok) {
           cache.put('./index.html', networkResponse.clone()).catch(() => {});
@@ -151,7 +153,7 @@ self.addEventListener('fetch', (event) => {
     const exactCached = await caches.match(request, { ignoreSearch: false });
     if (exactCached) {
       if (url.origin === self.location.origin) {
-        fetch(request).then((networkResponse) => {
+        fetch(request, { cache: 'no-cache' }).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse.clone())).catch(() => {});
           }
